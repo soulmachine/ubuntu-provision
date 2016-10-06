@@ -1,0 +1,41 @@
+---
+# Reference:
+# https://docs.docker.com/engine/installation/linux/ubuntulinux/
+# https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-16-04
+
+- apt: name={{item}} state=latest
+  with_items:
+  - apt-transport-https
+  - ca-certificates
+
+- apt_key: keyserver=hkp://p80.pool.sks-keyservers.net:80 id=58118E89F3A912897C070ADBF76221572C52609D
+
+- apt_repository: repo='deb https://apt.dockerproject.org/repo ubuntu-xenial main' state=present update_cache=yes filename='docker'
+
+- apt: name=lxc-docker state=absent purge=yes
+
+- shell: apt-cache policy docker-engine
+  changed_when: False
+
+- shell: uname -r
+  ignore_errors: yes
+  changed_when: False
+  register: uname_result
+
+- apt: name={{item}} state=present
+  with_items:
+  - linux-image-extra-{{ uname_result.stdout }}
+  - linux-image-extra-virtual
+
+- apt: name=docker-engine state=latest
+
+- service: name=docker state=started enabled=yes
+
+# Executing the Docker Command Without Sudo
+- group: name=docker state=present
+- shell: awk -F{{ ":" }} '($3>=1000)&&($1!="nobody"){print $1}' /etc/passwd
+  ignore_errors: yes
+  changed_when: False
+  register: non_system_users
+- user: name={{ item }} groups=docker append=yes
+  with_items: "{{ non_system_users.stdout_lines }}"

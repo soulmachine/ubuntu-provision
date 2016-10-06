@@ -1,0 +1,11 @@
+set nocompatible
+filetype off
+
+set rtp+=/usr/share/vim/bundle/Vundle.vim
+call vundle#begin('/usr/share/vim/bundle')
+
+Plugin 'VundleVim/Vundle.vim'
+Plugin 'Valloric/YouCompleteMe'
+
+call vundle#end()
+filetype plugin indent on

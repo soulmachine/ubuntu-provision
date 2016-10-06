@@ -23,13 +23,13 @@ Ubuntu 16.04 自带了 Python 2.7 和 Python 3.5，所以不需要安装 Python,
 
 ## 2. 执行 playbook 开始一键装机
 
-    ansible-playbook -i localhost, -vv playbook.yml
+    ansible-playbook -i localhost, -vv all.yml
 
 `playbook.yml` 主要是安装一些最常见的工具。
 
 本项目还有其他几个 playbook, 
 
-* `deep-learning.yml` 是用来构建深度学习开发环境的，会自动化安装 Nvidia 驱动, CUDA, TensorFlow 等软件包
+* `tensorflow.yml` 是用来构建TensorFlow开发环境的，会自动化安装 Nvidia 驱动, CUDA, TensorFlow 等软件包
 * `r.yml` 用于安装 R, RStudio
 * `spark.yml` 用于安装 local 模式的 Apache Spark
 

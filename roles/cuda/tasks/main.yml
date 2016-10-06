@@ -1,0 +1,17 @@
+---
+# Reference:
+# https://github.com/NVIDIA/nvidia-docker/blob/master/ubuntu-16.04/cuda/8.0/runtime/Dockerfile
+# https://developer.nvidia.com/cuda-downloads
+
+- name: Import Nvidia GPG public key
+  apt_key: url=http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub state=present
+  tags: cuda
+
+- name: Add the Nvidia repository
+  apt_repository: repo='deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64 /' state=present update_cache=yes filename='cuda'
+
+- name: Install Nvidia drivers
+  apt: name=cuda-drivers state=latest
+
+- name: Install CUDA Toolkit
+  apt: name=cuda state=latest

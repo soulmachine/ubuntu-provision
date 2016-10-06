@@ -1,0 +1,25 @@
+---
+
+- name: Install dependencies of YouCompleteMe
+  apt: name={{item}} state=latest
+  with_items:
+  - vim
+  - git
+  - python-dev
+  - python3-dev
+  - build-essential
+  - cmake
+
+
+# Reference https://github.com/VundleVim/Vundle.vim#quick-start
+- git_config: name=http.sslVerify scope=global value=false
+- name: Install Vundle
+  git: repo=https://github.com/VundleVim/Vundle.vim.git dest=/usr/share/vim/bundle/Vundle.vim
+- copy: src=vimrc dest=/etc/vim/vimrc.local owner=root group=root mode=0644
+- shell: creates=/usr/share/vim/bundle/YouCompleteMe vim +PluginInstall +qall
+
+
+# Reference https://github.com/Valloric/YouCompleteMe#ubuntu-linux-x64
+- name: Install YouCompleteMe
+  shell: creates=/usr/share/vim/bundle/YouCompleteMe/third_party/ycmd/ycm_core.so /usr/share/vim/bundle/YouCompleteMe/install.py --clang-completer
+
