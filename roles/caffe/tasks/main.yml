@@ -1,0 +1,77 @@
+---
+# Reference:
+# http://caffe.berkeleyvision.org/install_apt.html
+
+- name: Check whether Caffe exists or not
+  stat: path=/usr/local/caffe/bin/caffe.bin
+  register: caffe
+
+- name: Install dependencies of Caffe
+  apt: name={{item}} state=latest
+  with_items:
+  - libprotobuf-dev 
+  - libleveldb-dev 
+  - libsnappy-dev 
+  - libopencv-dev
+  - libhdf5-serial-dev 
+  - protobuf-compiler
+  - libboost-all-dev
+  - python-dev
+  - python-numpy
+  - libgflags-dev 
+  - libgoogle-glog-dev
+  - liblmdb-dev
+  - libhdf5-dev
+
+- name: Install OpenBLAS instead of ATLAS for better CPU performance
+  apt: name=libopenblas-dev state=latest
+
+- git_config: name=http.sslVerify scope=global value=false
+- git: repo=https://github.com/BVLC/caffe.git dest=/tmp/caffe
+  when: not caffe.stat.exists
+
+- shell: creates=/tmp/caffe/Makefile.config cp /tmp/caffe/Makefile.config.example /tmp/caffe/Makefile.config
+  when: not caffe.stat.exists
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*USE_CUDNN\s+:=" line="USE_CUDNN := 1"
+  when: not caffe.stat.exists
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*CPU_ONLY\s+:=" line="# CPU_ONLY := 1"
+  when: not caffe.stat.exists
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*BLAS\s+:=" line="BLAS := open"
+  when: not caffe.stat.exists
+# Append hdf5 header files
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*INCLUDE_DIRS\s+:=" line="INCLUDE_DIRS := $(PYTHON_INCLUDE) /usr/local/include /usr/include/hdf5/serial"
+  when: not caffe.stat.exists
+# Append hdf5 libraries
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*LIBRARY_DIRS\s+:=" line="LIBRARY_DIRS := $(PYTHON_LIB) /usr/local/lib /usr/lib /usr/lib/x86_64-linux-gnu/hdf5/serial"
+  when: not caffe.stat.exists
+
+- make:
+    chdir: /tmp/caffe
+    target: all
+    params:
+      NUM_THREADS: 8
+  when: not caffe.stat.exists
+- make:
+    chdir: /tmp/caffe
+    target: pycaffe
+    params:
+      NUM_THREADS: 8
+  when: not caffe.stat.exists
+- make:
+    chdir: /tmp/caffe
+    target: test
+    params:
+      NUM_THREADS: 8
+  when: not caffe.stat.exists
+- make:
+    chdir: /tmp/caffe
+    target: distribute
+    params:
+      NUM_THREADS: 8
+  when: not caffe.stat.exists
+
+- shell: cp -r /tmp/caffe/distribute /usr/local/caffe
+  when: not caffe.stat.exists
+
+- file: path=/tmp/caffe state=absent
+

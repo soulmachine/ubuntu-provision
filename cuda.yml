@@ -1,5 +1,5 @@
 ---
-- name: Install Nvidia driver and CUDA
+- name: Install Nvidia driver, CUDA and cuDNN
   hosts: all
   connection: local
   gather_facts: no
