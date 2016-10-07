@@ -1,6 +1,7 @@
 ---
 # Reference:
 # http://caffe.berkeleyvision.org/install_apt.html
+# https://github.com/IraAI/caffe-gpu-installation/wiki/How-to-install-Caffe-on-Ubuntu-16.04-with-GPU-(Cuda-8,-CuDNN-5.1)
 
 - name: Check whether Caffe exists or not
   stat: path=/usr/local/caffe/bin/caffe.bin
@@ -9,6 +10,7 @@
 - name: Install dependencies of Caffe
   apt: name={{item}} state=latest
   with_items:
+  - build-essential
   - libprotobuf-dev 
   - libleveldb-dev 
   - libsnappy-dev 
@@ -16,12 +18,11 @@
   - libhdf5-serial-dev 
   - protobuf-compiler
   - libboost-all-dev
+  - python-pip
   - python-dev
-  - python-numpy
   - libgflags-dev 
   - libgoogle-glog-dev
   - liblmdb-dev
-  - libhdf5-dev
 
 - name: Install OpenBLAS instead of ATLAS for better CPU performance
   apt: name=libopenblas-dev state=latest
@@ -29,14 +30,20 @@
 - git_config: name=http.sslVerify scope=global value=false
 - git: repo=https://github.com/BVLC/caffe.git dest=/tmp/caffe
   when: not caffe.stat.exists
-
+- pip: requirements=/tmp/caffe/python/requirements.txt
+  when: not caffe.stat.exists
 - shell: creates=/tmp/caffe/Makefile.config cp /tmp/caffe/Makefile.config.example /tmp/caffe/Makefile.config
   when: not caffe.stat.exists
 - lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*USE_CUDNN\s+:=" line="USE_CUDNN := 1"
   when: not caffe.stat.exists
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*WITH_PYTHON_LAYER\s+:=" line="WITH_PYTHON_LAYER := 1"
+  when: not caffe.stat.exists
 - lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*CPU_ONLY\s+:=" line="# CPU_ONLY := 1"
   when: not caffe.stat.exists
 - lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*BLAS\s+:=" line="BLAS := open"
+  when: not caffe.stat.exists
+# We use pip to install numpy, which installs numpy to a different place
+- lineinfile: dest=/tmp/caffe/Makefile.config regexp="^\s*/usr/lib/python2.7/dist-packages/numpy/core/include" line="\t\t/usr/local/lib/python2.7/dist-packages/numpy/core/include"
   when: not caffe.stat.exists
 # Append hdf5 header files
 - lineinfile: dest=/tmp/caffe/Makefile.config regexp="^#?\s*INCLUDE_DIRS\s+:=" line="INCLUDE_DIRS := $(PYTHON_INCLUDE) /usr/local/include /usr/include/hdf5/serial"
@@ -74,4 +81,6 @@
   when: not caffe.stat.exists
 
 - file: path=/tmp/caffe state=absent
+
+- copy: content='export PATH=/usr/local/caffe/bin${PATH:+:${PATH}}\nexport PYTHONPATH=/usr/local/caffe/python${PYTHONPATH:+:${PYTHONPATH}}\nexport LD_LIBRARY_PATH=/usr/local/caffe/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}\n' dest=/etc/profile.d/caffe.sh owner=root group=root mode=0644
 
