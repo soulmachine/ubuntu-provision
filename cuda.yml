@@ -1,0 +1,9 @@
+---
+- name: Install Nvidia driver and CUDA
+  hosts: all
+  connection: local
+  gather_facts: no
+  become: yes
+  roles:
+    - cuda
+    - cudnn
