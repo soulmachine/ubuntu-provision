@@ -12,6 +12,8 @@
   - colordiff
   - build-essential
   - cmake
+  - apt-transport-https
+  - ca-certificates
 
 
 - name: Configure default locale
@@ -28,4 +30,6 @@
 
 
 - include: docker.yml
+- include: python3.yml
+- include: chromium.yml
 
