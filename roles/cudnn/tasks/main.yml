@@ -8,10 +8,10 @@
 
 - name: Download cuDNN
   get_url:
-    url: http://developer.download.nvidia.com/compute/redist/cudnn/v5.1/cudnn-8.0-linux-x64-v5.1.tgz
-    dest: /tmp/cudnn-8.0-linux-x64-v5.1.tgz
-    checksum: sha256:a87cb2df2e5e7cc0a05e266734e679ee1a2fadad6f06af82a76ed81a23b102c8
+    url: http://developer.download.nvidia.com/compute/redist/cudnn/v6.0/cudnn-8.0-linux-x64-v6.0.tgz
+    dest: /tmp/cudnn-8.0-linux-x64-v6.0-tgz
+    checksum: sha256:36e7cd54d9f4cd448c302a40d2ed530a643e3ae32797a67739448ebe7c9f0620
   when: not cudnn_header.stat.exists
 
-- unarchive: creates=/usr/local/cuda/include/cudnn.h src=/tmp/cudnn-8.0-linux-x64-v5.1.tgz dest=/usr/local owner=root group=root mode=0644
-- file: path=/tmp/cudnn-8.0-linux-x64-v5.1.tgz state=absent
+- unarchive: creates=/usr/local/cuda/include/cudnn.h src=/tmp/cudnn-8.0-linux-x64-v6.0-tgz dest=/usr/local owner=root group=root mode=0644
+- file: path=/tmp/cudnn-8.0-linux-x64-v6.0-tgz state=absent
