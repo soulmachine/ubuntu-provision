@@ -1,0 +1,10 @@
+---
+- name: Install common packages
+  hosts: all
+  connection: local
+  gather_facts: no
+  become: yes
+  roles:
+    - common
+    - cuda
+
