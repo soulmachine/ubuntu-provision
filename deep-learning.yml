@@ -7,4 +7,4 @@
   roles:
     - cuda
     - cudnn
-    - caffe
+    - tensorflow

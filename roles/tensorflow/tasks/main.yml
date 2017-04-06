@@ -1,0 +1,7 @@
+---
+# Reference:
+# https://www.tensorflow.org/install/install_linux
+
+- apt: name=libcupti-dev state=latest
+- pip: name=tensorflow-gpu state=latest executable=pip3
+
