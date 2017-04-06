@@ -16,6 +16,7 @@
   - apt-transport-https
   - ca-certificates
   - mdadm
+  - tmux
 
 
 - name: Configure default locale
@@ -30,6 +31,8 @@
   apt: name=openjdk-8-jdk state=latest
 - copy: content='export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64\nexport PATH=$PATH:$JAVA_HOME/bin\n' dest=/etc/profile.d/openjdk.sh owner=root group=root mode=0644
 
+- name: Configure tmux
+  copy: src=tmux.conf dest=/etc/tmux.conf
 
 - include: docker.yml
 - include: python3.yml
