@@ -1,0 +1,4 @@
+---
+- apt: name=python3-tk state=latest
+- pip: name=tensorlayer state=latest executable=pip3
+

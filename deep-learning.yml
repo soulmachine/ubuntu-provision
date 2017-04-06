@@ -8,3 +8,4 @@
     - cuda
     - cudnn
     - tensorflow
+    - tensorlayer
