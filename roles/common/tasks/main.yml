@@ -3,6 +3,7 @@
 - name: Install essential packages
   apt: name={{item}} state=latest
   with_items:
+  - openssh-server
   - vim
   - wget
   - curl
@@ -14,6 +15,7 @@
   - cmake
   - apt-transport-https
   - ca-certificates
+  - mdadm
 
 
 - name: Configure default locale
