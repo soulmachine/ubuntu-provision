@@ -1,0 +1,4 @@
+---
+- name: Add SSH login welcome message
+  copy: src=11-help-text dest=/etc/update-motd.d/11-help-text mode="u=rwx,g=rx,o=x"
+

@@ -1,0 +1,3 @@
+#!/bin/sh
+printf "\n"
+printf " To install a package please make a pull request to https://github.com/soulmachine/ubuntu-provision\n"

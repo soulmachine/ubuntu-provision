@@ -37,4 +37,5 @@
 - include: docker.yml
 - include: python3.yml
 - include: chromium.yml
+- include: motd.yml
 
