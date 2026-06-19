@@ -1,0 +1,8 @@
+---
+# cmux is a macOS-native application (SwiftUI/AppKit + ExtensionKit + GhosttyKit),
+# distributed as a Homebrew cask. There is no Linux build, so neither the app, its
+# CLI shim, nor its agent skills (which drive the macOS app) can be installed here.
+# Kept as a documented no-op so main.yml stays 1:1 with the macOS repo.
+- name: Skip cmux (macOS-only)
+  ansible.builtin.debug:
+    msg: "cmux is a macOS-native app (no Linux build); skipped."

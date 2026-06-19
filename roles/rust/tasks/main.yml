@@ -1,0 +1,29 @@
+---
+# Rust is installed and managed by rustup, the official toolchain installer
+# (https://rust-lang.org/tools/install/). The default profile installs rustc,
+# cargo, rust-std, rust-docs, rustfmt and clippy; rustup also adds
+# ~/.cargo/bin to PATH via ~/.cargo/env (sourced from the shell profile).
+- name: Install Rust toolchain via rustup # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: >
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
+    sh -s -- -y --default-toolchain stable --profile default
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup"
+
+# Additional recommended components on top of the default profile:
+# rust-src (std source, required for rust-analyzer to resolve std symbols)
+# and rust-analyzer (the official language server).
+- name: Add recommended rustup components
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup component add {{ item }}"
+  register: rust_component
+  changed_when: "'installing' in (rust_component.stdout ~ rust_component.stderr)"
+  loop:
+    - rust-src
+    - rust-analyzer
+
+- name: Enable rust oh-my-zsh plugin in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.zshrc"
+    regexp: '^(plugins=\((?!.*\brust\b).*)\)$'
+    line: '\1 rust)'
+    backrefs: true

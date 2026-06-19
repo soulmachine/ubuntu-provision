@@ -1,0 +1,10 @@
+---
+# Lint conventions carried over from the macOS macbook-provision repo.
+skip_list:
+  # The repo intentionally uses underscore-prefixed register/temp vars
+  # (_gh_repo, _docker_repo, _tailscale_status, omo_config_path, …) instead of
+  # role-prefixed names — a project-wide convention, not a mistake.
+  - var-naming[no-role-prefix]
+  # claude-code's `(... | default(false)) != true` mirrors upstream's None-safe
+  # settings comparison; rewriting it to `not (...)` would change semantics.
+  - literal-compare

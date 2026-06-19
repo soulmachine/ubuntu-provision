@@ -1,0 +1,16 @@
+---
+dependencies:
+  # npx runs claude-mem; bun + uv are its plugin runtimes (claude-mem verifies
+  # them during install).
+  - nodejs
+  - bun
+  - uv
+  # Each `--ide <name>` install wires claude-mem into that IDE's config, so the
+  # IDE must be provisioned first.
+  - claude-code
+  - codex
+  - gemini
+  - opencode
+  # The install.cmem.ai/openclaw.sh step installs claude-mem into the OpenClaw
+  # gateway, which must already exist.
+  - openclaw

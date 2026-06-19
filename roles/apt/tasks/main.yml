@@ -1,0 +1,127 @@
+---
+# Base CLI packages for Ubuntu — the apt analogue of the macOS `homebrew` role.
+#
+# The macOS repo also installed GUI casks here (claude / codex / gemini / chatgpt
+# desktop apps, pearcleaner, pycharm, sublime-text, visual-studio-code). Those are
+# intentionally omitted on the headless server profile: the AI desktop apps and
+# pearcleaner have no Linux build, and the IDEs/editors are GUI-only. See the
+# `intellij-idea`, `webstorm`, `cc-switch` skip-stub roles and the README.
+#
+# gh and Docker are not shipped at usable versions in Ubuntu's default archive, so
+# each gets its official apt repo below (same source the upstream docs use).
+
+- name: Update apt cache
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base CLI packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - git
+      - curl
+      - wget
+      - jq
+      - ripgrep
+      - fd-find # binary is `fdfind` on Debian/Ubuntu; symlinked to `fd` below
+      - tree
+      - htop
+      - ffmpeg
+      - gnupg
+      - unzip
+      - ca-certificates
+      - openssh-client # ssh-keygen/ssh-keyscan used by the github role
+    state: present
+
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+# fd-find installs its binary as `fdfind` on Debian/Ubuntu (the `fd` name collided
+# with another package). Expose it as `fd` on PATH, matching the macOS `fd` command.
+# force: true makes this idempotent like `ln -sf`.
+- name: Symlink fdfind -> ~/.local/bin/fd
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/fd"
+    state: link
+    force: true
+
+- name: Ensure /etc/apt/keyrings exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Determine apt architecture
+  ansible.builtin.set_fact:
+    apt_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}"
+
+# ── GitHub CLI (gh) — official apt repo (cli.github.com) ──────────────────────
+- name: Add GitHub CLI apt signing key
+  become: true
+  ansible.builtin.get_url:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    mode: "0644"
+    force: false
+
+- name: Add GitHub CLI apt repository
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/github-cli.list
+    content: "deb [arch={{ apt_arch }} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n"
+    mode: "0644"
+  register: _gh_repo
+
+- name: Install gh
+  become: true
+  ansible.builtin.apt:
+    name: gh
+    state: present
+    update_cache: "{{ _gh_repo.changed }}"
+
+# ── Docker Engine — official apt repo (download.docker.com) ───────────────────
+# The macOS repo installed only the `docker` CLI formula; on Linux containers run
+# natively, so we install the full engine (this also covers what the macOS-only
+# `apple-container` role provided). The current user is added to the `docker`
+# group so the daemon socket is usable without sudo (effective on next login).
+- name: Add Docker apt signing key
+  become: true
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+
+- name: Add Docker apt repository
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    content: "deb [arch={{ apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable\n"
+    mode: "0644"
+  register: _docker_repo
+
+- name: Install Docker Engine
+  become: true
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: "{{ _docker_repo.changed }}"
+
+- name: Add current user to the docker group
+  become: true
+  ansible.builtin.user:
+    name: "{{ lookup('env', 'USER') }}"
+    groups: docker
+    append: true

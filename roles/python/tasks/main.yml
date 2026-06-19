@@ -1,0 +1,7 @@
+---
+- name: Install Python CLI tools
+  ansible.builtin.pip:
+    name: "{{ item }}"
+    executable: pip3
+    extra_args: --user
+  loop: "{{ python_cli_tools }}"

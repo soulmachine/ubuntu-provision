@@ -1,0 +1,5 @@
+---
+- name: Install Node.js via mise
+  ansible.builtin.command: mise use --global node@lts
+  register: nodejs_mise
+  changed_when: "'installed' in nodejs_mise.stderr"

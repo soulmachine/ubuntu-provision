@@ -1,0 +1,4 @@
+---
+dependencies:
+  - oh-my-zsh
+  - nodejs

@@ -1,0 +1,5 @@
+---
+dependencies:
+  - claude-code
+  - codex
+  - gemini

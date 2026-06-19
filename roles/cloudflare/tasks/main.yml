@@ -1,0 +1,11 @@
+---
+- name: Install cf CLI
+  community.general.npm:
+    name: cf
+    global: true
+    state: latest
+
+- name: Install Cloudflare skills for all agents
+  ansible.builtin.command:
+    cmd: npx skills add https://github.com/cloudflare/skills --all -g -y
+    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/wrangler"

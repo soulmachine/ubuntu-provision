@@ -1,0 +1,13 @@
+---
+# WebStorm is a GUI desktop IDE — skipped on the headless server profile.
+# To install it on an Ubuntu desktop, uncomment the snap task below (JetBrains
+# publishes an official snap; --classic is required for full filesystem access).
+#
+#   - name: Install WebStorm
+#     become: true
+#     community.general.snap:
+#       name: webstorm
+#       classic: true
+- name: Skip WebStorm (GUI desktop IDE, headless profile)
+  ansible.builtin.debug:
+    msg: "WebStorm is a GUI IDE; skipped on headless Ubuntu (see role comment to enable via snap)."

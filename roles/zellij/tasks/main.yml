@@ -1,0 +1,18 @@
+---
+# zellij — pluggable terminal workspace / multiplexer (Rust). Installed from the
+# official GitHub release (a static musl binary), not Homebrew.
+# `ansible_facts['architecture']` is `x86_64` on amd64 and `aarch64` on arm64, which
+# maps directly onto the release asset name, so the same task covers both.
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Install zellij from the latest GitHub release
+  ansible.builtin.unarchive:
+    src: "https://github.com/zellij-org/zellij/releases/latest/download/zellij-{{ ansible_facts['architecture'] }}-unknown-linux-musl.tar.gz"
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin"
+    remote_src: true
+    mode: "0755"
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/zellij"

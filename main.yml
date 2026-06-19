@@ -1,0 +1,49 @@
+---
+- name: Install all
+  hosts: all
+  gather_facts: true
+  become: false
+  roles:
+    - apt
+    - github
+    - oh-my-zsh
+    - direnv
+    - uv
+    - python
+    - go
+    - nodejs
+    - bun
+    - rust
+    - jdk
+    - claude-code
+    - codex
+    - gemini
+    - opencode
+    - skills
+    - smux
+    - playwright
+    - playwright-cli
+    - intellij-idea
+    - webstorm
+    - openclaw
+    - claude-mem
+    - cc-switch
+    - beads
+    - ralph-tui
+    - role: paseo
+      tags: [agent-multiplexer]
+    - ghostty
+    - cmux
+    - obsidian
+    - cloudflare
+    - multica-cli
+    - tailscale
+    - apple-container
+    - role: moshi
+      tags: [agent-multiplexer]
+    - role: zellij
+      tags: [terminal-multiplexer]
+    - role: tmux
+      tags: [terminal-multiplexer]
+    - role: herdr
+      tags: [terminal-multiplexer]

@@ -1,0 +1,60 @@
+---
+# multica CLI — installed via the official install script on Linux (the macOS repo
+# used a Homebrew tap, multica-ai/tap). The installer writes to /usr/local/bin when
+# it can sudo (it can here) and ignores MULTICA_BIN_DIR in that case, so rather than
+# pin a path with `creates:` we gate the install on whether `multica` is already on
+# PATH — idempotent regardless of where the script puts it. amd64 + arm64 both
+# supported. (The repo's .deb release assets are the desktop GUI app, not this CLI.)
+- name: Check whether multica is already installed
+  ansible.builtin.shell: command -v multica # noqa: command-instead-of-shell
+  register: multica_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install multica CLI # noqa: risky-shell-pipe
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash
+  args:
+    executable: /bin/bash
+  when: multica_installed.rc != 0
+  changed_when: true
+
+- name: Ensure ~/.agents/skills directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.agents/skills"
+    state: directory
+    mode: "0755"
+
+- name: Install multica-cli skill to ~/.agents/skills
+  ansible.builtin.copy:
+    src: multica-cli/
+    dest: "{{ lookup('env', 'HOME') }}/.agents/skills/multica-cli/"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Ensure ~/.claude/skills directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills"
+    state: directory
+    mode: "0755"
+
+- name: Check existing ~/.claude/skills/multica-cli
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills/multica-cli"
+    follow: false
+  register: multica_cli_claude_skill
+
+- name: Remove existing ~/.claude/skills/multica-cli if it is a real directory
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude/skills/multica-cli"
+    state: absent
+  when:
+    - multica_cli_claude_skill.stat.exists
+    - not multica_cli_claude_skill.stat.islnk
+
+- name: Symlink ~/.claude/skills/multica-cli to ~/.agents/skills/multica-cli
+  ansible.builtin.file:
+    src: "{{ lookup('env', 'HOME') }}/.agents/skills/multica-cli"
+    dest: "{{ lookup('env', 'HOME') }}/.claude/skills/multica-cli"
+    state: link

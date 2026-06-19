@@ -1,0 +1,88 @@
+---
+# claude-mem is run via `npx -y claude-mem` — there is no `claude-mem` binary on
+# PATH. Its `install` subcommand always does a full reinstall (copies plugin
+# files, runs bun/npm install) and always exits 0 printing "installed
+# successfully", so it can't self-report whether anything changed. We therefore
+# gate each IDE install on two things: (a) the installed plugin version vs the
+# latest published version, and (b) whether the IDE's config already references
+# claude-mem — running the heavy installer only when an upgrade is available or
+# an IDE isn't wired yet. See vars/main.yml for the model-flag caveat.
+
+- name: Get latest published claude-mem version
+  ansible.builtin.command: npm view claude-mem version
+  register: claude_mem_latest
+  changed_when: false
+  check_mode: false
+
+- name: Read installed claude-mem plugin manifest
+  ansible.builtin.slurp:
+    path: "{{ claude_mem_plugin_manifest }}"
+  register: claude_mem_manifest_raw
+  failed_when: false
+  check_mode: false
+
+- name: Determine installed claude-mem version
+  ansible.builtin.set_fact:
+    claude_mem_installed_version: >-
+      {{ (claude_mem_manifest_raw.content | b64decode | from_json).version
+         if claude_mem_manifest_raw.content is defined else 'absent' }}
+
+- name: Check which IDEs already reference claude-mem
+  # -q quiet, -s silent on a missing/unreadable file → rc 0 = wired, non-0 = not.
+  ansible.builtin.command: "grep -qs claude-mem {{ item.marker }}"
+  register: claude_mem_ide_wired
+  loop: "{{ claude_mem_ides }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install and wire claude-mem for each IDE
+  ansible.builtin.command: >-
+    npx -y claude-mem install
+    --provider {{ claude_mem_provider }}
+    --model {{ claude_mem_model }}
+    --runtime {{ claude_mem_runtime }}
+    --ide {{ item.item.name }}
+  loop: "{{ claude_mem_ide_wired.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: >-
+    claude_mem_installed_version != claude_mem_latest.stdout
+    or item.rc != 0
+  changed_when: true
+
+# The OpenClaw gateway plugin is installed by the official install.cmem.ai
+# script. Without `--upgrade` the script re-clones and rebuilds the plugin on
+# every run, so we gate it on the plugin marker and run it only once (delete the
+# extension dir, or add --upgrade, to refresh). `--non-interactive` defaults the
+# provider to Claude and skips the /dev/tty requirement for headless runs.
+#
+# WORKAROUND (upstream bug): the script builds the plugin with `npx tsc`, but the
+# plugin's pinned toolchain (typescript ^6.0.3 + @types/node ^25) is broken by its
+# own tsconfig, so the build fails two ways:
+#   1. tsconfig sets `moduleResolution: "node"` (node10), which TS 6.0 rejects as a
+#      hard error (TS5107: node10 stops functioning in 7.0).
+#   2. it never sets a `types` field, and TS 6.0 does not auto-load @types/node, so
+#      every Node global/import (`process`, `node:test`, …) becomes "Cannot find
+#      name" (TS2591), which in turn makes stream callbacks implicit-any (TS7006).
+# The script clones to a throwaway temp dir we cannot reach, so we stream it through
+# perl to append `--ignoreDeprecations 6.0 --types node` to its single `npx tsc`
+# call — silencing the deprecation gate (keeping node10 resolution) and explicitly
+# loading the Node types. If upstream ever drops that `npx tsc` line the
+# substitution is a harmless no-op and the build reverts to today's failure, so this
+# cannot break silently. Remove once upstream fixes its tsconfig. https://aka.ms/ts6
+- name: Check whether the claude-mem OpenClaw plugin is installed
+  ansible.builtin.stat:
+    path: "{{ claude_mem_openclaw_marker }}"
+  register: claude_mem_openclaw_plugin
+
+- name: Install the claude-mem OpenClaw plugin (non-interactive, tsc deprecation patched)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://install.cmem.ai/openclaw.sh | perl -pe 's/npx tsc 2>&1/npx tsc --ignoreDeprecations 6.0 --types node 2>&1/' | bash -s -- --non-interactive
+  args:
+    executable: /bin/bash
+  when: not claude_mem_openclaw_plugin.stat.exists
+  changed_when: true

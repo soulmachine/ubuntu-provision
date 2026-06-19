@@ -1,0 +1,13 @@
+---
+- name: Install direnv
+  become: true
+  ansible.builtin.apt:
+    name: direnv
+    state: present
+
+- name: Enable direnv oh-my-zsh plugin in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.zshrc"
+    regexp: '^(plugins=\((?!.*\bdirenv\b).*)\)$'
+    line: '\1 direnv)'
+    backrefs: true

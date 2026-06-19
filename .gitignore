@@ -1,0 +1,8 @@
+.env
+*.retry
+.ansible/
+
+# planning-with-files working artifacts (not part of the deliverable repo)
+task_plan.md
+findings.md
+progress.md

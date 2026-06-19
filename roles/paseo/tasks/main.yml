@@ -1,0 +1,7 @@
+---
+# paseo is distributed as a macOS Homebrew cask (a desktop agent-multiplexer app)
+# with no published Linux build. Kept as a documented no-op so main.yml stays 1:1
+# with the macOS repo; revisit if/when a Linux release ships.
+- name: Skip paseo (macOS-only / no Linux build)
+  ansible.builtin.debug:
+    msg: "paseo ships only as a macOS cask; no Linux build — skipped."

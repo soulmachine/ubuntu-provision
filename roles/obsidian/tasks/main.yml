@@ -1,0 +1,19 @@
+---
+# Obsidian itself is a GUI desktop app — skipped on the headless server profile.
+# (To install it on an Ubuntu desktop: download the .deb from
+# https://obsidian.md/download, or `flatpak install flathub md.obsidian.Obsidian`.)
+# The headless-relevant pieces — the Defuddle CLI and the Obsidian agent skills —
+# ARE installed.
+- name: Skip Obsidian desktop app (GUI, headless profile)
+  ansible.builtin.debug:
+    msg: "Obsidian desktop app skipped on headless Ubuntu; installing Defuddle CLI + Obsidian skills only."
+
+- name: Install Defuddle CLI # noqa: command-instead-of-module
+  ansible.builtin.command: npm install -g defuddle
+  register: obsidian_defuddle_install
+  changed_when: "'added' in obsidian_defuddle_install.stdout"
+
+- name: Install Obsidian skills for all agents
+  ansible.builtin.command:
+    cmd: npx skills add https://github.com/kepano/obsidian-skills --all -g -y
+    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/obsidian-cli"

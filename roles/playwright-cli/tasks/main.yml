@@ -1,0 +1,10 @@
+---
+- name: Install Playwright CLI globally
+  ansible.builtin.command: npm install -g @playwright/cli@latest
+  register: playwright_cli_install
+  changed_when: "'added' in playwright_cli_install.stdout or 'updated' in playwright_cli_install.stdout"
+
+- name: Install Playwright CLI skills
+  ansible.builtin.command: playwright-cli install --skills
+  register: playwright_cli_skills
+  changed_when: "'downloading' in playwright_cli_skills.stdout | lower"

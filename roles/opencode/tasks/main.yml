@@ -1,0 +1,63 @@
+---
+- name: Install opencode CLI
+  community.general.npm:
+    name: opencode-ai
+    global: true
+    state: latest
+
+# oh-my-openagent ships no Ansible module — it's installed/configured by running
+# its `npx oh-my-openagent install` CLI, which must run AFTER opencode is present
+# (it verifies the OpenCode install and writes into ~/.config/opencode). Notes:
+#
+# 1. Required flags. In `--no-tui` mode the published CLI (4.9.2) requires
+#    --claude, --gemini and --copilot explicitly (they have no defaults); omit
+#    any and it aborts with "Validation failed". --platform and --skip-auth keep
+#    the run headless (no interactive provider auth).
+#
+# 2. Idempotency. The command is content-idempotent — it regenerates
+#    ~/.config/opencode/oh-my-openagent.json to a stable fixed point, so repeated
+#    runs produce byte-identical files. BUT it ALWAYS prints "Configuration
+#    updated!" and exits 0, so its stdout/rc can't tell a real change from a
+#    no-op. We therefore checksum the config file before and after the run and
+#    report `changed` only when the content actually differs. This keeps
+#    re-provisions idempotent while still letting a newer oh-my-openagent version
+#    (npx fetches latest) refresh the config when its model mappings change.
+#
+# `npx --yes` skips npx's "Ok to proceed?" package-install prompt so the task
+# can never hang during unattended provisioning.
+
+- name: Set oh-my-openagent config path
+  ansible.builtin.set_fact:
+    omo_config_path: "{{ lookup('env', 'HOME') }}/.config/opencode/oh-my-openagent.json"
+
+- name: Capture oh-my-openagent config checksum before install
+  ansible.builtin.stat:
+    path: "{{ omo_config_path }}"
+  register: omo_config_before
+
+- name: Install and configure oh-my-openagent for OpenCode (non-interactive)
+  ansible.builtin.command: >-
+    npx --yes oh-my-openagent install
+    --no-tui
+    --platform=opencode
+    --skip-auth
+    --claude=max20
+    --openai=no
+    --gemini=no
+    --copilot=no
+  register: omo_install
+  changed_when: false # real change is reported by the checksum-diff task below
+
+- name: Capture oh-my-openagent config checksum after install
+  ansible.builtin.stat:
+    path: "{{ omo_config_path }}"
+  register: omo_config_after
+
+- name: Report oh-my-openagent configuration change
+  ansible.builtin.debug:
+    msg: >-
+      oh-my-openagent configuration
+      {{ 'updated' if omo_config_changed else 'already up to date' }}
+  vars:
+    omo_config_changed: "{{ (omo_config_before.stat.checksum | default('')) != (omo_config_after.stat.checksum | default('')) }}"
+  changed_when: omo_config_changed

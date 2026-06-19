@@ -1,0 +1,44 @@
+# https://gist.github.com/soulmachine/3f3167f5fae72f5109c4671968cb0628
+# --- Typography ---
+font-family = "Maple Mono NF CN"
+font-size = 14
+adjust-cell-height = 2
+
+# --- Theme and Colors ---
+theme = Catppuccin Mocha
+minimum-contrast = 4
+
+# --- Window and Appearance ---
+# window-save-state = always
+window-padding-x = 8
+window-padding-y = 4
+cursor-style-blink = false
+
+# --- Shell Integration ---
+shell-integration = detect
+shell-integration-features = cursor,sudo,title
+
+# --- Mouse ---
+mouse-hide-while-typing = true
+copy-on-select = clipboard
+
+# --- Clipboard ---
+clipboard-read = allow
+clipboard-write = allow
+clipboard-trim-trailing-spaces = true
+
+# --- Links ---
+link-url = true
+
+# --- Claude ---
+# initial-command = claude
+initial-window = true
+quit-after-last-window-closed = true
+confirm-close-surface = false
+notify-on-command-finish = unfocused
+
+# --- macOS ---
+macos-option-as-alt = left
+
+# --- Performance ---
+scrollback-limit = 100000

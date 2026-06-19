@@ -1,0 +1,34 @@
+---
+# Install parameters shared by every `claude-mem install` invocation.
+#
+# NOTE on the model: the published docs use `--model opus`, but claude-mem
+# v13.6.0 rejects the "opus" alias ("Unknown Claude model: opus. Allowed:
+# claude-haiku-4-5-20251001, claude-sonnet-4-6, claude-opus-4-7"). We therefore
+# pass the accepted full id `claude-opus-4-7` — the Opus model claude-mem
+# currently supports. Bump this when claude-mem starts accepting a newer Opus.
+claude_mem_provider: claude
+claude_mem_model: claude-opus-4-7
+claude_mem_runtime: worker
+
+# claude-mem is a Claude Code plugin (installed under the `thedotmack`
+# marketplace), not a global npm binary. This manifest carries the installed
+# version, which we diff against the latest published version to decide whether a
+# re-install (upgrade) is needed.
+claude_mem_plugin_manifest: "{{ lookup('env', 'HOME') }}/.claude/plugins/marketplaces/thedotmack/.claude-plugin/plugin.json"
+
+# OpenClaw gateway plugin marker (installed by the install.cmem.ai/openclaw.sh
+# script, which writes into ~/.openclaw/extensions/claude-mem/).
+claude_mem_openclaw_marker: "{{ lookup('env', 'HOME') }}/.openclaw/extensions/claude-mem/openclaw.plugin.json"
+
+# One `claude-mem install --ide <name>` per IDE. `marker` is a file whose
+# presence-of-the-string "claude-mem" proves that IDE is already wired up, so we
+# only run the (heavy) installer for IDEs that aren't configured yet.
+claude_mem_ides:
+  - name: claude-code
+    marker: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
+  - name: gemini-cli
+    marker: "{{ lookup('env', 'HOME') }}/.gemini/settings.json"
+  - name: codex-cli
+    marker: "{{ lookup('env', 'HOME') }}/.codex/config.toml"
+  - name: opencode
+    marker: "{{ lookup('env', 'HOME') }}/.config/opencode/plugins/claude-mem.js"

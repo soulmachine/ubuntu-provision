@@ -1,0 +1,124 @@
+---
+# Tailscale on Ubuntu via the official apt repo (pkgs.tailscale.com). On Linux
+# tailscaled runs as a systemd service — there is no GUI app, no Network
+# Extension, and no `systemextensionsctl` dance (all macOS-specific and removed
+# here). Scope is unchanged from the macOS role: Tailscale is used ONLY as a
+# network-connectivity layer (private mesh + MagicDNS); Tailscale SSH is
+# intentionally NOT enabled — remote shell access stays on standard OpenSSH. If
+# you ever turn Tailscale SSH on, add `--ssh` and, for per-machine ACL gating,
+# `--advertise-tags` + the API-driven tagOwners update (all deliberately absent).
+
+- name: Add Tailscale apt signing key
+  become: true
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_facts['distribution_release'] }}.noarmor.gpg"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add Tailscale apt repository
+  become: true
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/ubuntu/{{ ansible_facts['distribution_release'] }}.tailscale-keyring.list"
+    dest: /etc/apt/sources.list.d/tailscale.list
+    mode: "0644"
+  register: _tailscale_repo
+
+- name: Install Tailscale
+  become: true
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Enable and start tailscaled
+  become: true
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+
+# Auto-connect to the tailnet when an auth key is provided.
+- name: Load Tailscale auth key from environment
+  ansible.builtin.set_fact:
+    tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
+  no_log: true
+
+- name: Auto-connect to tailnet when auth key is provided
+  when: tailscale_auth_key | length > 0
+  block:
+    # Reading state before `--operator` is set still needs root, so become here.
+    - name: Check current Tailscale state
+      ansible.builtin.command: tailscale status --json
+      become: true
+      register: _tailscale_status
+      changed_when: false
+      failed_when: false
+      check_mode: false # read-only probe; run in --check so the from_json guard has real JSON
+
+    - name: Remind user that admin approval may be required
+      ansible.builtin.debug:
+        msg: |
+
+          ================================================================
+          About to run `tailscale up`. If your tailnet has Device Approval
+          enabled, this task will HANG until the device is approved.
+
+          Recommended: disable Device Approval entirely so this (and
+          future provisioning runs) never hang:
+
+            https://login.tailscale.com/admin/settings/device-management
+
+          Otherwise, approve this machine manually at:
+
+            https://login.tailscale.com/admin/machines
+          ================================================================
+      when: _tailscale_status.rc != 0 or (_tailscale_status.stdout | from_json).BackendState != 'Running'
+
+    - name: Bring Tailscale up
+      ansible.builtin.command: >
+        tailscale up
+        --accept-dns
+        --accept-routes
+        --operator={{ lookup('env', 'USER') }}
+        --auth-key={{ tailscale_auth_key }}
+      become: true
+      no_log: true
+      changed_when: true
+      when: _tailscale_status.rc != 0 or (_tailscale_status.stdout | from_json).BackendState != 'Running'
+
+# Disable node-key expiry via the Tailscale REST API. The CLI has no equivalent
+# command, so we POST directly. Requires TAILSCALE_API_ACCESS_TOKEN with the
+# `devices` write scope. The device identifier is this node's stable ID from
+# `tailscale status --json` (Self.ID, which the API accepts as its nodeId).
+- name: Load Tailscale API access token from environment
+  ansible.builtin.set_fact:
+    tailscale_api_token: "{{ lookup('env', 'TAILSCALE_API_ACCESS_TOKEN') }}"
+  no_log: true
+
+- name: (Optional)Disable key expiry when API token is provided
+  when:
+    - tailscale_api_token | length > 0
+    - tailscale_auth_key | length > 0
+  block:
+    - name: Read Tailscale status to get this node's stable ID
+      ansible.builtin.command: tailscale status --json
+      become: true
+      register: _tailscale_status_for_id
+      changed_when: false
+      check_mode: false # read-only probe; run in --check so the from_json below has real JSON
+
+    - name: Extract this node's stable device ID
+      ansible.builtin.set_fact:
+        tailscale_device_id: "{{ (_tailscale_status_for_id.stdout | from_json).Self.ID }}"
+
+    - name: Disable key expiry for this node
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/device/{{ tailscale_device_id }}/key"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ tailscale_api_token }}"
+        body_format: json
+        body:
+          keyExpiryDisabled: true
+        status_code: [200]
+      no_log: true

@@ -1,0 +1,12 @@
+---
+# herdr — multiplexer that lives in your terminal (https://herdr.dev). Installed
+# via the official install script, which fetches the prebuilt binary for this
+# platform (amd64 + arm64 both supported) into ~/.local/bin. The macOS repo used
+# the Homebrew core formula.
+#
+# NOTE: a non-herdr.dev herdr may already exist at ~/.local/bin/herdr; the
+# `creates:` guard below treats any existing binary at that path as installed.
+- name: Install herdr # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://herdr.dev/install.sh | sh
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/herdr"

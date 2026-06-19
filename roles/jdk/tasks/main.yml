@@ -1,0 +1,5 @@
+---
+- name: Install JDK via mise
+  ansible.builtin.command: mise use --global java@lts
+  register: jdk_mise
+  changed_when: "'installed' in jdk_mise.stderr"

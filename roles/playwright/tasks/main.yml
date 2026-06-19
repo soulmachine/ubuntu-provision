@@ -1,0 +1,31 @@
+---
+- name: Install Playwright globally
+  ansible.builtin.command: npm install -g playwright@latest
+  register: playwright_npm
+  changed_when: "'added' in playwright_npm.stdout or 'updated' in playwright_npm.stdout"
+
+# Locate the global `playwright` binary as the invoking user so the next task can
+# run it by absolute path under root (become resets PATH to root's secure_path,
+# which has neither mise's node nor the npm global bin).
+- name: Locate the playwright binary # noqa: command-instead-of-shell
+  ansible.builtin.shell: command -v playwright
+  register: playwright_bin
+  changed_when: false
+
+# Linux needs the system shared libraries headless Chromium links against (fonts,
+# X/GTK/NSS libs, etc.); macOS bundles these, so the macOS role had no equivalent.
+# `playwright install-deps` apt-installs them and requires root.
+- name: Install Playwright system dependencies (Linux)
+  become: true
+  ansible.builtin.command: "{{ playwright_bin.stdout }} install-deps chromium"
+  environment:
+    # Run as root for apt, but the playwright launcher is a `#!/usr/bin/env node`
+    # script and root's PATH lacks mise's node — add the node bin dir (the same
+    # dir as the playwright binary) ahead of the standard system paths.
+    PATH: "{{ playwright_bin.stdout | dirname }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  changed_when: false
+
+- name: Install Playwright Chromium
+  ansible.builtin.command: playwright install chromium
+  register: playwright_install
+  changed_when: "'downloading' in playwright_install.stdout | lower"

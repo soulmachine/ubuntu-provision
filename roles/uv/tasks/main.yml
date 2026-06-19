@@ -1,0 +1,12 @@
+---
+- name: Install uv # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
+
+- name: Enable uv oh-my-zsh plugin in .zshrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.zshrc"
+    regexp: '^(plugins=\((?!.*\buv\b).*)\)$'
+    line: '\1 uv)'
+    backrefs: true

@@ -1,0 +1,35 @@
+---
+# gh (the GitHub CLI) is installed by the `apt` role from the official
+# cli.github.com apt repo, which runs first in main.yml — so this role does not
+# reinstall it (the macOS repo installed gh via Homebrew here). This role only
+# performs the GitHub account setup: SSH key generation/upload + git signing
+# config, driven by the cross-platform setup_github.sh.
+
+- name: Load GH_TOKEN from environment
+  ansible.builtin.set_fact:
+    github_token: "{{ lookup('env', 'GH_TOKEN') }}"
+  no_log: true
+
+- name: Configure GitHub (SSH keys, git signing config)
+  when: github_token | length > 0
+  block:
+    - name: Copy GitHub setup script
+      ansible.builtin.copy:
+        src: setup_github.sh
+        dest: /tmp/setup_github.sh
+        mode: "0755"
+      changed_when: false
+
+    - name: Run GitHub setup script
+      ansible.builtin.command: /tmp/setup_github.sh
+      environment:
+        GH_TOKEN: "{{ github_token }}"
+        GITHUB_SSH_KEY: "{{ lookup('env', 'GITHUB_SSH_KEY') }}"
+      register: _github_setup
+      changed_when: "'CHANGED' in _github_setup.stdout"
+      no_log: true
+
+- name: Skip GitHub setup (GH_TOKEN not set)
+  ansible.builtin.debug:
+    msg: "GH_TOKEN not set — skipping GitHub SSH key and git config setup."
+  when: github_token | length == 0

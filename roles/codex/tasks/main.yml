@@ -1,0 +1,6 @@
+---
+- name: Install Codex CLI
+  community.general.npm:
+    name: "@openai/codex"
+    global: true
+    state: latest

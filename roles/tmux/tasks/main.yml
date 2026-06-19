@@ -1,0 +1,8 @@
+---
+# tmux — terminal multiplexer. Installed from the apt archive on Ubuntu (the
+# macOS repo used the Homebrew core formula).
+- name: Install tmux
+  become: true
+  ansible.builtin.apt:
+    name: tmux
+    state: present

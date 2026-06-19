@@ -1,0 +1,7 @@
+---
+python_cli_tools:
+  - yamllint
+  - ansible-lint
+  - ruff
+  - pre-commit
+  - httpie
