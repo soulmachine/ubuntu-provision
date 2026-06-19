@@ -5,7 +5,7 @@
 # desktop apps, pearcleaner, pycharm, sublime-text, visual-studio-code). Those are
 # intentionally omitted on the headless server profile: the AI desktop apps and
 # pearcleaner have no Linux build, and the IDEs/editors are GUI-only. See the
-# `intellij-idea`, `webstorm`, `cc-switch` skip-stub roles and the README.
+# `cc-switch` skip-stub role and the README.
 #
 # gh and Docker are not shipped at usable versions in Ubuntu's default archive, so
 # each gets its official apt repo below (same source the upstream docs use).
@@ -88,8 +88,8 @@
 
 # ── Docker Engine — official apt repo (download.docker.com) ───────────────────
 # The macOS repo installed only the `docker` CLI formula; on Linux containers run
-# natively, so we install the full engine (this also covers what the macOS-only
-# `apple-container` role provided). The current user is added to the `docker`
+# natively, so we install the full engine (which also covers macOS's separate
+# Apple `container` tool). The current user is added to the `docker`
 # group so the daemon socket is usable without sudo (effective on next login).
 - name: Add Docker apt signing key
   become: true

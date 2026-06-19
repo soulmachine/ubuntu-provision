@@ -96,7 +96,7 @@ advertisement, and no ACL `tagOwners` management.
 
 Every role has `tasks/main.yml`. Some also have:
 - `vars/main.yml` — Data (e.g. Python CLI tool list, claude-mem install params)
-- `meta/main.yml` — Dependencies (e.g. `intellij-idea` depends on `jdk`, `webstorm` on `nodejs`)
+- `meta/main.yml` — Dependencies (e.g. `beads` depends on `go`, `playwright-cli` on `playwright`)
 
 ### Common Task Patterns
 
@@ -109,14 +109,11 @@ Every role has `tasks/main.yml`. Some also have:
 
 ### Skip-stub roles (kept 1:1 with macOS, but no-op on headless Ubuntu)
 
-- **macOS-only (no Linux build):** `apple-container` (use Docker — installed by `apt`),
-  `moshi`, `cmux`, `paseo`. Also the GUI casks the macOS `homebrew` role installed
-  (Claude/Codex/Gemini/ChatGPT desktop apps, pearcleaner) are simply omitted from `apt`.
-- **GUI apps with Linux builds, skipped on headless:** `ghostty`, `intellij-idea`,
-  `webstorm`, `cc-switch`. Each role's `tasks/main.yml` keeps the real Ubuntu install
-  command in a comment, one uncomment away.
-- **`obsidian`** is a partial stub: the GUI app is skipped, but its headless-relevant
-  pieces (Defuddle CLI + Obsidian agent skills) ARE installed.
+- **macOS-only (no Linux build):** `moshi`, `paseo`. Also the GUI casks the macOS
+  `homebrew` role installed (Claude/Codex/Gemini/ChatGPT desktop apps, pearcleaner) are
+  simply omitted from `apt`.
+- **GUI apps with Linux builds, skipped on headless:** `cc-switch`. The role's
+  `tasks/main.yml` keeps the real Ubuntu install command in a comment, one uncomment away.
 
 ### Adding a New Role
 

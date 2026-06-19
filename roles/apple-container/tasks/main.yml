@@ -1,9 +1,0 @@
----
-# Apple `container` runs Linux containers in lightweight VMs on the macOS
-# Virtualization framework (Apple Silicon only). It has NO Linux equivalent and
-# none is needed: on Linux, containers run natively and Docker Engine — installed
-# by the `apt` role — covers this use case. Kept as a documented no-op so main.yml
-# stays 1:1 with the macOS repo.
-- name: Skip Apple container (macOS-only)
-  ansible.builtin.debug:
-    msg: "Apple `container` is macOS/Apple-Silicon-only; on Linux use Docker (installed by the apt role)."

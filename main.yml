@@ -23,8 +23,6 @@
     - smux
     - playwright
     - playwright-cli
-    - intellij-idea
-    - webstorm
     - openclaw
     - claude-mem
     - cc-switch
@@ -32,13 +30,9 @@
     - ralph-tui
     - role: paseo
       tags: [agent-multiplexer]
-    - ghostty
-    - cmux
-    - obsidian
     - cloudflare
     - multica-cli
     - tailscale
-    - apple-container
     - role: moshi
       tags: [agent-multiplexer]
     - role: zellij

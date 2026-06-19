@@ -99,7 +99,6 @@ ansible-playbook main.yml --check
 | zellij | Zellij 多路复用器（GitHub release 二进制，取代 brew） |
 | tmux | tmux 多路复用器（apt） |
 | herdr | herdr 多路复用器（官方安装脚本，取代 brew） |
-| obsidian | 跳过 GUI 应用，仅安装 Defuddle CLI 与 obsidian 技能（无头相关部分） |
 
 ### 占位（skip-stub）Roles
 
@@ -107,9 +106,8 @@ ansible-playbook main.yml --check
 
 | Role | 原因 |
 |------|------|
-| apple-container | macOS 专有（Apple Virtualization）；Linux 用 Docker，已由 `apt` role 安装 |
-| moshi、cmux、paseo | 仅 macOS，无 Linux 版 |
-| ghostty、intellij-idea、webstorm、cc-switch | GUI 桌面应用，无头 profile 跳过；真实 Ubuntu 安装命令保留在各自 `tasks/main.yml` 注释中 |
+| moshi、paseo | 仅 macOS，无 Linux 版 |
+| cc-switch | GUI 桌面应用，无头 profile 跳过；真实 Ubuntu 安装命令保留在 `tasks/main.yml` 注释中 |
 
 此外，macOS `homebrew` role 里安装的 GUI cask（Claude / Codex / Gemini / ChatGPT 桌面版、pearcleaner、PyCharm、Sublime Text、VS Code）在无头 Ubuntu 上直接省略，未单独建 stub。
 
