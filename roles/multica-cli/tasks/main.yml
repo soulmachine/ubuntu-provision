@@ -6,12 +6,14 @@
 # PATH — idempotent regardless of where the script puts it. amd64 + arm64 both
 # supported. (The repo's .deb release assets are the desktop GUI app, not this CLI.)
 - name: Check whether multica is already installed
+  check_mode: false
   ansible.builtin.shell: command -v multica # noqa: command-instead-of-shell
   register: multica_installed
   changed_when: false
   failed_when: false
 
 - name: Install multica CLI # noqa: risky-shell-pipe
+  check_mode: false
   ansible.builtin.shell: |
     set -o pipefail
     curl -fsSL https://raw.githubusercontent.com/multica-ai/multica/main/scripts/install.sh | bash
@@ -20,13 +22,18 @@
   when: multica_installed.rc != 0
   changed_when: true
 
+# check_mode: false on the dir/copy/symlink chain below — the final `state: link`
+# needs both its src (the copied skill dir) and its dest parent to really exist, so
+# these declarative steps must run (not just preview) for --check to complete.
 - name: Ensure ~/.agents/skills directory exists
+  check_mode: false
   ansible.builtin.file:
     path: "{{ lookup('env', 'HOME') }}/.agents/skills"
     state: directory
     mode: "0755"
 
 - name: Install multica-cli skill to ~/.agents/skills
+  check_mode: false
   ansible.builtin.copy:
     src: multica-cli/
     dest: "{{ lookup('env', 'HOME') }}/.agents/skills/multica-cli/"
@@ -34,6 +41,7 @@
     directory_mode: "0755"
 
 - name: Ensure ~/.claude/skills directory exists
+  check_mode: false
   ansible.builtin.file:
     path: "{{ lookup('env', 'HOME') }}/.claude/skills"
     state: directory
@@ -54,6 +62,7 @@
     - not multica_cli_claude_skill.stat.islnk
 
 - name: Symlink ~/.claude/skills/multica-cli to ~/.agents/skills/multica-cli
+  check_mode: false
   ansible.builtin.file:
     src: "{{ lookup('env', 'HOME') }}/.agents/skills/multica-cli"
     dest: "{{ lookup('env', 'HOME') }}/.claude/skills/multica-cli"

@@ -7,6 +7,7 @@
 # NOTE: a non-herdr.dev herdr may already exist at ~/.local/bin/herdr; the
 # `creates:` guard below treats any existing binary at that path as installed.
 - name: Install herdr # noqa: command-instead-of-module risky-shell-pipe
+  check_mode: false
   ansible.builtin.shell: curl -fsSL https://herdr.dev/install.sh | sh
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/herdr"

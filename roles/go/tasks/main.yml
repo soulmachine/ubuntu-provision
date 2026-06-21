@@ -1,5 +1,6 @@
 ---
 - name: Install Go via mise
+  check_mode: false
   ansible.builtin.command: mise use --global go@latest
   register: go_mise
   changed_when: "'installed' in go_mise.stderr"

@@ -1,17 +1,20 @@
 ---
 - name: Install OpenClaw CLI
+  check_mode: false
   community.general.npm:
     name: openclaw
     global: true
     state: latest
 
 - name: Install ClawHub CLI
+  check_mode: false
   community.general.npm:
     name: clawhub
     global: true
     state: latest
 
 - name: Read current OpenClaw config
+  check_mode: false
   ansible.builtin.shell: |
     echo "tools.profile=$(openclaw config get tools.profile 2>/dev/null)"
     echo "tools.sessions.visibility=$(openclaw config get tools.sessions.visibility 2>/dev/null)"
@@ -25,6 +28,7 @@
   changed_when: false
 
 - name: Configure OpenClaw settings
+  check_mode: false
   ansible.builtin.command: openclaw config set {{ item.key }} {{ item.value }}
   loop:
     - { key: tools.profile, value: "full" }
@@ -39,6 +43,7 @@
   changed_when: true
 
 - name: Check installed OpenClaw skills
+  check_mode: false
   ansible.builtin.shell:
     # Redirect through a temp file: openclaw truncates stdout to 64 KiB when piped
     # (exits before draining process.stdout), so a direct `... | sed` loses the tail.
@@ -63,6 +68,7 @@
     - openclaw_skills_parsed is not defined
 
 - name: Install OpenClaw skills
+  check_mode: false
   ansible.builtin.command: openclaw skills install {{ item }}
   loop:
     - obsidian
@@ -74,6 +80,7 @@
   changed_when: true
 
 - name: Check enabled OpenClaw plugins
+  check_mode: false
   ansible.builtin.shell:
     # Same stdout-truncation workaround as the skills task above.
     cmd: |

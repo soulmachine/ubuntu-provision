@@ -1,5 +1,6 @@
 ---
 - name: Install Python CLI tools
+  check_mode: false
   ansible.builtin.pip:
     name: "{{ item }}"
     executable: pip3

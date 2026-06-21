@@ -1,10 +1,12 @@
 ---
 - name: Install smux # noqa: command-instead-of-module risky-shell-pipe
+  check_mode: false
   ansible.builtin.shell: curl -fsSL https://shawnpana.com/smux/install.sh | bash
   args:
     creates: "{{ lookup('env', 'HOME') }}/.smux/bin/smux"
 
 - name: Update smux to the latest version # noqa: command-instead-of-module
+  check_mode: false
   ansible.builtin.shell: |
     set -euo pipefail
     files=("$HOME/.smux/tmux.conf" "$HOME/.smux/bin/tmux-bridge" "$HOME/.smux/bin/smux")
@@ -18,6 +20,7 @@
   changed_when: smux_update.stdout == "changed"
 
 - name: Install smux skill for all agents
+  check_mode: false
   ansible.builtin.command:
     cmd: npx skills add ShawnPana/smux --all -g -y
     creates: "{{ lookup('env', 'HOME') }}/.agents/skills/smux"

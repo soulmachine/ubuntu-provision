@@ -9,16 +9,19 @@
     state: present
 
 - name: Install oh-my-zsh
+  check_mode: false
   ansible.builtin.shell: sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
   args:
     creates: "{{ lookup('env', 'HOME') }}/.oh-my-zsh"
 
 - name: Resolve zsh path
+  check_mode: false
   ansible.builtin.shell: command -v zsh # noqa: command-instead-of-shell
   register: oh_my_zsh_zsh_path
   changed_when: false
 
 - name: Check current login shell
+  check_mode: false
   ansible.builtin.shell:
     cmd: 'set -o pipefail && getent passwd "$(id -un)" | cut -d: -f7'
     executable: /bin/bash # set -o pipefail; /bin/sh is dash on Ubuntu (no pipefail pre-24.04)

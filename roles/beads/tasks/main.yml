@@ -1,11 +1,13 @@
 ---
 - name: Install beads (bd)
+  check_mode: false
   community.general.npm:
     name: "@beads/bd"
     global: true
     state: latest
 
 - name: Install beads-ui
+  check_mode: false
   community.general.npm:
     name: beads-ui
     global: true
