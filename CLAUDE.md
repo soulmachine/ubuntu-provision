@@ -12,7 +12,7 @@ translation of the sibling `macbook-provision` repo from macOS to Ubuntu:
 - Language runtimes (Go, Node.js, JDK, Python) are managed by **mise** — identical to
   the macOS repo (mise is cross-platform).
 - Everything else installs via the same cross-platform mechanisms as macOS: official
-  `curl | sh` installers (mise, rustup, bun, uv, claude-code, smux, herdr, multica),
+  `curl | sh` installers (mise, rustup, bun, uv, claude-code, herdr, multica),
   `npm`/`bun` globals, and `npx skills add`.
 
 This is the **headless server profile**: GUI desktop apps are not installed. Roles for

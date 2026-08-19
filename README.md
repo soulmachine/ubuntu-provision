@@ -81,12 +81,11 @@ ansible-playbook main.yml --check
 | bun | Bun JavaScript 运行时（官方安装脚本） |
 | rust | Rust 工具链（通过官方 rustup 安装；额外含 rust-src、rust-analyzer 组件） |
 | jdk | JDK（通过 mise 安装） |
-| claude-code | Claude Code CLI、插件及 Claude Code Bridge（依赖 nodejs；CCB 仅 amd64） |
+| claude-code | Claude Code CLI 及插件（依赖 nodejs） |
 | codex | OpenAI Codex CLI（依赖 nodejs） |
 | gemini | Google Gemini CLI（依赖 nodejs） |
 | opencode | opencode CLI 及 oh-my-openagent（依赖 nodejs） |
 | skills | 为各 agent 安装技能集（baoyu、mattpocock、soulmachine、last30days） |
-| smux | smux 多路复用器及技能 |
 | playwright | Playwright 及 Chromium（含 Linux `install-deps`，依赖 nodejs） |
 | playwright-cli | Playwright CLI 及技能 |
 | openclaw | OpenClaw 及 ClawHub CLI 与配置（依赖 nodejs） |
