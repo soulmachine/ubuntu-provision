@@ -1,5 +1,49 @@
 ---
-- name: Install JDK via mise
+# `mise use --global java@lts` only guarantees *an* LTS is installed: the request
+# "lts" is satisfied by any already-installed LTS release, so on a box that already
+# has one it never pulls a newer one. That is the same finding the `nodejs` role
+# records, and this role carried the same request with no upgrade step beside it.
+#
+# It is a mechanism fix, not a stale-version fix — say so plainly rather than let a
+# reader infer a bug that was not there. Measured 2026-09-16 on mac-mini-m2: java
+# resolves to 25.0.2, which *is* the newest LTS, so nothing had drifted. What had
+# drifted is only reachable later: this role installed 25.0.2 on 2026-04-03 and has
+# installed nothing since, and with no `mise upgrade` it has no way to move when the
+# next LTS patch ships. `mise upgrade java` costs 0.04s and prints "All tools are up
+# to date" when there is nothing to do.
+#
+# Contrast `go`, which is deliberately left without an upgrade step: its `@latest`
+# request re-resolves on its own. See that role for the evidence.
+#
+# changed_when compares state before and after, per the "diff state, don't grep
+# output" rule in AGENTS.md. The old gate here was `'installed' in jdk_mise.stderr`,
+# which reads one task's wording — and once the upgrade task exists it cannot see it
+# at all, because an upgrade is a different command whose output it never inspects.
+#
+# The probe is `mise ls --json`, not `mise current`, because these tasks change two
+# independent pieces of state and `mise current` only sees one of them: on a machine
+# whose config.toml carries a hand-pinned `java = "25.0.2"`, `mise use` rewrites that
+# line to `java = "lts"` while the resolved version stays put — a real edit to a
+# managed file that a resolved-version-only diff reports as unchanged. The JSON
+# carries `requested_version` (what config.toml asks for) alongside `version` (what
+# that resolves to), so one comparison covers both. It also degrades cleanly on a
+# fresh machine: java unconfigured prints `[]`, rc 0.
+
+- name: Read the JDK state before updating
+  ansible.builtin.command: mise ls --current java --json
+  register: jdk_before
+  changed_when: false
+  failed_when: false
+
+- name: Configure JDK LTS via mise
   ansible.builtin.command: mise use --global java@lts
-  register: jdk_mise
-  changed_when: "'installed' in jdk_mise.stderr"
+  changed_when: false
+
+- name: Upgrade the JDK to the newest LTS release
+  ansible.builtin.command: mise upgrade java
+  changed_when: false
+
+- name: Check whether the JDK state changed
+  ansible.builtin.command: mise ls --current java --json
+  register: jdk_after
+  changed_when: jdk_after.stdout != jdk_before.stdout
