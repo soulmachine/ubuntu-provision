@@ -1,0 +1,47 @@
+---
+- name: Install oh-my-pi
+  ansible.builtin.command: bun install -g @oh-my-pi/pi-coding-agent
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.bun/bin/omp"
+
+# `omp update` checks and installs in one step, and exits 0 on every path — so
+# a check that fails or gets rate-limited prints neither the "✔ Already up to
+# date" sentinel nor an error, and the negated match this used to carry reported
+# a phantom change on every such run. Diff the version instead, per the
+# "diff state, don't grep output" rule in AGENTS.md; `omp --version` prints a
+# bare `omp/18.0.4` that moves only when a new build actually landed.
+- name: Record the oh-my-pi version before updating
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/omp --version"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: omp_version_before
+  changed_when: false
+
+- name: Update oh-my-pi
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/omp update"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  changed_when: false
+
+- name: Check whether oh-my-pi was updated
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/omp --version"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: omp_version_after
+  changed_when: omp_version_after.stdout != omp_version_before.stdout
+
+- name: Add omp-yolo alias to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias omp-yolo="omp --thinking=xhigh --yolo"'
+    regexp: '^alias omp-yolo='
+    state: present
+
+- name: Add omp shell completions to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: eval "$(omp completions bash)"
+    regexp: omp completions bash
+    state: present
