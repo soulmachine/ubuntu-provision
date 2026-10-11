@@ -1,0 +1,67 @@
+---
+typesafe_home: "{{ lookup('env', 'HOME') }}"
+
+# The key both plugins authenticate with. Comes from the repo .env — direnv in an
+# interactive shell, the `dotenv` role's managed ~/.bashrc block everywhere else.
+# Empty means the host carries no key, and the whole role skips: a plugin that can
+# never reach Jev is noise, not provisioning.
+typesafe_api_key: "{{ lookup('env', 'TYPESAFE_API_KEY') }}"
+
+typesafe_settings: "{{ typesafe_home }}/.claude/settings.json"
+
+# The same two ledgers the claude-code and ponytail roles diff, for the same reasons:
+# `gitCommitSha` in installed_plugins.json moves only when a new upstream commit lands,
+# and known_marketplaces.json is keyed by marketplace NAME, which survives a source
+# rename (Q154).
+typesafe_plugin_ledger: "{{ typesafe_home }}/.claude/plugins/installed_plugins.json"
+typesafe_marketplace_ledger: "{{ typesafe_plugin_ledger | dirname }}/known_marketplaces.json"
+
+# name = the marketplace name from each repo's .claude-plugin/marketplace.json, which is
+# what the ledger is keyed by and what the add is gated on; source = what the CLI is handed.
+# Not derivable from one another, hence both — the claude_code_marketplaces shape.
+typesafe_marketplaces:
+  - name: fast-jev-compaction
+    source: tamaratran/fast-jev-compaction
+  - name: claude-jev
+    source: buchmark/claude-jev
+
+# `plugin@marketplace`, as the CLI and installed_plugins.json both spell it. One list feeds
+# install, update and enable so the three cannot drift apart.
+#
+# fast-jev-compaction — a function-hook plugin (Claude Code 2.1.274+, gated behind
+# CLAUDE_CODE_ENABLE_FUNCTION_HOOKS) that replaces the compaction summary with Jev
+# keep/drop decisions per tool call.
+# claude-jev — an MCP-server plugin launched with `node` (five jev_* tools plus
+# /jev-review, /jev-pick, /jev-why, /jev-ask).
+#
+# Both leave their sensitive `apiKey` userConfig unset and fall back to TYPESAFE_API_KEY in
+# Claude Code's process environment: the hook runs in-process, the MCP server is a child
+# that inherits it. So one `env` entry in settings.json serves both.
+typesafe_plugins:
+  - fast-jev-compaction@fast-jev-compaction
+  - claude-jev@claude-jev
+
+# --- the official typesafe-ai skill ---------------------------------------------------
+# https://github.com/typesafe-ai/skills — one skill, `typesafe-ai` (verified with `-l` on
+# 2026-09-19): how to build with TypeSafe's System One models, so it belongs beside the
+# plugins rather than in the generic skills role, which pinned it from Q141 until now. Its
+# entry there moved to `skills_sources_foreign`, which is what keeps that role's orphan
+# detector accounting for a store directory it no longer refreshes.
+typesafe_skill: typesafe-ai
+typesafe_skill_source: typesafe-ai/skills
+typesafe_skill_dir: "{{ typesafe_home }}/.agents/skills/{{ typesafe_skill }}"
+
+# The agents to fan out to, named rather than taken as `--agent '*'`: that is not "every
+# installed agent" but every agent in the CLI's registry — 78 of them — and it creates each
+# directory it links into, which is what kept resurrecting ~/.openclaw/skills. Naming them
+# here also makes a single-role run self-sufficient: the `agent-sync sync` that would
+# otherwise fan this out lives in the skills role, seven roles later in the play.
+#
+# Same list as `skills_agents` in roles/skills/vars/main.yml, where the full reasoning is.
+# `universal` IS the store (~/.agents/skills) and is reached only by being named, so drop it
+# and every agent that reads the store natively (codex, opencode, oh-my-pi) gets nothing.
+typesafe_skill_agents:
+  - universal
+  - claude-code
+  - pi
+  - hermes-agent

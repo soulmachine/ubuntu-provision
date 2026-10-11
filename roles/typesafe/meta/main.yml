@@ -1,0 +1,6 @@
+---
+dependencies:
+  # The CLI, its plugin ledgers and ~/.claude/settings.json all come from here.
+  - claude-code
+  # claude-jev's MCP server is `node ${CLAUDE_PLUGIN_ROOT}/dist/server.js` (Node 20+).
+  - nodejs
