@@ -22,9 +22,11 @@
 
 # Locate the global `playwright` binary as the invoking user so the next task can
 # run it by absolute path under root (become resets PATH to root's secure_path,
-# which has neither mise's node nor the npm global bin).
-- name: Locate the playwright binary # noqa: command-instead-of-shell
-  ansible.builtin.shell: command -v playwright
+# which has neither mise's node nor the npm global bin). `mise which` resolves past
+# the shim that `command -v` returns on PATH: root cannot run a shim (mise has no
+# config for root), and the real path's dir also holds `node` for the shebang.
+- name: Locate the playwright binary
+  ansible.builtin.command: mise which playwright
   register: playwright_bin
   changed_when: false
 
