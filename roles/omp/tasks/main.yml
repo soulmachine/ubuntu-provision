@@ -35,7 +35,7 @@
 - name: Add omp-yolo alias to .bashrc
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    line: 'alias omp-yolo="omp --thinking=xhigh --yolo"'
+    line: 'alias omp-yolo="omp --thinking=high --yolo"'
     regexp: '^alias omp-yolo='
     state: present
 

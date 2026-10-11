@@ -13,7 +13,7 @@
 # ssh, where native Claude Code cannot unlock the login keychain and prints "Not
 # logged in" (verified on mac-mini-m2, 2026-10-09). claude-gw reaches the
 # gateway instead and already passes --dangerously-skip-permissions --effort
-# xhigh. It is installed by gateway/cliproxy-tier, not by this playbook, so a
+# high. It is installed by gateway/cliproxy-tier, not by this playbook, so a
 # fresh host fails here until `cliproxy-tier <host>` has run on mac-mini-m2.
 #
 # chdir to $HOME so the sub-agent never treats this repo as its workspace —
