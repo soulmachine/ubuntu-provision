@@ -1,7 +1,27 @@
 ---
+# `uv tool install` refuses a package that ships no console scripts ("No
+# executables are provided by package `x`; removing tool", exit 2), so only
+# real CLIs belong here. Pure libraries are not provisioned globally; reach for
+# them with `uv run --with <lib> python ...` instead.
 python_cli_tools:
   - yamllint
   - ansible-lint
   - ruff
   - pre-commit
   - httpie
+
+# Extra packages to install *into* a tool's own uv environment, as
+# `<tool>: <package>`. uv gives each tool an isolated environment, and
+# ansible-lint resolves `community.general.*` against the collections in its
+# own, which a bare install does not have, so it failed every role in this
+# repo with `syntax-check[unknown-module]`. `--with ansible` puts the collection
+# bundle in that environment; it is the same line bootstrap.sh uses for
+# ansible-core.
+python_cli_tool_extras:
+  ansible-lint: ansible
+
+# arm64 only, as upstream, where both pull native wheels that no longer build
+# for macOS x86_64. The gate is kept on Linux so the two repos stay in step.
+python_cli_tools_arm64:
+  - openai-whisper
+  - whisper-ctranslate2
