@@ -1,0 +1,62 @@
+---
+# The Claude Code plugins this role manages, named `plugin@marketplace` the way the CLI and
+# `installed_plugins.json` both spell them. One list because three tasks need exactly the same
+# set — install, update and enable — and they must not drift apart: a plugin added to the
+# install list but not the update list would be installed once and then frozen, which is the
+# freeze the `skills` role had to be rescued from.
+#
+# The marketplaces that carry them are NOT extracted: that list is used once, and the two are
+# not in step — `frontend-design` and `feature-dev` both come from claude-plugins-official.
+claude_code_plugins:
+  - frontend-design@claude-plugins-official
+  - feature-dev@claude-plugins-official
+  - claude-mem@thedotmack
+  - swe-workflow@swe-workflow
+  - claude-mermaid@claude-mermaid
+  - html-plan@claude-community
+  # The roles/codex install of the same plugin is the other half.
+  - pstack@open-pstack
+
+# `~/.claude/plugins/installed_plugins.json`, the ledger the update gate diffs. Claude Code
+# stamps a `gitCommitSha` into it per install record, and that moves only when a new upstream
+# commit actually lands — so it is the state to compare, per AGENTS.md "Self-update tasks:
+# diff state, don't grep output". The same file the `ponytail` role diffs for its own plugin.
+claude_code_plugin_ledger: "{{ lookup('env', 'HOME') }}/.claude/plugins/installed_plugins.json"
+
+# `~/.claude/plugins/known_marketplaces.json`, the ledger the marketplace gate diffs. Derived
+# from the path above rather than spelled out again, so the ledger directory is named once.
+#
+# Its keys are marketplace NAMES, which are not derivable from the `owner/repo` the CLI is
+# given: `thedotmack/claude-mem` registers as `thedotmack` while `veelenga/claude-mermaid`
+# registers as `claude-mermaid` — the name comes from the marketplace's own manifest. That is
+# why `claude_code_marketplaces` below carries the name beside the source: the add loop gates
+# on it, and the key set is still diffed around the loop to decide `changed`.
+claude_code_marketplace_ledger: "{{ claude_code_plugin_ledger | dirname }}/known_marketplaces.json"
+
+# The marketplaces carrying those plugins, as {name, source}. Not extracted from
+# `claude_code_plugins`: the two are not in step, since `frontend-design` and `feature-dev`
+# both come from claude-plugins-official.
+#
+# The name is what makes the add gateable, and that gate is load-bearing rather than a
+# micro-optimisation: **`claude plugin marketplace add` is not idempotent across an upstream
+# org rename.** Measured 2026-09-18 on mac-mini-m2 — the four ledger records were written at
+# 13:08:15 / :19 / :21 / :24Z, four entries in this loop's order, three seconds apart — the
+# `swe-workflow/swe-workflow` add followed GitHub's redirect for the org transfer and stored
+# the RESOLVED `OpenSWE/swe-workflow`. Every later run then asked for the old spelling, which
+# Claude Code refuses outright ("its network source differs from the one declared for it in
+# settings … the source must match"), failing the play on that host from then on, and would
+# have reached the other six hosts one run after their next. Re-adding a marketplace that is
+# already registered buys nothing and costs exactly that.
+claude_code_marketplaces:
+  - name: claude-plugins-official # https://claude.com/plugins
+    source: anthropics/claude-plugins-official
+  - name: thedotmack
+    source: thedotmack/claude-mem
+  - name: swe-workflow
+    source: OpenSWE/swe-workflow # transferred out of swe-workflow/ on 2026-09-18
+  - name: claude-mermaid
+    source: veelenga/claude-mermaid
+  - name: claude-community
+    source: anthropics/claude-plugins-community
+  - name: open-pstack
+    source: ericlitman/open-pstack

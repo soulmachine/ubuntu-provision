@@ -4,128 +4,284 @@
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/claude"
 
+# Don't infer the verdict from `claude update`'s wording: a check that fails or
+# gets rate-limited still exits 0 while printing neither the up-to-date sentinel
+# nor an error, which reports a phantom change on every converged run. The
+# resolved version is the real signal — it moves only when a new build landed.
+- name: Record the Claude Code version before updating
+  ansible.builtin.command: claude --version
+  register: claude_code_version_before
+  changed_when: false
+
 - name: Update Claude Code to the latest version
   ansible.builtin.command: claude update
-  register: claude_code_self_update
-  changed_when: "'Claude Code is up to date' not in claude_code_self_update.stdout"
+  changed_when: false
 
-- name: Add ccd alias to .bashrc
+- name: Check whether Claude Code was updated
+  ansible.builtin.command: claude --version
+  register: claude_code_version_after
+  changed_when: claude_code_version_after.stdout != claude_code_version_before.stdout
+
+- name: Remove the legacy ccd alias from .bashrc
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    line: 'alias ccd="claude --dangerously-skip-permissions --effort max"'
     regexp: '^alias ccd='
+    state: absent
+
+- name: Add claude-yolo alias to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias claude-yolo="claude --dangerously-skip-permissions --effort max"'
+    regexp: '^alias claude-yolo='
     state: present
 
 - name: Check installed plugins
   ansible.builtin.slurp:
-    src: "{{ lookup('env', 'HOME') }}/.claude/plugins/installed_plugins.json"
+    src: "{{ claude_code_plugin_ledger }}"
   register: claude_code_plugins_raw
   failed_when: false
 
 - name: Decode installed plugins
   ansible.builtin.set_fact:
-    claude_code_plugins_content: "{{ (claude_code_plugins_raw.content | default('') | b64decode) if claude_code_plugins_raw is succeeded else '' }}"
+    claude_code_plugins_content: "{{ claude_code_plugins_raw.content | default('') | b64decode }}"
 
-# Read claude code settings
 - name: Ensure ~/.claude directory exists
   ansible.builtin.file:
     path: "{{ lookup('env', 'HOME') }}/.claude"
     state: directory
     mode: "0755"
 
+# Transcripts and edit snapshots keep any secret a session printed or edited (the gateway
+# key turned up in both on 2026-10-06), so no other local user may read them (DECISIONS Q188).
+- name: Keep Claude Code transcripts and edit snapshots private
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.claude/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - projects
+    - file-history
+
+# Same ledger-diff shape as the plugin update below, for the same reason: the old gate here
+# read `'already' not in stdout`, a NEGATED sentinel. `claude plugin marketplace add` has
+# more than one no-op phrasing and prints nothing at all on some failure paths, so that gate
+# reports a phantom change on all four — or reads a failure as a change.
+- name: Read the known marketplaces before adding
+  ansible.builtin.slurp:
+    src: "{{ claude_code_marketplace_ledger }}"
+  register: claude_code_mp_before
+  failed_when: false
+
+# Gated on the ledger the slurp above just read, NOT run unconditionally: an already-registered
+# marketplace is re-added for nothing, and after an upstream org rename it is re-added for worse
+# than nothing — see the note on `claude_code_marketplaces`. `e30=` is base64 `{}`, for the
+# fresh-host and `--check` cases where the ledger does not exist yet. Gated on the NAME, which is
+# what the ledger is keyed by and what survives a rename; the source is what the CLI is handed.
+- name: Add plugin marketplaces
+  ansible.builtin.command: claude plugin marketplace add {{ item.source }}
+  loop: "{{ claude_code_marketplaces }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: >-
+    item.name not in
+    (claude_code_mp_before.content | default('e30=') | b64decode | from_json)
+  changed_when: false
+
+- name: Read the known marketplaces after adding
+  ansible.builtin.slurp:
+    src: "{{ claude_code_marketplace_ledger }}"
+  register: claude_code_mp_after
+  failed_when: false
+
+# Compares the key set only — the marketplace names — not the records, which carry
+# per-fetch metadata that moves on its own. `e30=` is base64 `{}`, for the fresh-host and
+# `--check` cases where the ledger does not exist yet.
+- name: Check whether any marketplace was added
+  vars:
+    claude_code_mp_names_before: >-
+      {{ (claude_code_mp_before.content | default('e30=') | b64decode | from_json).keys() | sort }}
+    claude_code_mp_names_after: >-
+      {{ (claude_code_mp_after.content | default('e30=') | b64decode | from_json).keys() | sort }}
+  ansible.builtin.debug:
+    msg: >-
+      Claude Code marketplaces
+      {{ 'added' if claude_code_mp_names_before != claude_code_mp_names_after else 'already registered' }}
+  changed_when: claude_code_mp_names_before != claude_code_mp_names_after
+
+- name: Install plugins
+  ansible.builtin.command: claude plugin install {{ item }}
+  loop: "{{ claude_code_plugins }}"
+  when: "item not in claude_code_plugins_content"
+  changed_when: true
+
+# The update below decides `changed` by diffing the ledger around it, not by reading its own
+# stdout. It used to do the latter, with a NEGATED pair of sentinels — unchanged when stdout
+# said "already" or "refreshed from source" — which is the one shape AGENTS.md rules out:
+# "never a negated one". It enumerates the no-op phrasings known at the time, so a third one,
+# or any failure printing neither, reports a phantom change on every plugin; and a failed
+# update would surface as a change rather than as an error.
+#
+# `gitCommitSha` is the honest signal: Claude Code stamps it per install record and it moves
+# only when a new upstream commit lands. The `ponytail` role already diffs this same file for
+# its own plugin, so this is that pattern applied to the list here rather than a new idea.
+#
+# `e30=` is base64 `{}`, for the fresh-host and `--check` cases where the ledger does not
+# exist yet — without it `b64decode | from_json` fails on an empty read.
+- name: Read the plugin ledger before updating
+  ansible.builtin.slurp:
+    src: "{{ claude_code_plugin_ledger }}"
+  register: claude_code_ledger_before
+  failed_when: false
+
+- name: Update plugins to the latest version
+  ansible.builtin.command: claude plugin update {{ item }}
+  loop: "{{ claude_code_plugins }}"
+  changed_when: false
+
+- name: Read the plugin ledger after updating
+  ansible.builtin.slurp:
+    src: "{{ claude_code_plugin_ledger }}"
+  register: claude_code_ledger_after
+  failed_when: false
+
+# Only `gitCommitSha` is compared, never the whole record: `lastUpdated` is rewritten on a
+# no-op update (observed 2026-09-16 on planning-with-files, dropped from this list the same
+# day), so comparing records wholesale would report a phantom change on every run — the very
+# thing this replaces.
+#
+# `sort(attribute='key')` makes the comparison independent of the order the CLI happens to
+# write the map in, and `default('')` keeps a record that carries no sha at all — several in
+# this ledger do not — reading as a stable empty string on both sides rather than as drift.
+- name: Check whether any plugin was updated
+  vars:
+    claude_code_shas_before: >-
+      {{ (claude_code_ledger_before.content | default('e30=') | b64decode | from_json).plugins
+         | default({}) | dict2items | selectattr('key', 'in', claude_code_plugins)
+         | sort(attribute='key') | map(attribute='value') | flatten
+         | map(attribute='gitCommitSha', default='') | list }}
+    claude_code_shas_after: >-
+      {{ (claude_code_ledger_after.content | default('e30=') | b64decode | from_json).plugins
+         | default({}) | dict2items | selectattr('key', 'in', claude_code_plugins)
+         | sort(attribute='key') | map(attribute='value') | flatten
+         | map(attribute='gitCommitSha', default='') | list }}
+  ansible.builtin.debug:
+    msg: >-
+      Claude Code plugins
+      {{ 'updated' if claude_code_shas_before != claude_code_shas_after else 'already up to date' }}
+  changed_when: claude_code_shas_before != claude_code_shas_after
+
+# Read the file right before writing it, below every `claude plugin` step. The
+# CLI writes this same file too — `enable` adds to `enabledPlugins`, and the
+# `extraKnownMarketplaces` map on this host carries CLI-appended entries — so a
+# snapshot taken above those steps would write the older file back.
+#
+# `failed_when: false` on the slurp forces `failed: false`, so `... is succeeded`
+# is true even when the file is missing and no `content` key was ever set —
+# hence the parse guards on `content` itself, not on task status.
+#
+# no_log on all four tasks that hold the file — read, parse, merge, write: it carries
+# TYPESAFE_API_KEY in its `env` map (the typesafe role), and an ad-hoc `include_role` run
+# prints every result in full, as does `--diff` on the write. That includes every run of a
+# role depending on this one (ponytail, typesafe).
 - name: Read existing Claude Code settings
   ansible.builtin.slurp:
     src: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
   register: claude_code_settings_raw
   failed_when: false
+  no_log: true
 
 - name: Parse existing Claude Code settings
   ansible.builtin.set_fact:
-    claude_code_settings: "{{ (claude_code_settings_raw.content | b64decode | from_json) if claude_code_settings_raw.content is defined else {} }}"
+    claude_code_settings: >-
+      {{ (claude_code_settings_raw.content | b64decode | from_json)
+         if (claude_code_settings_raw.content | default('') | b64decode | trim | length > 0)
+         else {} }}
+  no_log: true
 
-- name: Add plugin marketplaces
-  ansible.builtin.command: claude plugin marketplace add {{ item }}
-  loop:
-    - anthropics/claude-plugins-official # https://claude.com/plugins
-    - OthmanAdi/planning-with-files
-    - thedotmack/claude-mem
-    - forrestchang/andrej-karpathy-skills
-    - swe-workflow/swe-workflow
-    - veelenga/claude-mermaid
-  register: claude_code_mp
-  changed_when: "'already' not in claude_code_mp.stdout"
-
-- name: Install plugins
-  ansible.builtin.command: claude plugin install {{ item }}
-  loop:
-    - frontend-design@claude-plugins-official
-    - feature-dev@claude-plugins-official
-    - planning-with-files@planning-with-files
-    - claude-mem@thedotmack
-    - andrej-karpathy-skills@karpathy-skills
-    - swe-workflow@swe-workflow
-    - claude-mermaid@claude-mermaid
-  when: "item not in claude_code_plugins_content"
-  changed_when: true
-
-- name: Update plugins to the latest version
-  ansible.builtin.command: claude plugin update {{ item }}
-  loop:
-    - frontend-design@claude-plugins-official
-    - feature-dev@claude-plugins-official
-    - planning-with-files@planning-with-files
-    - claude-mem@thedotmack
-    - andrej-karpathy-skills@karpathy-skills
-    - swe-workflow@swe-workflow
-    - claude-mermaid@claude-mermaid
-  register: claude_code_update
-  # Two no-op outcomes: versioned plugins print "already at the latest version";
-  # unversioned ones (version "unknown", e.g. frontend-design/feature-dev) can't
-  # report a version so they always print "refreshed from source" instead. Neither
-  # is a real change — treat both as unchanged so re-runs report changed=0.
-  changed_when:
-    - "'already' not in claude_code_update.stdout"
-    - "'refreshed from source' not in claude_code_update.stdout"
-
-- name: Disable Co-Authored-By in commits
-  ansible.builtin.copy:
-    dest: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
-    content: "{{ claude_code_settings | combine({'attribution': {'commit': ''}}) | to_nice_json }}\n"
-    mode: "0644"
-  when: (claude_code_settings.attribution.commit | default(none)) != ''
-
-- name: Re-read Claude Code settings
-  ansible.builtin.slurp:
-    src: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
-  register: claude_code_settings_raw
-  failed_when: false
-
-- name: Re-parse Claude Code settings
+# The settings this role owns, merged over whatever else the file holds — hooks,
+# enabledPlugins and the rest pass through untouched. They go in one write: each
+# `copy` merges into the snapshot read above, so a second write would need its
+# own re-read first or it puts the first one back. `recursive` so a nested map
+# gains keys instead of being replaced — that is what lets `attribution` and
+# `permissions` be managed key-by-key, leaving the user's own
+# `permissions.allow` / `permissions.deny` lists in place.
+- name: Merge the managed Claude Code settings into the existing ones
   ansible.builtin.set_fact:
-    claude_code_settings: "{{ (claude_code_settings_raw.content | b64decode | from_json) if claude_code_settings_raw.content is defined else {} }}"
+    claude_code_settings_merged: >-
+      {{ claude_code_settings | combine(claude_code_settings_managed, recursive=true) }}
+  no_log: true
+  vars:
+    claude_code_settings_managed:
+      # No Co-Authored-By trailer on commits. `attribution` is the current
+      # setting; `includeCoAuthoredBy` is the older name it replaced, kept so a
+      # host still on an earlier Claude Code honours it too. On a current
+      # Claude Code it is inert: `attribution` wins outright the moment
+      # `commit` or `pr` is set, and `includeCoAuthoredBy` is never read.
+      #
+      # `commit: ""` blanks the attribution *text* and nothing else. The
+      # `Claude-Session: https://claude.ai/code/session_...` trailer is appended
+      # afterwards, by a separate gate, and an empty commit string does not stop
+      # it — the combiner reads `commit ? commit + "\n\nClaude-Session: ..."
+      # : "Claude-Session: ..."`, so blanking the text just leaves the session
+      # line standing alone. `sessionUrl: false` is the only setting that
+      # suppresses it (the env var CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION does
+      # the same per-shell), and it is checked with `=== false`, so it must be a
+      # real boolean. It is needed here precisely because
+      # `remoteControlAtStartup: true` below puts every session on the surface
+      # that emits the trailer in the first place.
+      #
+      # `pr` is deliberately left unset: `sessionUrl: false` drops the session
+      # link from PR bodies, and the plain "Generated with Claude Code" footer
+      # stays. Set `pr: ""` here to drop that too.
+      attribution:
+        commit: ""
+        sessionUrl: false
+      includeCoAuthoredBy: false
+      remoteControlAtStartup: true
+      # Auto-compact once the context reaches 400k tokens rather than near the
+      # model's full window: a long context degrades answers well before it
+      # fills. The setting behind `/autocompact 400k`; the tip is from
+      # https://x.com/dotey/status/2094972456607862977
+      autoCompactWindow: 400000
+      # Every session starts in bypass mode — no per-tool permission prompts,
+      # the same posture as launching with `--dangerously-skip-permissions`.
+      # Only `defaultMode` is managed; `allow`/`deny` are left to the user.
+      permissions:
+        defaultMode: bypassPermissions
+      # Keep prompt suggestions on. Claude Code reads this one from the
+      # environment, so it belongs in the settings `env` map — the recursive
+      # combine adds the key and leaves the gateway vars there alone.
+      env:
+        CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: "true"
+        # Load MCP tool definitions on demand through tool search, not all up front.
+        ENABLE_TOOL_SEARCH: "true"
 
-- name: Enable Remote Control for all sessions
+# Gate on the merge changing something, not on `copy`'s content diff:
+# `to_nice_json` emits 4-space, key-sorted JSON while Claude Code rewrites the
+# file in its own 2-space order whenever it saves a setting, so a bare `copy`
+# would flip the file between the two formats on every run.
+#
+# 0600, not 0644: the `typesafe` role puts TYPESAFE_API_KEY into this file's `env`
+# map, and Claude Code itself keeps the file at 0600 (measured 2026-09-18), so a
+# 0644 write here would loosen it again on every changed run.
+- name: Apply the managed Claude Code settings
   ansible.builtin.copy:
     dest: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
-    content: "{{ claude_code_settings | combine({'remoteControlAtStartup': true}) | to_nice_json }}\n"
-    mode: "0644"
-  when: (claude_code_settings.remoteControlAtStartup | default(false)) != true
+    content: "{{ claude_code_settings_merged | to_nice_json }}\n"
+    mode: "0600"
+  when: claude_code_settings_merged != claude_code_settings
+  no_log: true
 
-# `claude plugin install` adds a plugin to ~/.claude/plugins/installed_plugins.json
-# but does NOT add it to `enabledPlugins` in ~/.claude/settings.json, and only
-# enabled plugins appear in `/plugin`. So we explicitly enable each one. Gate on
-# key absence (not value), so a user's manual `/plugin` disable is respected on
-# re-runs. Runs last so the earlier shallow-merge writes can't clobber the
-# enabledPlugins map.
+# Only enabled plugins appear in `/plugin`. Older Claude Code builds recorded an
+# install in ~/.claude/plugins/installed_plugins.json without touching
+# `enabledPlugins` in ~/.claude/settings.json; 2.1.276 writes both (measured
+# 2026-09-18 — the typesafe role's enable loop skipped on a fresh install). So this
+# is a safety net for the older behaviour, kept because it costs nothing when it
+# skips. Gate on key absence (not value), so a user's manual `/plugin` disable is
+# respected on re-runs. Runs after the settings write above so that write can't
+# clobber the enabledPlugins map this adds to.
 - name: Enable plugins
   ansible.builtin.command: claude plugin enable {{ item }}
-  loop:
-    - frontend-design@claude-plugins-official
-    - feature-dev@claude-plugins-official
-    - planning-with-files@planning-with-files
-    - claude-mem@thedotmack
-    - andrej-karpathy-skills@karpathy-skills
-    - swe-workflow@swe-workflow
-    - claude-mermaid@claude-mermaid
+  loop: "{{ claude_code_plugins }}"
   when: "item not in (claude_code_settings.enabledPlugins | default({}))"
   changed_when: true
