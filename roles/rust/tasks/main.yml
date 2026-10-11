@@ -13,10 +13,40 @@
 # Additional recommended components on top of the default profile:
 # rust-src (std source, required for rust-analyzer to resolve std symbols)
 # and rust-analyzer (the official language server).
+#
+# The old gate read `'installing' in stdout ~ stderr`, a phrase rustup 1.29.1 never prints
+# for a named component: a genuine install emits exactly `info: downloading component
+# rust-src` and nothing more. Measured 2026-09-16 by removing and re-adding both components;
+# the only `installing component` string in the rustup binary is the hardcoded literal
+# `installing component rust`, on the legacy-manifest path. The gate was written against an
+# older wording upstream has since dropped, so this role installed components and reported
+# `ok` — a MISSED change, which two-pass idempotency checking can never surface, because a
+# quiet second pass is also exactly what a correct gate looks like.
+#
+# `component list --installed` is the state to diff, per AGENTS.md "Self-update tasks: diff
+# state, don't grep output". Comparing the whole listing also sidesteps the target triple:
+# `rust-analyzer` is listed as `rust-analyzer-aarch64-apple-darwin` while `rust-src` is bare,
+# so matching component names one by one would have to know which form each takes.
+#
+# The reads bracket the loop rather than sitting inside it, so the pair reports one `changed`
+# for both components instead of one each — the same trade the npm roles make. Only the
+# "before" read tolerates a failure (an empty stdout then differs from a real "after", which
+# reports changed rather than failing); the "after" read is left strict, so a genuinely
+# broken rustup still fails the play there.
+- name: Read the installed rustup components
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup component list --installed"
+  register: rust_components_before
+  changed_when: false
+  failed_when: false
+
 - name: Add recommended rustup components
   ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup component add {{ item }}"
-  register: rust_component
-  changed_when: "'installing' in (rust_component.stdout ~ rust_component.stderr)"
+  changed_when: false
   loop:
     - rust-src
     - rust-analyzer
+
+- name: Check whether the rustup components changed
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup component list --installed"
+  register: rust_components_after
+  changed_when: rust_components_after.stdout != rust_components_before.stdout
