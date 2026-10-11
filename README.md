@@ -168,6 +168,8 @@ pre-commit run --all-files
 | claude-mem | `npx -y claude-mem install` | 不是独立命令，而是 Claude Code 插件，同时接线 codex-cli 和 opencode |
 | agent-reach | **没有包管理器**，见下 | 由 `claude-gw -p` 按上游文档安装 |
 
+这五个 agent（copilot、crush、gemini、grok、openclaw）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
+
 #### 每次运行都会被覆盖的配置文件
 
 **`~/.pi/agent/settings.json` 每次 play 都会被仓库里的版本整个覆盖。** `pi` role 用 `copy: src=agent/ dest=~/.pi/agent/` 下发整个目录，没有任何 gate，所以在 pi 里通过 `/settings` 改的东西会在下一次 provisioning 时被抹掉。要让改动活下来，得改 `roles/pi/files/agent/` 里的文件。这是一次**合并**而不是同步：`~/.pi/agent/` 下面没被 payload 覆盖到的东西（尤其是 `skills` role 维护的 `~/.pi/agent/skills/`）不受影响。

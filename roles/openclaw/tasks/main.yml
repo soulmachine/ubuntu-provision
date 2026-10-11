@@ -4,11 +4,13 @@
 # (gateway provider, key in ~/.openclaw/.env, its systemd user daemon) and keeps that config, as it
 # does for the other agents (coding-agent Q401). A running daemon keeps the old version after an
 # upgrade until it restarts.
-- name: Install OpenClaw
-  community.general.npm:
-    name: openclaw
-    global: true
-    state: latest
+- name: Install OpenClaw from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: "openclaw"
+    nodejs_npm_cmd: openclaw
 
 # The daemon's service file names an absolute Node and OpenClaw entrypoint, so after the nodejs
 # role moves Node or OpenClaw itself is upgraded, it keeps running the old pair, and it breaks once

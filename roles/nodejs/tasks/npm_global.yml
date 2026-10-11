@@ -1,0 +1,39 @@
+---
+# Install or update one CLI as an npm global, unless another channel already provides its
+# command (a mise tool, a native installer in ~/.local/bin, Homebrew): two copies on PATH, each
+# with its own updater, is how a host ends up running the stale one. A role includes this with
+#
+#   - ansible.builtin.include_role:
+#       name: nodejs
+#       tasks_from: npm_global
+#     vars:
+#       nodejs_npm_package: "@github/copilot"
+#       nodejs_npm_cmd: copilot
+- name: Check whether npm owns {{ nodejs_npm_package }}
+  ansible.builtin.command: npm ls -g --depth=0 {{ nodejs_npm_package }}
+  register: nodejs_npm_owned
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Look for another channel's copy of {{ nodejs_npm_cmd }}
+  ansible.builtin.command: which {{ nodejs_npm_cmd }}
+  register: nodejs_npm_other
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: nodejs_npm_owned.rc != 0
+
+- name: Install from npm {{ nodejs_npm_package }}
+  community.general.npm:
+    name: "{{ nodejs_npm_package }}"
+    global: true
+    state: latest
+  when: nodejs_npm_owned.rc == 0 or nodejs_npm_other.rc != 0
+
+- name: Report another channel's copy of {{ nodejs_npm_cmd }}
+  ansible.builtin.debug:
+    msg: >-
+      {{ nodejs_npm_cmd }} is already installed at {{ nodejs_npm_other.stdout }} by another channel, so npm
+      leaves it alone; that channel keeps it current.
+  when: nodejs_npm_owned.rc != 0 and nodejs_npm_other.rc == 0

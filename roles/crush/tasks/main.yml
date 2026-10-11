@@ -1,8 +1,10 @@
 ---
 # Crush (Charm) from npm. Its gateway provider, a managed block in ~/.config/crush/crushrc, comes
 # from `cliproxy-tier <host>` on mac-mini-m2 (coding-agent Q401).
-- name: Install Crush
-  community.general.npm:
-    name: "@charmland/crush"
-    global: true
-    state: latest
+- name: Install Crush from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: "@charmland/crush"
+    nodejs_npm_cmd: crush
