@@ -1,6 +1,5 @@
 ---
 - name: Install uv # noqa: command-instead-of-module risky-shell-pipe
-  check_mode: false
   ansible.builtin.shell: curl -LsSf https://astral.sh/uv/install.sh | sh
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"

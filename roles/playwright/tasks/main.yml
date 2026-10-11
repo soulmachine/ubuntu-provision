@@ -1,6 +1,5 @@
 ---
 - name: Install Playwright globally
-  check_mode: false
   ansible.builtin.command: npm install -g playwright@latest
   register: playwright_npm
   changed_when: "'added' in playwright_npm.stdout or 'updated' in playwright_npm.stdout"
@@ -9,7 +8,6 @@
 # run it by absolute path under root (become resets PATH to root's secure_path,
 # which has neither mise's node nor the npm global bin).
 - name: Locate the playwright binary # noqa: command-instead-of-shell
-  check_mode: false
   ansible.builtin.shell: command -v playwright
   register: playwright_bin
   changed_when: false
@@ -18,7 +16,6 @@
 # X/GTK/NSS libs, etc.); macOS bundles these, so the macOS role had no equivalent.
 # `playwright install-deps` apt-installs them and requires root.
 - name: Install Playwright system dependencies (Linux)
-  check_mode: false
   become: true
   ansible.builtin.command: "{{ playwright_bin.stdout }} install-deps chromium"
   environment:
@@ -29,7 +26,6 @@
   changed_when: false
 
 - name: Install Playwright Chromium
-  check_mode: false
   ansible.builtin.command: playwright install chromium
   register: playwright_install
   changed_when: "'downloading' in playwright_install.stdout | lower"

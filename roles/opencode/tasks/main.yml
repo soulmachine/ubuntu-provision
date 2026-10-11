@@ -1,6 +1,5 @@
 ---
 - name: Install opencode CLI
-  check_mode: false
   community.general.npm:
     name: opencode-ai
     global: true
@@ -37,7 +36,6 @@
   register: omo_config_before
 
 - name: Install and configure oh-my-openagent for OpenCode (non-interactive)
-  check_mode: false
   ansible.builtin.command: >-
     npx --yes oh-my-openagent install
     --no-tui

@@ -39,7 +39,6 @@
   check_mode: false
 
 - name: Install and wire claude-mem for each IDE
-  check_mode: false
   ansible.builtin.command: >-
     npx -y claude-mem install
     --provider {{ claude_mem_provider }}
@@ -80,7 +79,6 @@
   register: claude_mem_openclaw_plugin
 
 - name: Install the claude-mem OpenClaw plugin (non-interactive, tsc deprecation patched)
-  check_mode: false
   ansible.builtin.shell: |
     set -o pipefail
     curl -fsSL https://install.cmem.ai/openclaw.sh | perl -pe 's/npx tsc 2>&1/npx tsc --ignoreDeprecations 6.0 --types node 2>&1/' | bash -s -- --non-interactive

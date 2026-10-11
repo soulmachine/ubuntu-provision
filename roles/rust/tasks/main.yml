@@ -4,7 +4,6 @@
 # cargo, rust-std, rust-docs, rustfmt and clippy; rustup also adds
 # ~/.cargo/bin to PATH via ~/.cargo/env (sourced from the shell profile).
 - name: Install Rust toolchain via rustup # noqa: command-instead-of-module risky-shell-pipe
-  check_mode: false
   ansible.builtin.shell: >
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |
     sh -s -- -y --default-toolchain stable --profile default
@@ -15,7 +14,6 @@
 # rust-src (std source, required for rust-analyzer to resolve std symbols)
 # and rust-analyzer (the official language server).
 - name: Add recommended rustup components
-  check_mode: false
   ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup component add {{ item }}"
   register: rust_component
   changed_when: "'installing' in (rust_component.stdout ~ rust_component.stderr)"

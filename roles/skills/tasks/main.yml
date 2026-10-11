@@ -1,12 +1,10 @@
 ---
 - name: Install baoyu skills for all agents
-  check_mode: false
   ansible.builtin.command:
     cmd: npx skills add jimliu/baoyu-skills -g -y --all
     creates: "{{ lookup('env', 'HOME') }}/.agents/skills/baoyu-youtube-transcript"
 
 - name: Install mattpocock skills for all agents
-  check_mode: false
   ansible.builtin.command:
     cmd: npx skills add https://github.com/mattpocock/skills -all -g -y
     # marker is a skill the mattpocock repo actually provides; the upstream macOS
@@ -14,13 +12,11 @@
     creates: "{{ lookup('env', 'HOME') }}/.agents/skills/diagnosing-bugs"
 
 - name: Install soulmachine skills for all agents
-  check_mode: false
   ansible.builtin.command:
     cmd: npx skills add soulmachine/skills -g -y --all
     creates: "{{ lookup('env', 'HOME') }}/.agents/skills/mac-mini-as-headless-server"
 
 - name: Install last30days skill for all agents
-  check_mode: false
   ansible.builtin.command:
     cmd: npx skills add mvanhorn/last30days-skill -g -y --all
     creates: "{{ lookup('env', 'HOME') }}/.agents/skills/last30days"

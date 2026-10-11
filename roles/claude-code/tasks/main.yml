@@ -1,12 +1,10 @@
 ---
 - name: Install Claude Code # noqa: command-instead-of-module risky-shell-pipe
-  check_mode: false
   ansible.builtin.shell: curl -fsSL https://claude.ai/install.sh | bash
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/claude"
 
 - name: Update Claude Code to the latest version
-  check_mode: false
   ansible.builtin.command: claude update
   register: claude_code_self_update
   changed_when: "'Claude Code is up to date' not in claude_code_self_update.stdout"
@@ -46,7 +44,6 @@
     claude_code_settings: "{{ (claude_code_settings_raw.content | b64decode | from_json) if claude_code_settings_raw.content is defined else {} }}"
 
 - name: Add plugin marketplaces
-  check_mode: false
   ansible.builtin.command: claude plugin marketplace add {{ item }}
   loop:
     - anthropics/claude-plugins-official # https://claude.com/plugins
@@ -59,7 +56,6 @@
   changed_when: "'already' not in claude_code_mp.stdout"
 
 - name: Install plugins
-  check_mode: false
   ansible.builtin.command: claude plugin install {{ item }}
   loop:
     - frontend-design@claude-plugins-official
@@ -73,7 +69,6 @@
   changed_when: true
 
 - name: Update plugins to the latest version
-  check_mode: false
   ansible.builtin.command: claude plugin update {{ item }}
   loop:
     - frontend-design@claude-plugins-official
@@ -123,7 +118,6 @@
 # re-runs. Runs last so the earlier shallow-merge writes can't clobber the
 # enabledPlugins map.
 - name: Enable plugins
-  check_mode: false
   ansible.builtin.command: claude plugin enable {{ item }}
   loop:
     - frontend-design@claude-plugins-official

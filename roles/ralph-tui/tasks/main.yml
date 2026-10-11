@@ -1,6 +1,5 @@
 ---
 - name: Install ralph-tui
-  check_mode: false
   ansible.builtin.command: bun install -g ralph-tui
   environment:
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
@@ -18,17 +17,13 @@
   register: ralph_tui_skills_stat
 
 - name: Install ralph-tui skills
-  check_mode: false
   ansible.builtin.command: bunx skills add subsy/ralph-tui --all -g
   environment:
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
   when: ralph_tui_skills_stat.results | selectattr('stat.exists', 'false') | list | length > 0
   changed_when: true
 
-# check_mode: false — the symlink task below resolves a relative src *through* these
-# dirs, so they must really exist (not just be previewed) for --check to complete.
 - name: Ensure agent skills directories exist
-  check_mode: false
   ansible.builtin.file:
     path: "{{ lookup('env', 'HOME') }}/.{{ item }}/skills"
     state: directory
@@ -37,10 +32,7 @@
     - codex
     - gemini
 
-# check_mode: false — `state: link` validates the (relative) src exists, which needs
-# the dirs above and the installed skills to actually be present in a --check run.
 - name: Symlink ralph-tui skills into agent directories
-  check_mode: false
   ansible.builtin.file:
     src: ../../.agents/skills/{{ item.1 }}
     dest: "{{ lookup('env', 'HOME') }}/.{{ item.0 }}/skills/{{ item.1 }}"
