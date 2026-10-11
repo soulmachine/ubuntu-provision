@@ -4,6 +4,40 @@
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
 
+# Full paths because ~/.local/bin may not be on Ansible's PATH.
+#
+# Don't read the verdict from `uv self update`'s wording. It exits 0 on every
+# path, so a check that failed or got rate-limited prints neither the "latest
+# version" sentinel nor an error. Diff `uv --version` instead, per the
+# "diff state, don't grep output" rule in docs/writing-roles.md.
+- name: Record the uv version before updating
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/uv --version"
+  register: uv_version_before
+  changed_when: false
+
+# failed_when: false, not ignore_errors: true: the update check hits the GitHub
+# releases API unauthenticated, so a spent limit is an expected outcome, not a
+# failure worth a red `fatal:` block. uv itself is guaranteed present above.
+- name: Update uv
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/uv self update"
+  register: uv_self_update
+  changed_when: false
+  failed_when: false
+
+- name: Check whether uv was updated
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/uv --version"
+  register: uv_version_after
+  changed_when: uv_version_after.stdout != uv_version_before.stdout
+
+- name: Warn that the uv version check could not reach GitHub
+  ansible.builtin.debug:
+    msg:
+      - "`uv self update` exited {{ uv_self_update.rc }}. {{ uv_version_after.stdout }} is installed and working,"
+      - "but it could not confirm whether a newer release exists."
+      - "Most likely the unauthenticated GitHub API rate limit (60/hr per IP) is spent; check with `curl -s https://api.github.com/rate_limit`."
+      - "Diagnose: run `uv self update` by hand to see uv's own error."
+  when: uv_self_update.rc != 0
+
 # Replaces the completions the oh-my-zsh uv plugin used to provide.
 - name: Add uv shell completions to .bashrc
   ansible.builtin.lineinfile:
