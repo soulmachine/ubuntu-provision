@@ -1,0 +1,19 @@
+# Paseo daemon as a systemd user unit, the Linux analogue of upstream's sh.paseo.daemon
+# LaunchAgent. Installed by the paseo role of ubuntu-provision; do not hand-edit.
+[Unit]
+Description=Paseo daemon
+After=network-online.target
+
+[Service]
+# bash -lc, not the binary directly: systemd reads no shell config, and the agent CLIs this
+# daemon spawns need CLIPROXY_API_KEY / CLIPROXY_BASE_URL and mise's shims on PATH, which
+# ~/.bashrc exports above its interactive guard. Launched by name, so every start picks up
+# whatever install is current (a Node upgrade replaces the npm global).
+ExecStart=/bin/bash -lc "exec paseo daemon run"
+Restart=always
+RestartSec=10
+StandardOutput=null
+StandardError=append:/tmp/paseo-daemon.err
+
+[Install]
+WantedBy=default.target

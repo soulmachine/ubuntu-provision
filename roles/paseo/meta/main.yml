@@ -1,4 +1,6 @@
 ---
 dependencies:
+  # The daemon and the CLI come from npm, and the daemon spawns these two agents.
+  - nodejs
   - claude-code
   - codex
