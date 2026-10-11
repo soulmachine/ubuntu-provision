@@ -1,0 +1,8 @@
+---
+dependencies:
+  # cux is a global npm package; claude-swap is installed with `uv tool install`.
+  - nodejs
+  - uv
+  # Both tools operate on an existing Claude Code install (~/.claude), so the
+  # CLI itself must be provisioned first.
+  - claude-code

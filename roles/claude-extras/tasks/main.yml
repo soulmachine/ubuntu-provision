@@ -1,0 +1,36 @@
+---
+# Extra tooling that sits on top of Claude Code itself (the `claude-code` role
+# installs the CLI, its plugins and settings; this role installs companions that
+# manage accounts/usage around it). Kept separate from `claude-code` so the two
+# package managers involved (npm, uv) don't have to be threaded through that
+# role, and separate from `nodejs`/`python` so the tools live next to what they
+# extend rather than next to the runtime that happens to ship them.
+
+# cux — Claude usage/account switcher. `state: latest` re-resolves on every run,
+# so a converged machine still picks up new releases.
+- name: Install cux
+  community.general.npm:
+    name: "@inulute/cux"
+    global: true
+    state: latest
+
+# claude-swap ships two entrypoints, `claude-swap` and the short `cswap`.
+#
+# `<pkg>@latest`, not a bare `uv tool install <pkg>`: the bare form no-ops with
+# "`<pkg>` is already installed" once any version is present, so a converged
+# machine would never pick up new releases. `@latest` re-resolves every run and
+# also overrides an exact-version pin left by an earlier manual install.
+# Full path because ~/.local/bin may not be on Ansible's PATH.
+#
+# changed_when: uv prints an audit line per package it actually wrote
+# ("Installed 3 packages" / "Uninstalled 1 package"); when everything is
+# already current it prints "Checked 3 packages" and only the unconditional
+# "Installed 2 executables: claude-swap, cswap" line — which the "package" in
+# the pattern deliberately excludes.
+- name: Install claude-swap with uv
+  ansible.builtin.command: >-
+    {{ lookup('env', 'HOME') }}/.local/bin/uv tool install claude-swap@latest
+  register: claude_extras_swap_install
+  changed_when: >-
+    (claude_extras_swap_install.stderr + claude_extras_swap_install.stdout)
+    is search('Installed [0-9]+ package')
