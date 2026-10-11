@@ -16,10 +16,6 @@ claude_mem_runtime: worker
 # re-install (upgrade) is needed.
 claude_mem_plugin_manifest: "{{ lookup('env', 'HOME') }}/.claude/plugins/marketplaces/thedotmack/.claude-plugin/plugin.json"
 
-# OpenClaw gateway plugin marker (installed by the install.cmem.ai/openclaw.sh
-# script, which writes into ~/.openclaw/extensions/claude-mem/).
-claude_mem_openclaw_marker: "{{ lookup('env', 'HOME') }}/.openclaw/extensions/claude-mem/openclaw.plugin.json"
-
 # One `claude-mem install --ide <name>` per IDE. `marker` is a file whose
 # presence-of-the-string "claude-mem" proves that IDE is already wired up, so we
 # only run the (heavy) installer for IDEs that aren't configured yet.

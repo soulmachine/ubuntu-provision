@@ -1,6 +1,0 @@
----
-- name: Install Gemini CLI
-  community.general.npm:
-    name: "@google/gemini-cli"
-    global: true
-    state: latest

@@ -9,8 +9,4 @@ dependencies:
   # IDE must be provisioned first.
   - claude-code
   - codex
-  - gemini
   - opencode
-  # The install.cmem.ai/openclaw.sh step installs claude-mem into the OpenClaw
-  # gateway, which must already exist.
-  - openclaw

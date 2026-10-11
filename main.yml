@@ -17,23 +17,16 @@
     - jdk
     - claude-code
     - codex
-    - gemini
     - opencode
     - skills
     - playwright
     - playwright-cli
-    - openclaw
     - claude-mem
-    - cc-switch
-    - beads
-    - ralph-tui
     - role: paseo
       tags: [agent-multiplexer]
     - cloudflare
     - multica-cli
     - tailscale
-    - role: moshi
-      tags: [agent-multiplexer]
     - role: zellij
       tags: [terminal-multiplexer]
     - role: tmux

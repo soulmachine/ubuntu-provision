@@ -1,8 +1,0 @@
----
-# moshi-hook is a macOS-only menu-bar hook app, installed from a Homebrew tap and
-# run as a launchd / `brew services` background service (https://getmoshi.app).
-# No Linux build exists. Kept as a documented no-op so main.yml stays 1:1 with the
-# macOS repo.
-- name: Skip moshi (macOS-only)
-  ansible.builtin.debug:
-    msg: "moshi-hook is macOS-only (menu-bar app + launchd service); no Linux build — skipped."
