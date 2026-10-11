@@ -1,0 +1,5 @@
+---
+# `bun upgrade` replaces the binary at its own location, so the full path
+# matters: PATH may resolve a different bun (e.g. the one bundled with mise's
+# node).
+bun_bin: "{{ lookup('env', 'HOME') }}/.bun/bin/bun"
