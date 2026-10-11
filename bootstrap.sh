@@ -61,6 +61,8 @@ fi
 # The two PATH lines go ABOVE ~/.bashrc's `case $- in` guard, which returns early from every
 # non-interactive shell, so `ssh host 'cmd'` and `bash -lc` see them. `mise activate bash`
 # is interactive-only and goes at the end. The mise role keeps all three in place.
+# The tag marks the lines as ours: a bare copy below the guard (Ubuntu's skeleton, an
+# installer) must not count as present. The mise role drops such copies.
 ensure_above_guard() {
   grep -qF "$1" ~/.bashrc 2>/dev/null && return
   if grep -q '^case \$- in' ~/.bashrc 2>/dev/null; then
@@ -69,8 +71,8 @@ ensure_above_guard() {
     printf '%s\n' "$1" >> ~/.bashrc
   fi
 }
-ensure_above_guard 'export PATH="$HOME/.local/bin:$PATH"'
-ensure_above_guard 'export PATH="$HOME/.local/share/mise/shims:$PATH"'
+ensure_above_guard 'export PATH="$HOME/.local/bin:$PATH"  # ubuntu-provision, above the guard'
+ensure_above_guard 'export PATH="$HOME/.local/share/mise/shims:$PATH"  # ubuntu-provision, above the guard'
 grep -q 'mise activate bash' ~/.bashrc 2>/dev/null || \
   echo 'eval "$(mise activate bash)"' >> ~/.bashrc
 MISE_BIN="$(command -v mise || echo "$HOME/.local/bin/mise")"

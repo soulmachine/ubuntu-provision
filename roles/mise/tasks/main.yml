@@ -66,19 +66,33 @@
 # `bash -lc "... ansible-playbook ..."` remote-run form (login, not interactive): both would
 # otherwise miss ~/.local/bin and mise's shims, which carry node, npm, go and java without
 # activation. `insertbefore` only places a NEW line; a matched line stays where it is.
+#
+# A bare copy of either line may already sit BELOW the guard (Ubuntu's skeleton, an installer,
+# or the old bootstrap on a host that had one): lineinfile would take it as present and never
+# insert above the guard (dev-server-frank, 2026-10-11). So the lines above the guard carry a
+# trailing tag nothing else writes, and untagged copies go: the tagged line makes them redundant.
+- name: Drop untagged copies of the PATH lines
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: '^export PATH="{{ item }}:\$PATH"$'
+    state: absent
+  loop:
+    - '\$HOME/\.local/bin'
+    - '\$HOME/\.local/share/mise/shims'
+
 - name: Ensure ~/.local/bin is on PATH for every shell
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    regexp: '^export PATH=".*\$HOME/\.local/bin.*"$'
-    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    regexp: '^export PATH="\$HOME/\.local/bin:\$PATH"\s+# ubuntu-provision'
+    line: 'export PATH="$HOME/.local/bin:$PATH"  # ubuntu-provision, above the guard'
     insertbefore: '^case \$- in'
     state: present
 
 - name: Ensure mise shims are on PATH for every shell
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    regexp: '^export PATH=".*mise/shims.*"$'
-    line: 'export PATH="$HOME/.local/share/mise/shims:$PATH"'
+    regexp: '^export PATH="\$HOME/\.local/share/mise/shims:\$PATH"\s+# ubuntu-provision'
+    line: 'export PATH="$HOME/.local/share/mise/shims:$PATH"  # ubuntu-provision, above the guard'
     insertbefore: '^case \$- in'
     state: present
 
