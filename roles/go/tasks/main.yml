@@ -1,5 +1,38 @@
 ---
+# No `mise upgrade go` here, unlike the `nodejs` and `jdk` roles, and that asymmetry
+# is measured rather than an oversight. `@latest` is a pointer mise re-resolves on
+# every run, where `lts` is satisfied by any already-installed LTS release — so
+# `mise use --global go@latest` pulls a new release by itself.
+#
+# The evidence is this machine's own install history, read 2026-09-16 from
+# ~/.local/share/mise/installs/go: 1.26.1 (Mar 30), 1.26.2 (Apr 8), 1.26.3 (May 9),
+# 1.26.4 (Jun 14), 1.26.5 (Aug 10), 1.26.6 (Aug 14), 1.27.0 (Aug 20), 1.27.1 (Sep 7).
+# Eight upgrades across six months with no `mise upgrade go` anywhere in this repo.
+# Adding one would be a command that never has work to do.
+#
+# changed_when compares state before and after, per the "diff state, don't grep
+# output" rule in AGENTS.md. The old gate was `'installed' in go_mise.stderr`, which
+# decides a real upgrade — one that happens here about monthly — from one word in
+# mise's wording.
+#
+# The probe is `mise ls --json`, not `mise current`: on a machine whose config.toml
+# carries a hand-pinned `go = "1.27.0"`, `mise use` rewrites that line to
+# `go = "latest"` while the resolved version stays put, and a resolved-version-only
+# diff reports that real edit as unchanged. The JSON carries `requested_version`
+# alongside `version`, so one comparison covers both, and it degrades cleanly on a
+# fresh machine: go unconfigured prints `[]`, rc 0.
+
+- name: Read the Go state before updating
+  ansible.builtin.command: mise ls --current go --json
+  register: go_before
+  changed_when: false
+  failed_when: false
+
 - name: Install Go via mise
   ansible.builtin.command: mise use --global go@latest
-  register: go_mise
-  changed_when: "'installed' in go_mise.stderr"
+  changed_when: false
+
+- name: Check whether the Go state changed
+  ansible.builtin.command: mise ls --current go --json
+  register: go_after
+  changed_when: go_after.stdout != go_before.stdout
