@@ -219,3 +219,13 @@
 **Justification:** Rewriting dozens of citations would make the next catch-up diff noisy for no information gain. The remote-control key is one line to delete if a server should not start that surface in every session.
 **Outcome:** assumed
 **Ref:** (pending)
+
+## Q23 — interactive/catch-up — gate-resolution
+
+**Question:** Four small calls made while porting the group A roles: the python role's whisper gate, the herdr pane-title wrapper, the tailscale GUI gates, and the go role's upgrade step.
+**Options considered:** per item: drop whisper / keep it on arm; `$HOST` / `${HOSTNAME%%.*}`; keep the GUI gates in some form / drop them; add `mise upgrade go` / match upstream
+**Chosen:** whisper stays, gated on `architecture in ['arm64', 'aarch64']` because Linux reports `aarch64`; the `herdr()` wrapper is a `blockinfile` in `~/.bashrc` with its own marker, using `${HOSTNAME%%.*}` since bash has no `$HOST`; the Network Extension and CLI-launcher gates are dropped outright, the systemd enable is the only daemon step; go keeps upstream's asymmetry (no `mise upgrade go`, `@latest` re-resolves on every `mise use`). The python role's `--force` heal path will report supermicro's pip-era tools in `~/.local/bin` as changed once.
+**Decided-by:** agent
+**Justification:** Each keeps the role in step with upstream at zero cost on amd64, or has no Linux equivalent to port.
+**Outcome:** assumed
+**Ref:** (pending)
