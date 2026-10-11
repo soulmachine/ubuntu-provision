@@ -1,8 +1,24 @@
 ---
+# The old gate read `'added' in stdout or 'updated' in stdout`, which is never true here:
+# `npm install -g` prints `changed N packages in <time>` on a converged run *and* on a real
+# upgrade alike (measured upstream 2026-09-16). Diff the installed version instead, per
+# "Self-update tasks: diff state, don't grep output" in docs/writing-roles.md. An absent
+# package prints `{"name": "lib"}` and exits 1, hence `failed_when: false` on the read, so
+# a first install reads as a change.
+- name: Read the installed Playwright version
+  ansible.builtin.command: npm ls -g --depth=0 --json playwright
+  register: playwright_npm_before
+  changed_when: false
+  failed_when: false
+
 - name: Install Playwright globally
   ansible.builtin.command: npm install -g playwright@latest
-  register: playwright_npm
-  changed_when: "'added' in playwright_npm.stdout or 'updated' in playwright_npm.stdout"
+  changed_when: false
+
+- name: Check whether Playwright changed
+  ansible.builtin.command: npm ls -g --depth=0 --json playwright
+  register: playwright_npm_after
+  changed_when: playwright_npm_after.stdout != playwright_npm_before.stdout
 
 # Locate the global `playwright` binary as the invoking user so the next task can
 # run it by absolute path under root (become resets PATH to root's secure_path,
@@ -13,19 +29,70 @@
   changed_when: false
 
 # Linux needs the system shared libraries headless Chromium links against (fonts,
-# X/GTK/NSS libs, etc.); macOS bundles these, so the macOS role had no equivalent.
+# X/GTK/NSS libs, etc.); macOS bundles these, so upstream has no equivalent.
 # `playwright install-deps` apt-installs them and requires root.
 - name: Install Playwright system dependencies (Linux)
   become: true
   ansible.builtin.command: "{{ playwright_bin.stdout }} install-deps chromium"
   environment:
     # Run as root for apt, but the playwright launcher is a `#!/usr/bin/env node`
-    # script and root's PATH lacks mise's node — add the node bin dir (the same
+    # script and root's PATH lacks mise's node: add the node bin dir (the same
     # dir as the playwright binary) ahead of the standard system paths.
     PATH: "{{ playwright_bin.stdout | dirname }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   changed_when: false
 
+# `playwright install` locks the shared browser cache (__dirlock in
+# ~/.cache/ms-playwright) at the top of its install(), *before* it checks whether
+# any browser is actually missing. So even a fully converged machine contends for
+# that lock, and when another Playwright holds it (a coding agent's bundled copy,
+# a project's node_modules) this role used to die after ~8 minutes with "An active
+# lockfile is found" while having had nothing to do.
+#
+# `--dry-run` takes no lock (it returns in under a second against a held lock) and
+# prints the resolved install directory of every component `chromium` pulls in: the
+# browser, the headless shell and ffmpeg. Playwright drops an INSTALLATION_COMPLETE
+# marker in each directory once that component is fully unpacked, so the markers
+# answer "is there anything to install?" without ever touching the lock.
+- name: Check whether Playwright Chromium is already installed
+  ansible.builtin.shell: |
+    set -o pipefail
+    found=0
+    missing=0
+    while IFS= read -r dir; do
+      found=1
+      [ -f "$dir/INSTALLATION_COMPLETE" ] || missing=1
+    done < <(playwright install chromium --dry-run |
+             sed -n 's/^ *Install location: *//p')
+    [ "$found" -eq 1 ] || exit 2
+    exit "$missing"
+  args:
+    executable: /bin/bash
+  register: playwright_browsers
+  changed_when: false
+  # Read-only (it takes no lock and writes nothing), and the install task's
+  # condition depends on it, so run it under --check too.
+  check_mode: false
+  # rc 0 = every component present, 1 = at least one missing. Anything else means
+  # --dry-run itself failed (or printed no install locations), which must be loud
+  # rather than silently downgraded to "nothing to install".
+  failed_when: playwright_browsers.rc not in [0, 1]
+
+# Do NOT resolve a lock conflict by deleting __dirlock, despite Playwright's error
+# message suggesting exactly that. Playwright locks via proper-lockfile with its
+# default 10s stale threshold and a 5s refresh, so it already reclaims a *crashed*
+# installer's lock by itself. A lock still standing therefore has a live holder, and
+# removing it would let two installs unpack into the same directory at once.
+# Retrying is the only safe response, and each attempt already sits through
+# Playwright's own ~10 minutes of exponential back-off before giving up, so keep the
+# retry count low.
 - name: Install Playwright Chromium
   ansible.builtin.command: playwright install chromium
   register: playwright_install
-  changed_when: "'downloading' in playwright_install.stdout | lower"
+  when: playwright_browsers.rc == 1
+  until: playwright_install.rc == 0
+  retries: 2
+  delay: 30
+  # This task runs only when the check above found a component with no
+  # INSTALLATION_COMPLETE marker, so reaching it at all means something was genuinely
+  # missing and a successful run installed it. A failure still fails the task.
+  changed_when: true
