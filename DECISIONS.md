@@ -239,3 +239,13 @@
 **Justification:** The role refreshes every source on every play by design (upstream 244db02); a `changed` on a real upstream edit is the signal, not noise. Gating it away would hide the one mechanism that keeps skills current.
 **Outcome:** validated
 **Ref:** a7e905b..de6b37f (the catch-up), run logs `~/ubuntu-provision-run{1,2}.log` on supermicro
+
+## Q25 — interactive/dev-server-frank — hard-to-undo
+
+**Question:** dev-server-frank was a zsh host: oh-my-zsh as a real clone, and the fleet-managed cliproxy and jev export blocks in `~/.zshenv`, which bash never reads. The shell role switches the login shell to bash and removes oh-my-zsh, so after the first play every `ssh dev-server-frank 'cmd'` would lose the gateway and jev keys. How does a zsh host migrate?
+**Options considered:** keep zsh on that host (contradicts "the shell is bash") / teach the shell role to move fleet-managed blocks (host-specific knowledge the repo should not carry) / move the blocks by hand before the play and retire `~/.zshenv` after it / leave `~/.zshenv` in place (the fleet tools prefer it while it exists, so `~/.bashrc` would go stale on the next key rotation)
+**Chosen:** by hand, before the play: copy the cliproxy block verbatim and wrap the jev exports in the `# --- jev-browser-use-mcp (managed) ---` markers the tools write in bash mode, insert both above the `case $- in` guard, `bash -n`, mode 600, keep `~/.bashrc.bak-20261011`. Run the play under `bash -lc`. After the play: rename `~/.zshenv` to `~/.zshenv.bak-20261011` so the fleet tools fall back to `~/.bashrc`, and record the host as a bash host in `~/.agents/docs/shell-startup.md` and `jev-fleet.md` (dot-agents 8d506ef).
+**Decided-by:** agent
+**Justification:** The repo cannot know which blocks a fleet tool owns, and the markers are the only contract those tools have; replicating them keeps the next key rotation working without a re-run of cliproxy-tier or jev-fleet.
+**Outcome:** validated: run 1 `failed=0`; a fresh non-login ssh command sees all eight exports, claude-gw, node and agent-sync. The migration also exposed the above-guard blind spot fixed in e97fe97.
+**Ref:** e97fe97, dot-agents 8d506ef
