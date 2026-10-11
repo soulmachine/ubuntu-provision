@@ -66,3 +66,14 @@
       - "Diagnose: run `{{ bun_bin }} upgrade` by hand to see bun's own error."
       - "If `gh auth status` reports the active token is invalid, fix that first — this role borrows gh's token to raise the limit to 5000/hr."
   when: bun_upgrade.rc != 0
+
+# bun's installer appends ~/.bun/bin to PATH at the END of .bashrc, below Ubuntu's
+# non-interactive guard, so `ssh host 'pi …'` and `bash -lc` cannot find bun's globals
+# (pi, omp). Keep a tagged copy above the guard, as the mise role does for its two lines.
+- name: Ensure ~/.bun/bin is on PATH for every shell
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: '^export PATH="\$HOME/\.bun/bin:\$PATH"\s+# ubuntu-provision'
+    line: 'export PATH="$HOME/.bun/bin:$PATH"  # ubuntu-provision, above the guard'
+    insertbefore: '^case \$- in'
+    state: present

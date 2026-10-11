@@ -22,13 +22,15 @@
 
 # The installer appends its PATH line to the startup file of $SHELL, which is still zsh
 # on a host the shell role switches to bash in the same play (dev-server-frank, 2026-10-11),
-# so the line went to ~/.zshrc there. The role owns the line in .bashrc instead; the regexp
-# also matches the installer's absolute-path form, so a host it did reach is left alone.
-- name: Ensure kimi-code is on PATH in .bashrc
+# so the line went to ~/.zshrc there. The role owns a tagged copy above the non-interactive
+# guard instead (as the mise role does), so `ssh host 'kimi …'` finds it too; the installer's
+# own line at the end of the file is left alone.
+- name: Ensure kimi-code is on PATH for every shell
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    regexp: '^export PATH=".*\.kimi-code/bin:'
-    line: 'export PATH="$HOME/.kimi-code/bin:$PATH"'
+    regexp: '^export PATH="\$HOME/\.kimi-code/bin:\$PATH"\s+# ubuntu-provision'
+    line: 'export PATH="$HOME/.kimi-code/bin:$PATH"  # ubuntu-provision, above the guard'
+    insertbefore: '^case \$- in'
     state: present
 
 - name: Add kimi-yolo alias to .bashrc

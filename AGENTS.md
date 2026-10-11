@@ -10,7 +10,7 @@ Run them from the repo root: `.env` and the single-role form both resolve agains
 ./bootstrap.sh                                        # fresh host: passwordless sudo, apt prerequisites, uv Python, mise, Ansible
 ansible-playbook main.yml --limit 127.0.0.1           # provision this machine
 ansible-playbook main.yml --limit 127.0.0.1 --check   # dry run
-ansible localhost -m include_role -a name=<role>      # one role
+ansible-playbook role.yml -e role_name=<role>         # one role, with facts gathered
 
 # another host: over ssh in a login shell, so ~/.profile puts ~/.local/bin on PATH
 ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
@@ -21,7 +21,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
 
 - **Runs per-host only.** `inventory` holds only `127.0.0.1 ansible_connection=local`, so each host
   provisions itself. Keep it that way, and reach other hosts with the ssh command above. The roles read
-  `lookup('env', 'HOME')` in 108 places across 29 roles (`scripts/check-home-lookup-count.sh` checks
+  `lookup('env', 'HOME')` in 109 places across 29 roles (`scripts/check-home-lookup-count.sh` checks
   this), with zero uses of `ansible_env.HOME`. Ansible evaluates every `lookup()` on the control node,
   so a fan-out writes one host's `$HOME` and `.env` secrets onto every target.
 - **Self-update tasks: diff state, don't grep output.** A task that runs a tool's own updater measures

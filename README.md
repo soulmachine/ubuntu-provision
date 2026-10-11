@@ -33,8 +33,10 @@ ansible-playbook main.yml
 运行单个 role：
 
 ```bash
-ansible localhost -m include_role -a name=hermes
+ansible-playbook role.yml -e role_name=hermes
 ```
+
+`role.yml` 会先收集 facts。Ansible 自带的单 role 形式 `ansible localhost -m include_role -a name=<role>` 不收集 facts，所以读取 `ansible_facts` 的 role（agent-sync、python、apt）在那种形式下会失败。
 
 上游用 `host-facts` role 判断机器是否常驻开机，再决定装不装 `hermes`、`ponytail`、`paseo`。本仓库没有这个 role：Linux 主机一律视为常驻开机，这三个 role **无条件安装**（DECISIONS Q9），所以单 role 命令不需要任何额外参数。
 

@@ -1,0 +1,11 @@
+---
+# One role with facts gathered: `ansible-playbook role.yml -e role_name=<role>`.
+# The ad-hoc form `ansible localhost -m include_role -a name=<role>` gathers no facts, so a
+# role that reads ansible_facts (agent-sync, python, apt) fails there.
+- name: Run one role
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Include the requested role
+      ansible.builtin.include_role:
+        name: "{{ role_name }}"
