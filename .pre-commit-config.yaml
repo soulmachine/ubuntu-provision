@@ -1,0 +1,43 @@
+---
+# Gates that were previously held by hand. All pass on a clean tree, so a NEW failure is
+# visible instead of being lost among pre-existing noise.
+#
+# Every hook is `repo: local`: these check THIS repo's own invariants and have no upstream,
+# so there is no pinned rev to keep current and no network fetch.
+#
+# `pre-commit install` writes .git/hooks/pre-commit, which git does not carry, so this file
+# alone protects nothing; each clone has to run that once. See README.
+#
+# yamllint is deliberately absent, as upstream: on its defaults it mostly reports
+# `line-length` against a house style of long explanatory prose, and ansible-lint already
+# covers the YAML that carries meaning.
+repos:
+  - repo: local
+    hooks:
+      - id: ansible-lint
+        name: ansible-lint (production profile)
+        entry: ansible-lint
+        language: system
+        pass_filenames: false
+        files: \.(yml|yaml)$
+
+      - id: decisions-numbering
+        name: DECISIONS.md numbering is continuous
+        entry: scripts/check-decisions-numbering.sh
+        language: script
+        pass_filenames: false
+        files: ^DECISIONS\.md$
+
+      - id: readme-roles
+        name: README role table matches main.yml
+        entry: scripts/check-readme-roles.sh
+        language: script
+        pass_filenames: false
+        files: ^(README\.md|main\.yml|roles/)
+
+      - id: home-lookup-count
+        name: AGENTS.md lookup('env', 'HOME') count is accurate
+        entry: scripts/check-home-lookup-count.sh
+        language: script
+        pass_filenames: false
+        files: ^(AGENTS\.md|main\.yml|roles/)

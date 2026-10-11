@@ -149,3 +149,33 @@
 **Justification:** Same reason as upstream: a sweep's only success test is `failed=0` in the recap, and a deferred failure keeps that signal without hiding the roles after it.
 **Outcome:** applied
 **Ref:** (pending)
+
+## Q16 — interactive/catch-up — gate-resolution
+
+**Question:** Q10 and Q11 settle that the shell is bash and that dotenv writes above `~/.bashrc`'s interactive guard. Where do the other startup lines go, and does bootstrap's uv-managed Python shadow the distro `python3`?
+**Options considered:** every line at the end of `~/.bashrc`, as the old bootstrap did / PATH lines above the guard and interactive lines at the end / `uv python install --default` as upstream, or without the shim
+**Chosen:** The two PATH lines (`~/.local/bin`, mise shims) go above the guard, written by bootstrap.sh and kept by the mise role with `insertbefore`. `mise activate bash`, the direnv hook, the uv completions, the aliases and the shell and omarchy `source` lines go at the end. bootstrap installs Python 3.14 without `--default`, so `/usr/bin/python3` keeps its name and its python3-apt bindings.
+**Decided-by:** agent
+**Justification:** Ubuntu's stock `~/.bashrc` returns at `case $- in` for every non-interactive shell, and `ssh host 'cmd'` runs exactly such a shell. Upstream's split is the same (shims in `~/.zprofile`, activation in `~/.zshrc`). A `python3` shim ahead of the distro interpreter would break `import apt` for anything that calls bare `python3`, while Ansible's own interpreter discovery does not use PATH. Mirrors supermicro's existing layout, where jev-fleet-host.py already writes above the guard.
+**Outcome:** assumed
+**Ref:** (pending)
+
+## Q17 — interactive/catch-up — gate-resolution
+
+**Question:** Upstream's omarchy role ports Omarchy's bash files to zsh and installs `try`. What does the bash version deploy?
+**Options considered:** copy upstream's zsh port back to bash / copy Omarchy's files as shipped from the Arch host, choosing which to deploy
+**Chosen:** Copied as shipped from `/usr/share/omarchy/default/bash` on mac-mini-2018-omarchy (Omarchy 4.0.0.alpha, 2026-10-11). Deployed: envs (minus BROWSER, the locale block and the PATH append), aliases (minus `a`, which runs omarchy-agent), functions, and fns/compression, herdr, rsyncing, ssh-port-forwarding, ssh-reconnect, tmux, worktrees, with upstream's one-line `$editor_pane` fix in tmux. Not deployed: shell and inputrc (the shell role deploys those two under `~/.config/bash`), init (mise and the three tool hooks have their own roles; `try` is not installed, it needs Ruby), completions (the `omarchy` command), env-bootstrap, fns/drives (omarchy-drive-select). Packages: eza, bat with a `batcat` symlink, neovim, gum, inotify-tools, rsync.
+**Decided-by:** agent
+**Justification:** Omarchy is bash, so the originals need no porting and the next refresh is a plain diff against that directory. rsyncing is Linux-native and costs one apt package; drives calls an Omarchy-only helper.
+**Outcome:** assumed
+**Ref:** (pending)
+
+## Q18 — interactive/catch-up — deviation
+
+**Question:** Q10 named the replacement for oh-my-zsh a `bash` role. Upstream's commit 2619275 of the same day names its two roles `shell` and `omarchy`. Which names does this repo use?
+**Options considered:** `bash`, as agreed in the interview / `shell` and `omarchy`, as upstream
+**Chosen:** `shell` and `omarchy`, in upstream's main.yml positions.
+**Decided-by:** agent
+**Justification:** The user asked for the shell "just like Omarchy" and then asked me to read upstream's latest commits, which introduced exactly that split. Matching the names keeps every future catch-up a one-to-one diff.
+**Outcome:** assumed
+**Ref:** (pending)
