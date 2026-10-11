@@ -55,6 +55,7 @@
 
 - name: Symlink ~/.claude/skills/multica-cli to ~/.agents/skills/multica-cli
   ansible.builtin.file:
-    src: "{{ lookup('env', 'HOME') }}/.agents/skills/multica-cli"
+    # Relative: agent-sync's canonical form; see the note in roles/herdr.
+    src: "../../.agents/skills/multica-cli"
     dest: "{{ lookup('env', 'HOME') }}/.claude/skills/multica-cli"
     state: link
