@@ -1,0 +1,6 @@
+---
+# Scopes setup_github.sh requires; keep in step with REQUIRED_SCOPES there.
+github_pat_scopes: "admin:ssh_signing_key,admin:public_key,user:email,read:user"
+# GitHub's PAT form pre-filled with exactly those scopes, so the user only has
+# to set an expiry and click Generate.
+github_pat_url: "https://github.com/settings/tokens/new?scopes={{ github_pat_scopes }}&description=setup_github"

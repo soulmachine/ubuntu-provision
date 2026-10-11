@@ -1,13 +1,13 @@
 ---
-# gh (the GitHub CLI) is installed by the `apt` role from the official
-# cli.github.com apt repo, which runs first in main.yml — so this role does not
-# reinstall it (the macOS repo installed gh via Homebrew here). This role only
-# performs the GitHub account setup: SSH key generation/upload + git signing
-# config, driven by the cross-platform setup_github.sh.
+# gh (the GitHub CLI) is installed by the `apt` role from the official cli.github.com apt
+# repo, which runs first in main.yml, so this role does not reinstall it (upstream installs
+# gh with Homebrew here). This role only performs the GitHub account setup: SSH key
+# generation and upload plus git signing config, driven by the cross-platform
+# setup_github.sh.
 
-- name: Load GH_TOKEN from environment
+- name: Load GITHUB_TOKEN from environment
   ansible.builtin.set_fact:
-    github_token: "{{ lookup('env', 'GH_TOKEN') }}"
+    github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
   no_log: true
 
 - name: Configure GitHub (SSH keys, git signing config)
@@ -23,13 +23,26 @@
     - name: Run GitHub setup script
       ansible.builtin.command: /tmp/setup_github.sh
       environment:
-        GH_TOKEN: "{{ github_token }}"
+        GITHUB_TOKEN: "{{ github_token }}"
         GITHUB_SSH_KEY: "{{ lookup('env', 'GITHUB_SSH_KEY') }}"
       register: _github_setup
       changed_when: "'CHANGED' in _github_setup.stdout"
       no_log: true
+  rescue:
+    - name: Warn that GitHub setup failed (non-fatal, play continues)
+      ansible.builtin.debug:
+        msg:
+          - "GitHub setup script failed, continuing anyway (non-fatal)."
+          - "Most likely GITHUB_TOKEN is expired/invalid or missing scopes ({{ github_pat_scopes }})."
+          - "SSH auth + signing keys are already on GitHub, so git-over-SSH and SSH commit signing keep working without the PAT."
+          - "Diagnose: 'gh api -i /user' and look for HTTP 401 / x-oauth-scopes."
+          - "Fix: mint a PAT with every required scope pre-selected: {{ github_pat_url }}"
+          - "Then export GITHUB_TOKEN=<token> (gh-token-fleet on the personal hosts, .env elsewhere) and re-run."
 
-- name: Skip GitHub setup (GH_TOKEN not set)
+- name: Skip GitHub setup (GITHUB_TOKEN not set)
   ansible.builtin.debug:
-    msg: "GH_TOKEN not set — skipping GitHub SSH key and git config setup."
+    msg:
+      - "GITHUB_TOKEN not set, skipping GitHub SSH key and git config setup."
+      - "To enable it, mint a PAT with every required scope pre-selected: {{ github_pat_url }}"
+      - "Then export GITHUB_TOKEN=<token> and re-run."
   when: github_token | length == 0

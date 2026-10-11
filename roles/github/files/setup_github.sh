@@ -12,33 +12,46 @@ if ! command -v gh &>/dev/null; then
     exit 1
 fi
 
-# ── Require GH_TOKEN ─────────────────────────────────────────────────────────
+# ── Require GITHUB_TOKEN ─────────────────────────────────────────────────────────
 
 REQUIRED_SCOPES=(admin:ssh_signing_key admin:public_key user:email read:user)
 ALL_SCOPES_CSV="admin:ssh_signing_key,admin:public_key,user:email,read:user"
 PAT_URL="https://github.com/settings/tokens/new?scopes=${ALL_SCOPES_CSV}&description=setup_github"
 
-if [[ -z "${GH_TOKEN:-}" ]]; then
-    echo "Error: GH_TOKEN is not set." >&2
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    echo "Error: GITHUB_TOKEN is not set." >&2
     echo "" >&2
     echo "Create a Personal Access Token (PAT) with the required scopes:" >&2
     echo "  1. Open: $PAT_URL" >&2
     echo "  2. Set an expiration date, then click 'Generate token'" >&2
     echo "  3. Copy the token and re-run:" >&2
-    echo "     export GH_TOKEN=<token> && bash setup_github.sh" >&2
+    echo "     export GITHUB_TOKEN=<token> && bash setup_github.sh" >&2
     exit 1
 fi
 
 # ── Check scopes ──────────────────────────────────────────────────────────────
 
 CURRENT_SCOPES=$(gh api -i /user 2>/dev/null | grep -i '^x-oauth-scopes:' | cut -d: -f2- || true)
+
+# x-oauth-scopes lists only what was granted, never the children a parent scope
+# implies: a PAT holding `user` reports `user` and not `user:email`/`read:user`,
+# so an all-scopes token failed this check outright. Match whole scopes rather
+# than substrings too — `grep -F user` matched `user:email` and would have
+# passed a token that only had the child.
+has_scope() {
+    printf '%s\n' "$CURRENT_SCOPES" | tr ',' '\n' | tr -d ' \t' | grep -qx "$1"
+}
+
 MISSING_SCOPES=()
 for s in "${REQUIRED_SCOPES[@]}"; do
-    echo "$CURRENT_SCOPES" | grep -qF "$s" || MISSING_SCOPES+=("$s")
+    case "$s" in
+        user:email|read:user) has_scope "$s" || has_scope user || MISSING_SCOPES+=("$s") ;;
+        *)                    has_scope "$s" ||                   MISSING_SCOPES+=("$s") ;;
+    esac
 done
 
 if [[ ${#MISSING_SCOPES[@]} -gt 0 ]]; then
-    echo "Error: GH_TOKEN is missing scopes: ${MISSING_SCOPES[*]}" >&2
+    echo "Error: GITHUB_TOKEN is missing scopes: ${MISSING_SCOPES[*]}" >&2
     echo "" >&2
     echo "Option A — update your existing token (token value stays the same):" >&2
     echo "  1. Open: https://github.com/settings/tokens" >&2
@@ -48,7 +61,7 @@ if [[ ${#MISSING_SCOPES[@]} -gt 0 ]]; then
     echo "Option B — create a new token with all scopes pre-filled:" >&2
     echo "  1. Open: $PAT_URL" >&2
     echo "  2. Set an expiration date, click 'Generate token', copy it" >&2
-    echo "  3. Re-run: export GH_TOKEN=<new-token> && bash setup_github.sh" >&2
+    echo "  3. Re-run: export GITHUB_TOKEN=<new-token> && bash setup_github.sh" >&2
     exit 1
 fi
 
@@ -139,7 +152,11 @@ PRIVATE_KEY_FILE="${PUBLIC_KEY_FILE%.pub}"
 SSH_CONFIG="$HOME/.ssh/config"
 echo ""
 echo "── SSH config ───────────────────────────────────────────────────────────"
-IDENTITY_LINE="IdentityFile ${PRIVATE_KEY_FILE/#$HOME/\~}"
+# The tilde goes in through a variable: a literal `\~` in the replacement keeps
+# its backslash under macOS's /bin/bash 3.2 (bash 5 drops it), which wrote an
+# unusable `IdentityFile \~/...` on hosts where `env bash` resolved to 3.2.
+TILDE="~"
+IDENTITY_LINE="IdentityFile ${PRIVATE_KEY_FILE/#$HOME/$TILDE}"
 if grep -qF "$IDENTITY_LINE" "$SSH_CONFIG" 2>/dev/null; then
     echo "github.com IdentityFile already configured — skipping."
 else
