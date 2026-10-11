@@ -1,0 +1,75 @@
+---
+# agent-sync: one canonical ~/.agents/ fanned out to every installed agent.
+# Upstream: https://github.com/agent-sync-sh/agent-sync
+#
+# This is the tool the `skills` role's store depends on for its per-agent symlink farms:
+# `skills add` never deletes, so when a store directory goes away, `agent-sync sync` is what
+# prunes the now-dangling links in ~/.claude/skills, ~/.pi/agent/skills and ~/.hermes/skills.
+# Nothing installed it before this role, so a rebuilt host silently lost it (upstream Q130).
+#
+# macOS gets it from a Homebrew tap; here it is the release tarball (one static binary at the
+# tarball root), installed into ~/.local/bin and kept at the latest release. A host that already
+# carries the current version by hand (supermicro, 1.2.0) converges with no download.
+
+- name: Read the installed agent-sync version
+  ansible.builtin.command: agent-sync --version
+  register: agent_sync_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false # read-only probe; run in --check so the gate below sees real state
+
+# The release page's redirect names the newest tag, so no GitHub API call and no rate limit
+# (the unauthenticated API allows 60 calls an hour per IP and is routinely spent).
+- name: Resolve the latest agent-sync release
+  ansible.builtin.uri:
+    url: https://github.com/agent-sync-sh/agent-sync/releases/latest
+    follow_redirects: none
+    status_code: [301, 302]
+  register: agent_sync_release
+  check_mode: false
+
+- name: Work out the version and asset names
+  ansible.builtin.set_fact:
+    agent_sync_latest: "{{ agent_sync_release.location | regex_search('agent-sync-v([0-9][^/]*)$', '\\1') | first }}"
+    agent_sync_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'x64' }}"
+
+- name: Install or update agent-sync
+  when: (agent_sync_installed.stdout | default('')) != 'agent-sync ' ~ agent_sync_latest
+  vars:
+    agent_sync_asset: "agent-sync-{{ agent_sync_latest }}-linux-{{ agent_sync_arch }}.tar.gz"
+    agent_sync_base: "https://github.com/agent-sync-sh/agent-sync/releases/download/agent-sync-v{{ agent_sync_latest }}"
+  block:
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    # `checksum: sha256:<url>` makes get_url fetch SHA256SUMS.txt and match the destination's
+    # basename in it, so the tarball keeps its release name and a corrupt download fails here.
+    - name: Download the agent-sync release tarball
+      ansible.builtin.get_url:
+        url: "{{ agent_sync_base }}/{{ agent_sync_asset }}"
+        dest: "/tmp/{{ agent_sync_asset }}"
+        checksum: "sha256:{{ agent_sync_base }}/SHA256SUMS.txt"
+        mode: "0644"
+
+    - name: Unpack the agent-sync binary into ~/.local/bin
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ agent_sync_asset }}"
+        dest: "{{ lookup('env', 'HOME') }}/.local/bin"
+        remote_src: true
+        include: [agent-sync]
+        mode: "0755"
+
+    - name: Remove the downloaded tarball
+      ansible.builtin.file:
+        path: "/tmp/{{ agent_sync_asset }}"
+        state: absent
+
+# `changed` from the observable version, like every self-update here: the block above only
+# runs when the versions differ, but this is what proves the new binary answers.
+- name: Check whether agent-sync changed
+  ansible.builtin.command: agent-sync --version
+  register: agent_sync_after
+  changed_when: agent_sync_after.stdout != (agent_sync_installed.stdout | default(''))
