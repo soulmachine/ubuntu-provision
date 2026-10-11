@@ -1,0 +1,205 @@
+---
+# Q-numbers in the comments below refer to upstream macbook-provision's DECISIONS.md.
+skills_home: "{{ lookup('env', 'HOME') }}"
+
+# Where `npx skills add -g` puts every skill. Per-agent directories are either
+# symlink farms pointing back here (Claude Code, Pi, Hermes) or nothing at all:
+# an agent whose skillsDir is `.agents/skills` reads this directory **directly**
+# and is never given links (`isUniversalAgent`, skills@1.5.26 dist/cli.mjs:2135).
+# Codex, OpenCode, Kimi Code, Cursor and Gemini are all universal in that sense,
+# so an empty ~/.codex/skills is correct rather than drift. Fingerprinting this
+# one directory therefore covers every agent's content.
+skills_store: "{{ skills_home }}/.agents/skills"
+
+# The self-authored skills, whose truth lives in git rather than in the store. Adopted by the
+# task below with `agent-sync adopt`, NOT by `skills add` — see the exclusion note further down.
+#
+# A LIST, not one path, because a skill that outgrows the monorepo graduates to its own repo in
+# the OpenSWE org — `herdr-advisor` and `log-decisions` both have — laid out as
+# `skills/<name>/SKILL.md` so `npx skills add OpenSWE/<name>` and the Claude plugin marketplace
+# each resolve it. Every entry below is a directory that DIRECTLY contains skill directories, so
+# one `find` at depth 2 covers all of them uniformly. Always name the path INSIDE the clone, never
+# the clone itself: that keeps the store entry a Sourced symlink out to the repo, so a `git pull`
+# still ships an edit to a host.
+#
+# Measured 2026-09-18, and the reason this stopped being one path: `herdr-advisor` was a
+# hand-adopted symlink on all seven hosts while appearing in no list here at all — the store
+# equivalent of the gap Q149 closed for the fan-out, so a rebuilt host would simply not have had
+# it. A missing root is skipped by `find` and named by the task below; no role clones these, so a
+# host without one legitimately carries fewer skills.
+skills_selfauthored_repos:
+  - "{{ skills_home }}/github.com/soulmachine/skills" # the monorepo, ~29 skills
+  - "{{ skills_home }}/github.com/OpenSWE/herdr-advisor/skills"
+  - "{{ skills_home }}/github.com/OpenSWE/log-decisions/skills"
+
+# Every skill source the CLI owns and re-fetches, declared in one place. A source
+# belongs here rather than in the role for the app it accompanies: this role is
+# source-agnostic, so adding a line costs nothing, while a per-role copy would repeat
+# the fingerprint in tasks/main.yml once per role and report a change in all of them.
+#
+# cloudflare/skills moved here from roles/cloudflare, which installed it behind a `creates:`
+# sentinel and so had frozen it (upstream f988a2e). Upstream also lists manaflow-ai/cmux and
+# kepano/obsidian-skills; neither app is installed here (DECISIONS Q4), so neither source is.
+#
+# The last three were installed by hand and had gone stale the same way — `log-decisions`
+# is the skill ~/.agents/AGENTS.md mandates and was frozen at 2026-08-11. Each ships
+# exactly one skill upstream, already a CLI-owned real directory in the store, so adopting
+# them changes nothing but who refreshes them. `lavish-design` stays behind as an orphan
+# store directory: it is in the lock but no longer shipped, and `skills add` never deletes.
+#
+# Three sources are deliberately NOT here, each verified with `skills add <source> -l`,
+# which lists what upstream ships **without installing**. Check adoption that way rather
+# than against the lock file, which records what was once asked for — the same stale-lock
+# trap as DECISIONS.md Q7 and Q84:
+#
+#   * `soulmachine/skills` — its skills reach the store as agentstow symlinks into
+#     ~/github.com/soulmachine/skills/ (author in git, `agentstow adopt`, edits flow to
+#     every agent), so the CLI has never installed them, they carry no lock entry, and
+#     `skills add soulmachine/skills` would replace each git-backed symlink with a
+#     CLI-managed copy. See DECISIONS.md Q82.
+#   * `swe-workflow/log-decisions` — listed here until 2026-09-18, when the skill graduated to
+#     its own repo and `skills_selfauthored_repos` took it over. The name still resolves (GitHub
+#     redirects the transfer to `OpenSWE/log-decisions`), so this is not a broken source but a
+#     duplicated one: the CLI copy is a real store directory that a `git pull` cannot reach,
+#     which is precisely what the Sourced symlink exists to avoid. Six of seven hosts already
+#     carried the symlink; only mac-mini-m2 had the CLI copy. Removing the line does not strand
+#     the entry — `adopt` replaces an identical Commons copy with the link, and find-orphans.py
+#     counts real directories only, so the report stops as soon as it becomes a symlink.
+#   * `backnotprop/plannotator` — upstream no longer ships any `plannotator-*` skill; it
+#     ships four for maintaining the plannotator repo itself (`pierre-guard`,
+#     `release-plannotator`, `review-renovate`, `update-deps`). Its six store directories
+#     were deleted fleet-wide on 2026-09-15 (Q88), so a line here would *install* those
+#     four rather than adopt anything. Claude's `plannotator-annotate`/`-last`/`-review`
+#     variants and the plannotator program were removed from the fleet on 2026-10-09
+#     (coding-agent Q329-Q331), with backups in `~/backups/` on m2 and macbook-air.
+skills_sources:
+  - jimliu/baoyu-skills
+  - mattpocock/skills
+  - mvanhorn/last30days-skill
+  - tt-a1i/archify
+  - cloudflare/skills
+  - vercel-labs/skills
+  - kunchenguid/lavish-axi
+
+# Sources where only SOME skills are wanted. `skills_sources` above installs with `--all`,
+# which is shorthand for `--skill '*' --agent '*' -y`; these name the skills instead, so a
+# source shipping 85 of them contributes exactly the one asked for. Until this list existed,
+# a source was all-or-nothing and `cursor/plugins` sat in the exclusions above for that
+# reason alone.
+#
+# **Repeated `--skill` flags, never a comma-separated list.** Measured 2026-09-16:
+# `--skill a,b` is read as one skill literally named `a,b`, which matches nothing — the CLI
+# then exits 1 and prints the available-skills listing, which reads like help rather than
+# like an error. `--skill a --skill b` installs both. The task below builds the repeated
+# form; do not "simplify" it to a join.
+#
+# Otherwise this form behaves exactly like `--all`: exit 0, and the same two per-agent
+# failures (Eve and PromptScript reject a global install) that every source already reports.
+# So it needs no `failed_when`, for the same reason the task above does not have one.
+skills_sources_partial:
+  # This marketplace also ships eli5 as a Claude Code *plugin*, and mac-mini-m2 carried it —
+  # hand-installed 2026-08-28 as `eli5@claude-community`, never in any role, never on another
+  # host. Taking eli5 into the store made Claude Code see it twice, so the plugin was
+  # uninstalled on 2026-09-16 and its now-orphaned marketplace deregistered with it. The store
+  # copy is the one to keep: it reaches every agent, where the plugin reached only Claude Code.
+  # Nothing in this repo referenced either, so there is no role change behind that. 31 skills
+  # upstream. See DECISIONS.md Q111.
+  - source: anthropics/claude-plugins-community
+    skills: [eli5]
+  - source: humanlayer/skills
+    skills: [show-me]
+  # 27 upstream, and not a set to take blindly: `complain` posts anonymously to Slack
+  # unprompted and is instructed never to mention having done so.
+  - source: warpdotdev/common-skills
+    skills: [skill-doctor]
+  # Q88 deleted all 28 of this source's installed skills fleet-wide on 2026-09-15, because
+  # re-adding meant taking 85. That constraint is exactly what this list lifts, so these two
+  # are named on their own — not the other 83. Q88 is narrowed here, not reversed.
+  #
+  # `thermo-nuclear-code-quality-review` carries `disable-model-invocation: true`, so it only
+  # ever runs when asked for by name. Its sibling `thermos` fans out to two *subagents* that
+  # live in the plugin, not in the skill — outside what `skills add` installs — so only this
+  # one, which is a single self-contained SKILL.md, is taken.
+  #
+  # Pinned by plugin subpath, not as `cursor/plugins`. On 2026-10-05 upstream added a root
+  # `.claude-plugin/marketplace.json` listing only `origin-apps` (cursor/plugins#423), and the
+  # CLI then discovers only the plugins it lists: 2 skills of 107, so both pins failed on
+  # every host. A subpath is read as a plain directory, and these are the exact paths the
+  # lock's `skillPath` already recorded. The lock still says `cursor/plugins`, which is why
+  # files/find-orphans.py keys pins by `owner/repo`.
+  - source: cursor/plugins/pstack
+    skills: [unslop]
+  - source: cursor/plugins/cursor-team-kit
+    skills: [thermo-nuclear-code-quality-review]
+  # A portable fork of openclaw's `test-audit`: the gate for new tests, plus evidence-backed
+  # pruning of tests that cannot fail. openclaw's own copy calls its repo-only scripts. 15
+  # skills upstream; only this one is wanted. 1★ upstream, so the nightly refresh takes
+  # whatever it pushes. See DECISIONS.md Q202.
+  - source: T0mSIlver/skills
+    skills: [test-audit]
+
+# Partial sources that a DIFFERENT role installs. The orphan detector below groups the lock
+# by source and flags anything no source accounts for, so without this every such skill reads
+# as "no source in this role installs it" on every host, on every run, forever — and a report
+# that always carries a known-benign line trains you to skim past the real ones. Same shape as
+# `skills_sources_partial`, kept separate so this role does not appear to own them.
+skills_sources_foreign:
+  # roles/herdr/tasks/main.yml runs `npx skills add herdrdev/herdr --skill herdr` itself,
+  # because the skill has to land in the same task flow that installs the CLI it documents.
+  - source: herdrdev/herdr
+    skills: [herdr]
+  # roles/typesafe/tasks/main.yml installs this one, for the same reason: it documents the
+  # TypeSafe models that role's two Claude Code plugins call, so the whole footprint converges
+  # in one place. It was pinned here from Q141 (2026-09-18) until Q165 (2026-09-19); nothing
+  # about the skill changed, only which role refreshes it.
+  - source: typesafe-ai/skills
+    skills: [typesafe-ai]
+
+# The agents this fleet fans skills out to, named rather than taken as `--agent '*'`.
+#
+# `'*'` is not "every installed agent" — the CLI expands it to **every agent in its registry**
+# (`targetAgents = validAgents`), 78 of them as of 2026-09-18, and it `mkdir`s each directory it
+# links into. That is what kept resurrecting `~/.openclaw/skills` on hosts with no OpenClaw since
+# Q52-Q54 (DECISIONS Q134, Q143), and what makes `eve` and `promptscript` fail on every run: both
+# declare `globalSkillsDir: void 0`, so a `-g` install has no target to write to.
+#
+# `universal` is load-bearing and must stay first in spirit if not in order: it IS the store
+# (`.agents/skills`), and its `detectInstalled` is hardcoded `false`, so it is reached ONLY by being
+# named or by `'*'`. Drop it and the store stops being populated, which breaks every agent that
+# reads it natively (codex, opencode, oh-my-pi) as well as the symlink farms below.
+#
+# The flag is repeated per agent rather than comma-joined, for the same reason `--skill` is:
+# measured 2026-09-18, `--agent a,b` is parsed as the single name `a,b` ("Invalid agents: a,b"),
+# while repeating the flag yields two ("Invalid agents: a, b").
+#
+# agent-sync is NOT a second source of the OpenClaw farm: its `Agent::detected()` is
+# `root_path(home).is_dir()`, so it fans out only into roots that already exist and never creates
+# one. Leaving `~/.openclaw` in place on archs-mac-mini therefore keeps that host's farm populated,
+# which is the user's standing exception.
+skills_agents:
+  - universal # the store itself, ~/.agents/skills
+  - claude-code # ~/.claude/skills
+  - pi # ~/.pi/agent/skills
+  - hermes-agent # ~/.hermes/skills
+
+# The instruction states that mean an agent actually reaches the Commons. Anything else is a
+# failure — see the survey tasks at the end of tasks/main.yml.
+#
+# An ALLOWLIST, not a blocklist of bad states, and that direction is the whole point: a state
+# agent-sync adds in a future release lands outside this list and fails loudly, rather than
+# slipping through a blocklist written before it existed. Fail-closed on purpose.
+#
+# Why these two and no others. agent-sync's instruction survey has seven states. `missing`,
+# `import` and `legacy` are what `sync` repairs, so reaching the check still in one of them means
+# the repair above did not take. `conflict` and `foreign` are the states `sync` CANNOT repair —
+# `instructions::apply()` ends `_ => Ok(())`, commented "Conflicts and Foreign links are no-ops"
+# — and, worse, they exit 0 from `agent-sync status`, so nothing else on this machine reports
+# them. They are the reason this check exists; neither belongs here.
+#
+# `foreign` does occur on this fleet, but only under `mcp` (xapi, serena, node_repl,
+# computer-use — "not in the Commons — left alone"), never under `instructions`. The survey task
+# reads the `instructions` array alone, which is what keeps those out of it. Measured 2026-09-18:
+# all seven hosts report 8 instruction items, every one `linked` or `imported`.
+skills_wiring_ok_states:
+  - linked # a symlink resolving to the Commons (codex, pi, oh-my-pi, windsurf, roo)
+  - imported # an import line or JSON include entry naming it (claude, opencode, gemini)

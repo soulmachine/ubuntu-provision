@@ -1,22 +1,402 @@
 ---
-- name: Install baoyu skills for all agents
-  ansible.builtin.command:
-    cmd: npx skills add jimliu/baoyu-skills -g -y --all
-    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/baoyu-youtube-transcript"
+# Q-numbers in the comments below refer to upstream macbook-provision's DECISIONS.md.
+# `creates:` alone froze this role: each source was guarded on one sentinel directory,
+# so after the first install `skills add` never ran again and no source ever refreshed.
+# Re-running it is the only mechanism that pulls upstream edits — measured on
+# mac-mini-m2 2026-09-14, the first unguarded run brought in months of them (the
+# last30days, baoyu-image-gen and baoyu-post-to-wechat skills all changed).
+#
+# So the installers now run every play, and `changed` comes from fingerprinting the
+# store around them — AGENTS.md, "Self-update tasks: diff state, don't grep output".
+# `skills add` is safe to repeat: its `createSymlink` (skills@1.5.26, dist/cli.mjs)
+# returns early when a link already resolves to its target.
+#
+# Two cheaper-looking designs were tried first and rejected against measurement:
+#
+#   * Gating on the lock file's skill list. The lock records what was *asked* for, not
+#     what upstream still ships — mattpocock deleted `to-issues` and `to-prd` (both 404
+#     upstream on 2026-09-14) and their lock entries outlived them, so the gate was
+#     permanently unsatisfiable and re-ran the installers every time anyway. Same
+#     stale-lock trap as the herdr skill, DECISIONS.md Q7.
+#   * Gating on per-agent link counts. Wrong premise: universal agents never get links
+#     (see vars/main.yml), so their empty directories read as permanent drift.
+#
+# Running unconditionally costs one network fetch per source. That is not cheap and is
+# accepted deliberately: 136s for the whole role — all 14 sources plus the two fingerprint
+# scans — measured on mac-mini-m2 2026-09-16. (This line read "20s for all four" until then,
+# a figure left over from when `skills_sources` held four entries; it survived every later
+# addition because nothing re-measured it.) The cost buys the only mechanism that pulls
+# upstream edits down, so it is paid on every play rather than gated away.
 
-- name: Install mattpocock skills for all agents
-  ansible.builtin.command:
-    cmd: npx skills add https://github.com/mattpocock/skills -all -g -y
-    # marker is a skill the mattpocock repo actually provides; the upstream macOS
-    # repo used `diagnose`, which that repo does not ship, so the task never skipped.
-    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/diagnosing-bugs"
+- name: Fingerprint the skill store before installing
+  ansible.builtin.find:
+    paths: "{{ skills_store }}"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: skills_before
+  changed_when: false
 
-- name: Install soulmachine skills for all agents
-  ansible.builtin.command:
-    cmd: npx skills add soulmachine/skills -g -y --all
-    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/mac-mini-as-headless-server"
+# `--all` is shorthand for `--skill '*' --agent '*' -y`; the agent half is spelled out from
+# `skills_agents` instead, so this installs every skill in the source to the agents this fleet
+# actually has. See vars/main.yml for why `'*'` is not what it looks like.
+- name: Install the skill sources for every agent
+  ansible.builtin.command: >-
+    npx skills@latest add {{ item }} -g -y --skill '*'
+    {% for a in skills_agents %}--agent {{ a }} {% endfor %}
+  loop: "{{ skills_sources }}"
+  changed_when: false
 
-- name: Install last30days skill for all agents
+# Same installer, naming the skills rather than taking every skill in the source. A second task
+# rather than one conditional command string: the two lists mean different things. Both now name
+# the same explicit agent set; see vars/main.yml on why the flag is repeated, not comma-joined.
+- name: Install the partial skill sources for every agent
+  ansible.builtin.command: >-
+    npx skills@latest add {{ item.source }} -g -y
+    {% for a in skills_agents %}--agent {{ a }} {% endfor %}
+    {% for s in item.skills %}--skill {{ s }} {% endfor %}
+  loop: "{{ skills_sources_partial }}"
+  loop_control:
+    label: "{{ item.source }} → {{ item.skills | join(' ') }}"
+  register: skills_partial_install
+  changed_when: false
+  # Not a tolerated failure — the task below still fails the play. This only defers it, so
+  # that one broken pin does not stop the loop and hide the state of the entries after it:
+  # a single run now reports every source that failed, not just the first.
+  failed_when: false
+
+# Naming a skill is what makes this list worth having, and it is also the one thing that can
+# break in it: a skill renamed or withdrawn upstream stops matching. `--all` cannot hit this,
+# so this task exists only for the partial list.
+#
+# The CLI reports it badly — exit 1, and a stdout opening `● Available skills:` followed by
+# the whole inventory. Left to surface on its own that is what lands in the 02:00 iMessage,
+# where it reads as help text rather than as an error and never says which source or which
+# skill broke. Measured 2026-09-16: exit 1, nothing installed, store undamaged — so the state
+# is safe and only the message needed fixing.
+#
+# `selectattr('rc', 'defined')` is load-bearing for `--check`: command tasks are skipped
+# there, leaving results with no `rc` at all rather than with `rc: 0`.
+#
+# This records the failure; `main.yml`'s post_tasks is what fails the play on it. The two are
+# split deliberately. This role sits in the middle of the play, so failing here would stop the roles after
+# it — `tailscale` and its key-expiry maintenance, `hermes`, `ponytail`, `claude-mem` among
+# them — on every host, every night, until someone edited one line. That inverts the
+# priorities: a renamed skill is a small problem, and it should not be able to halt network
+# and agent-service convergence. Deferring the failure to the end of the play keeps the signal
+# (the recap still reports `failed=1`, which is exactly what the nightly sweep greps for) while
+# dropping the blast radius to nothing.
+- name: Record any pinned skill that could not be installed
+  ansible.builtin.set_fact:
+    skills_partial_failures: >-
+      {{ skills_partial_install.results | default([])
+         | selectattr('rc', 'defined') | selectattr('rc', 'ne', 0)
+         | map(attribute='item') | map('to_json') | list }}
+
+# The play-level failure below is unreachable from `ansible localhost -m include_role
+# -a name=skills`, because post_tasks only run in a full play. So say it here too. A single-role run is interactive
+# with someone reading the output, which is the one case where a message is enough.
+- name: Report pinned skills that could not be installed
+  ansible.builtin.debug:
+    msg: >-
+      `skills add` could not install every pinned skill: {{ skills_partial_failures | join('; ') }}.
+      The usual cause is a rename or withdrawal upstream. List what the source actually ships
+      with `npx skills@latest add <source> -l` — it installs nothing — then correct the name in
+      roles/skills/vars/main.yml, or drop the entry if the skill is gone for good.
+  when: skills_partial_failures | length > 0
+
+# `soulmachine/skills` is deliberately absent from `skills_sources` — `skills add` would replace
+# each git-backed symlink with a CLI-managed copy (Q82) — but nothing put those skills in the
+# store either, so adoption stayed per-host and manual. Measured 2026-09-18: the same 30 upstream
+# directories, from clones all sitting on the same commit, were adopted 6/8/9/14/17/21/23 times
+# across the seven hosts, so a skill committed to git was simply absent on most of them. That is
+# the gap this closes, and it does not reopen Q82: `adopt` is a different verb from `skills add`
+# — a path inside a git repo becomes a Sourced entry, a symlink out to the repo, so the truth
+# stays in git.
+- name: Check for the self-authored skill repos
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: skills_selfauthored_clones
+  loop: "{{ skills_selfauthored_repos }}"
+  loop_control:
+    label: "{{ item | regex_replace('^.*/github.com/', '') }}"
+
+# Only the roots that exist are handed to `find`. Passing a missing one is not fatal — `find`
+# skips it with a warning — but the warning would print on every run of every host that does not
+# carry that clone, which is a legitimate state rather than drift, and the debug below says so in
+# words instead.
+- name: Record which self-authored skill roots are present
+  ansible.builtin.set_fact:
+    skills_selfauthored_present: >-
+      {{ skills_selfauthored_clones.results | selectattr('stat.exists')
+         | map(attribute='item') | list }}
+
+- name: Report the self-authored skill roots absent from this host
+  ansible.builtin.debug:
+    msg: >-
+      No clone at
+      {{ skills_selfauthored_repos | difference(skills_selfauthored_present) | join(', ') }},
+      so those skills are not adopted here. This is a legitimate state for a host that does not
+      carry them — clone and re-run if it should.
+  when: skills_selfauthored_present | length < skills_selfauthored_repos | length
+
+- name: Adopt the self-authored skills into the Commons
+  when: skills_selfauthored_present | length > 0
+  block:
+    # The verdict comes from the store's links before and after, never from `adopt`'s stdout:
+    # it is idempotent and prints "already Sourced … nothing to do" on every converged run, so
+    # matching that phrase would report a change forever. Same rule as the fingerprint below.
+    - name: Record the Commons links before adopting
+      ansible.builtin.find:
+        paths: "{{ skills_store }}"
+        file_type: link
+        recurse: false
+      register: skills_sourced_before
+      changed_when: false
+
+    # Keyed on SKILL.md, NOT on "every directory in the repo". A directory is not a skill:
+    # `git mv`-ing a skill out to its own repo leaves the empty parent behind (git does not
+    # delete directories), and adopting that husk asks agent-sync to repoint the Commons away
+    # from wherever the skill really lives now — which it refuses, with a non-zero exit that
+    # failed the whole play. That is exactly what `herdr-advisor` did after upstream commit
+    # 5b3d509 "herdr-advisor: moved to OpenSWE/herdr-advisor" left
+    # `soulmachine/skills/herdr-advisor/.claude` behind while the Commons link correctly pointed
+    # at `OpenSWE/herdr-advisor/skills/herdr-advisor`. Q142's claim that no name collision
+    # existed was true when written and stopped being true when the skill moved.
+    #
+    # A collision between two REAL skills of the same name still fails the play, and should:
+    # that is ambiguity a human has to resolve, not a husk to skip.
+    - name: Find the self-authored skills that live in git
+      ansible.builtin.find:
+        paths: "{{ skills_selfauthored_present }}"
+        patterns: SKILL.md
+        file_type: file
+        recurse: true
+        depth: 2
+      register: skills_selfauthored
+      changed_when: false
+
+    # Looped rather than diffed first because `adopt` is idempotent and cheap; an
+    # already-Sourced path is a no-op that exits 0.
+    #
+    # `failed_when: false` here defers the verdict, it does not tolerate a failure — the
+    # `set_fact` below still routes a genuine one to a `fail` in main.yml's post_tasks. The same
+    # shape, and the same reason, as the pinned-skill install above: a looped `failed_when`
+    # cannot reference the item's own `rc` in ansible-core 2.21 ("'rc' is undefined", measured),
+    # so the classification has to happen after the loop.
+    - name: Adopt each self-authored skill
+      ansible.builtin.command: "agent-sync adopt {{ item.path | dirname }}"
+      loop: "{{ skills_selfauthored.files }}"
+      loop_control:
+        label: "{{ item.path | dirname | basename }}"
+      register: skills_adopt
+      changed_when: false
+      failed_when: false
+
+    # One refusal is separated out, and only one: "remove the Commons link first", which `adopt`
+    # returns with rc 1 when the Commons already links this NAME at a different path. While a
+    # skill is graduating out of the monorepo both copies exist for as long as a host's clone
+    # lags, and the Commons already points at the right one — measured 2026-09-18, six of seven
+    # hosts sat at `111ac0b` and still carried `soulmachine/skills/herdr-advisor/SKILL.md` while
+    # their Commons link correctly resolved to `OpenSWE/herdr-advisor`, so every one of them
+    # failed this loop. That is a clone wanting a `git pull`, not ambiguity a human must
+    # arbitrate, and failing the play would leave the 20 roles after this one unrun over a link
+    # that is already correct.
+    #
+    # A POSITIVE sentinel, never a negated one: matching "not already Sourced" would swallow
+    # every other failure mode, including the genuine same-name collision this must still fail
+    # on. The same-path no-op prints "nothing to do" and exits 0, so it never reaches here.
+    # `selectattr('rc', 'defined')` is load-bearing under `--check`, where the command is skipped
+    # and the result carries no `rc` at all.
+    - name: Sort the adoption refusals into stale clones and real collisions
+      ansible.builtin.set_fact:
+        skills_adopt_stale: >-
+          {{ skills_adopt.results | default([]) | selectattr('rc', 'defined')
+             | selectattr('rc', 'ne', 0)
+             | selectattr('stderr', 'search', 'remove the Commons link first')
+             | map(attribute='item.path') | map('dirname') | map('basename') | list }}
+        skills_adopt_failed: >-
+          {{ skills_adopt.results | default([]) | selectattr('rc', 'defined')
+             | selectattr('rc', 'ne', 0)
+             | rejectattr('stderr', 'search', 'remove the Commons link first')
+             | map(attribute='item.path') | map('dirname') | list }}
+
+    - name: Report skills whose clone still holds a graduated copy
+      ansible.builtin.debug:
+        msg: >-
+          Already Sourced elsewhere, so not re-adopted: {{ skills_adopt_stale | join(', ') }}.
+          The Commons link is correct; this host's clone still carries a copy the skill has
+          since graduated out of. Refresh it with
+          `git -C {{ skills_selfauthored_repos | first }} pull`.
+      when: skills_adopt_stale | length > 0
+
+    # Duplicated in main.yml's post_tasks for the standalone `include_role` form, exactly as the
+    # pinned-skill report above is.
+    - name: Report skills that could not be adopted
+      ansible.builtin.debug:
+        msg: >-
+          `agent-sync adopt` refused: {{ skills_adopt_failed | join('; ') }}.
+      when: skills_adopt_failed | length > 0
+
+    - name: Check whether any skill was newly adopted
+      ansible.builtin.find:
+        paths: "{{ skills_store }}"
+        file_type: link
+        recurse: false
+      register: skills_sourced_after
+      changed_when: >-
+        (skills_sourced_after.files | map(attribute='path') | sort)
+        != (skills_sourced_before.files | map(attribute='path') | sort)
+
+# Ceiling: this fingerprints content, not the per-agent symlink farms, so a link
+# restored in ~/.claude/skills reports no change even though the run repaired it. The
+# repair still happens — `skills add` runs regardless — and agent-sync maintains those
+# same three directories, so the verdict is the only thing affected.
+#
+# `recurse` does not follow symlinks, so the 30 agent-sync skills symlinked into
+# ~/github.com/soulmachine/skills are not traversed. That is deliberate: their content
+# belongs to git, and including it would report a change whenever one is edited there.
+- name: Check whether any skill changed
+  ansible.builtin.find:
+    paths: "{{ skills_store }}"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: skills_after
+  changed_when: >-
+    (skills_after.files | map(attribute='checksum') | sort)
+    != (skills_before.files | map(attribute='checksum') | sort)
+
+# `skills add` never deletes. So a skill that leaves this role's reach — withdrawn upstream,
+# dropped from `skills_sources`, or hand-installed from a source that was never there —
+# keeps its store directory forever, reaching every agent as a skill nothing maintains. It
+# accumulates silently and diverges hosts: measured 2026-09-16, 2 on dev-server-frank-lume
+# against 24 on macbook-pro-nickel.
+#
+# Detection only, on purpose. Deleting a store directory is irreversible and not this role's
+# call to make unattended — AGENTS.md's rule about catastrophic actions — and the list needs
+# a human eye anyway: `soulmachine/skills` entries show up here as real directories, which is
+# not junk to sweep but a git-backed skill shadowed by a CLI copy (DECISIONS.md Q82).
+#
+# The rule is in files/find-orphans.py because it branches three ways and the whole-source
+# branch has a trap worth asserting against: within one run a source's skills are stamped
+# milliseconds apart, so a naive `updatedAt < max` reported 43 of mattpocock's 45 as orphans.
+# `--self-test` covers that and runs in pre-commit.
+- name: Find store directories the role no longer refreshes
   ansible.builtin.command:
-    cmd: npx skills add mvanhorn/last30days-skill -g -y --all
-    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/last30days"
+    cmd: python3 {{ role_path }}/files/find-orphans.py
+    stdin: >-
+      {{ {'store': skills_store,
+          'lock': skills_home ~ '/.agents/.skill-lock.json',
+          'whole': skills_sources,
+          'partial': skills_sources_partial + skills_sources_foreign} | to_json }}
+  register: skills_orphans
+  changed_when: false
+  # Read-only, so running it under `--check` is safe and is what makes the report below mean
+  # anything in a dry run.
+  check_mode: false
+
+# Never `changed`: an orphan persists until someone deletes it by hand, so reporting one as a
+# change would be a phantom on every run from now until then — the failure this role's own
+# fingerprint gate exists to avoid. A `debug` that skips when clean, matching the pinned-skill
+# report above.
+- name: Report store directories the role no longer refreshes
+  ansible.builtin.debug:
+    msg: "{{ skills_orphans.stdout_lines }}"
+  when: skills_orphans.stdout | default('') | length > 0
+
+# Installing and adopting fills the STORE; nothing so far fans it out. `skills add` writes the
+# per-agent farms as a side effect of the agents it is told about, but the Commons is also fed by
+# `agent-sync adopt` above and by skills retired elsewhere, and only `agent-sync sync` reconciles
+# the farms with it — which is why ~/.agents/docs/skills.md says to run it "after every
+# skill add or removal". Until now no role ever did: `roles/agent-sync` taps, trusts and installs the
+# binary and stops there, so a rebuilt host got agent-sync and never invoked it, leaving the
+# symlink farms and the instruction wiring (codex's AGENTS.md symlink, opencode's `instructions`
+# entry, gemini's `context.fileName`) to whoever remembered to run it by hand.
+#
+# Gated on `status`, not on `sync`'s output: `status` exits non-zero when it has pending work and 0
+# when converged, so the exit code IS the state diff — the rule this repo applies to every
+# self-updating tool. `sync` itself prints the same reassuring lines whether or not it changed
+# anything, so a stdout match would report a phantom change forever.
+- name: Check whether the agent farms are in sync with the Commons
+  ansible.builtin.command: agent-sync status
+  register: skills_sync_status
+  changed_when: false
+  # An unconverged host is an expected outcome, not an error — `failed_when: false` rather than
+  # `ignore_errors`, so a routine pending item does not print a red `fatal:` block and train the
+  # reader to skim past red.
+  failed_when: false
+  # Read-only, so it runs under `--check` and makes the gate below mean something in a dry run.
+  check_mode: false
+
+- name: Fan the Commons out to every installed agent
+  ansible.builtin.command: agent-sync sync
+  when: skills_sync_status.rc != 0
+  changed_when: true
+
+# The sync above repairs what it can. This asserts the result, because `agent-sync status`'s exit
+# code does NOT cover the whole survey: of its seven instruction states, only `missing`, `import`
+# and `legacy` are "actionable" and lift the code to 2. `conflict` and `foreign` exit 0 —
+# upstream pins that deliberately in `tests/instructions.rs`,
+# `a_conflict_does_not_keep_the_machine_permanently_dirty`.
+#
+# Those two are exactly the states that mean an agent has STOPPED reaching the Commons: gemini's
+# settings.json edited into invalid JSON, `context.fileName` retyped to a non-list, the Commons
+# entry slid to index 0 where gemini writes its own memories, or a real file/foreign symlink
+# occupying codex's `~/.codex/AGENTS.md`. Every one leaves the agent loading nothing, and
+# `agent-sync status` says 0. The nightly sweep's only success test is `failed=0` in the PLAY
+# RECAP, so a state that exits 0 is invisible to the fleet by construction.
+#
+# `sync` cannot fix them either — `instructions::apply()` ends `_ => Ok(())`, commented
+# "Conflicts and Foreign links are no-ops" — so this is a detector, not a second repair, and the
+# post_task's message is a hand-fix rather than "re-run the play".
+#
+# Ceiling: the verdict is measured here, so a break caused by a LATER role (claude-mem or
+# ponytail, both of which write agent config) is not caught until the next run. Accepted rather
+# than surveyed twice; a second pass in post_tasks would not report at
+# all under the standalone `include_role` form.
+- name: Check the instruction wiring after the fan-out
+  ansible.builtin.command: agent-sync status --json
+  register: skills_wiring
+  changed_when: false
+  # rc is deliberately ignored, not just tolerated. `status` returns 1 for an unreadable
+  # third-party mcp or hooks file while still emitting a complete, valid instructions array, so
+  # gating on rc would throw away a good survey. The JSON is the signal; the exit code is not.
+  failed_when: false
+  check_mode: false # read-only probe; run in --check so the report below is real
+
+# Two `set_fact` tasks because one cannot reference a key it defines in the same task. `default('{}', true)` because a Commons fault makes
+# `status` return 1 with EMPTY stdout rather than `{}`, which would otherwise break `from_json`.
+- name: Read the instruction survey
+  ansible.builtin.set_fact:
+    skills_wiring_items: >-
+      {{ (skills_wiring.stdout | default('{}', true) | from_json).instructions | default([], true) }}
+
+- name: Record any agent whose instruction wiring is not intact
+  ansible.builtin.set_fact:
+    skills_wiring_broken: >-
+      {{ skills_wiring_items | rejectattr('state', 'in', skills_wiring_ok_states)
+         | map('to_json') | list }}
+
+# An empty survey is NOT a failure, and that asymmetry is deliberate. agent-sync returns no
+# instruction items at all when `~/.agents/AGENTS.md` is absent, and nothing creates that file:
+# not agent-sync (no `fs::write` of `commons::INSTRUCTIONS` anywhere in its source, `init` only
+# makes directories) and no role here. It arrives on this fleet from the openroutine sync, so a
+# freshly built host legitimately has none for a while. Failing would make every new host red
+# forever; naming the absence out loud is this role's convention for exactly that case, the same
+# as the self-authored-skills report above.
+- name: Report that no instruction wiring was surveyed
+  ansible.builtin.debug:
+    msg: >-
+      agent-sync surveyed no instruction wiring on this host. The usual cause is a missing
+      ~/.agents/AGENTS.md, which nothing provisions — `agent-sync doctor` prints whether it is
+      present. Until it exists, no agent loads the shared instructions.
+  when: skills_wiring_items | length == 0
+
+# Duplicates the post_task message below because post_tasks never run under
+# `ansible localhost -m include_role -a name=skills`, the form the ansible-idempotency-check skill
+# uses — the same reason the pinned-skill report above duplicates its own.
+- name: Report agents whose instruction wiring is not intact
+  ansible.builtin.debug:
+    msg: "{{ skills_wiring_broken }}"
+  when: skills_wiring_broken | length > 0
