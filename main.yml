@@ -3,6 +3,10 @@
   hosts: all
   gather_facts: true
   become: false
+
+  # Upstream macbook-provision's order, minus the roles this repo omits (AGENTS.md "Upstream").
+  # `apt` stands where `homebrew` stands; `shell` and `omarchy` are the bash versions of
+  # upstream's zsh pair.
   roles:
     - apt
     - github
@@ -19,12 +23,21 @@
     - rust
     - jdk
     - claude-code
+    - claude-extras
+    - typesafe
     - codex
     - opencode
+    - kimi-code
+    - omp
+    - pi
+    - agent-sync
     - skills
+    - agent-reach
     - playwright
     - playwright-cli
     - claude-mem
+    - hermes
+    - ponytail
     - role: paseo
       tags: [agent-multiplexer]
     - cloudflare
@@ -36,3 +49,63 @@
       tags: [terminal-multiplexer]
     - role: herdr
       tags: [terminal-multiplexer]
+
+  # Failures that should be loud without being obstructive land here, after every role has
+  # had its run. A `fail` inside an early role stops every role after it, and a sweep's only
+  # success test is `failed=0` in the PLAY RECAP, so anything that does not fail the play is
+  # invisible to it. Deferring to post_tasks keeps the recap honest and lets the rest finish.
+  post_tasks:
+    # First, because the upgrade is the earliest deferred failure in the play. A failing
+    # post_task stops the ones after it, so a host with several deferred failures reports
+    # this one at the end; each role also printed its own message where it happened.
+    - name: Fail when the apt upgrade failed
+      ansible.builtin.fail:
+        msg: "{{ apt_upgrade_failed }}"
+      when: apt_upgrade_failed is defined
+
+    - name: Fail when a pinned skill could not be installed
+      ansible.builtin.fail:
+        msg: >-
+          `skills add` could not install every pinned skill:
+          {{ skills_partial_failures | join('; ') }}.
+          The usual cause is a rename or withdrawal upstream. List what the source actually
+          ships with `npx skills@latest add <source> -l` (it installs nothing), then correct
+          the name in roles/skills/vars/main.yml, or drop the entry if the skill is gone for
+          good.
+      when: skills_partial_failures | default([]) | length > 0
+
+    # Separate from the pinned-skill failure above and deliberately not merged with it: this one
+    # cannot be repaired by re-running. `agent-sync sync` treats conflict and foreign as no-ops,
+    # so the play will report the same thing tomorrow unless a human edits the file.
+    - name: Fail when an agent's instruction wiring is not intact
+      ansible.builtin.fail:
+        msg: >-
+          These agents no longer reach ~/.agents/AGENTS.md:
+          {{ skills_wiring_broken | join('; ') }}.
+          A `conflict` or `foreign` state exits 0 from `agent-sync status`, so this task is the
+          only thing that reports it, and `agent-sync sync` cannot repair either; fix the file
+          by hand. `agent-sync status` without `--json` names the file and the diagnosis (the
+          JSON carries neither); `agent-sync doctor` additionally catches an import line sitting
+          in a file whose agent does not expand one. If an agent is meant to keep its own
+          instructions, drop it from the survey with `targets.<agent> = false` in
+          agent-sync.toml rather than widening skills_wiring_ok_states, which would blind the
+          check on every agent at once.
+      when: skills_wiring_broken | default([]) | length > 0
+
+    - name: Fail when a self-authored skill could not be adopted
+      ansible.builtin.fail:
+        msg: >-
+          `agent-sync adopt` refused these paths: {{ skills_adopt_failed | join('; ') }}.
+          A clone lagging behind a skill's graduation is handled already and is not this;
+          the usual remaining cause is two REAL skills of the same name in different roots,
+          which is ambiguity only a human can resolve. Run the same `agent-sync adopt` by
+          hand to see the refusal in full.
+      when: skills_adopt_failed | default([]) | length > 0
+
+    # Tagged like the role so a `--tags agent-multiplexer` run reports it too; untagged
+    # post_tasks are filtered out.
+    - name: Fail when the Paseo daemon is not running
+      ansible.builtin.fail:
+        msg: "{{ paseo_daemon_down }}"
+      when: paseo_daemon_down is defined
+      tags: [agent-multiplexer]

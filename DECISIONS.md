@@ -179,3 +179,43 @@
 **Justification:** The user asked for the shell "just like Omarchy" and then asked me to read upstream's latest commits, which introduced exactly that split. Matching the names keeps every future catch-up a one-to-one diff.
 **Outcome:** assumed
 **Ref:** (pending)
+
+## Q19 — interactive/catch-up — deviation
+
+**Question:** Upstream's codex role now takes the CLI bundled inside ChatGPT.app (d05ab3f, upstream Q197/Q200). What installs codex here?
+**Options considered:** a Linux ChatGPT desktop build (none exists) / keep this repo's npm install
+**Chosen:** npm `@openai/codex` with `state: latest`; the module's own installed-versus-latest comparison is the change signal. The open-pstack marketplace, the `codex-yolo` alias and the `no_log` on `~/.codex/config.toml` are ported.
+**Decided-by:** agent
+**Justification:** There is no ChatGPT desktop app on Linux, and upstream's reason for leaving npm (a Gatekeeper prompt from the cask's `codex completion`) is macOS-only.
+**Outcome:** assumed
+**Ref:** (pending)
+
+## Q20 — interactive/catch-up — tradeoff
+
+**Question:** agent-sync comes from a Homebrew tap upstream. How does the Ubuntu role find and verify the latest release without spending the GitHub API budget?
+**Options considered:** the releases API with the `gh auth token` fallback / the `releases/latest` redirect plus `SHA256SUMS.txt`
+**Chosen:** Read the version from the `Location` header of `releases/latest` (`uri` with `follow_redirects: none`), fetch the linux-x64 or linux-arm64 tarball with `get_url checksum: sha256:<SHA256SUMS.txt url>`, and install only when the version differs from `agent-sync --version`.
+**Decided-by:** agent
+**Justification:** The unauthenticated API returned 403 from mac-mini-m6 while this was written (rate limit spent); the redirect has no limit and needs no token, and the checksum file covers integrity. supermicro's hand-installed 1.2.0 converges without a reinstall.
+**Outcome:** assumed
+**Ref:** (pending)
+
+## Q21 — interactive/catch-up — gate-resolution
+
+**Question:** Upstream's paseo role owns a launchd LaunchAgent. How does the daemon run on Ubuntu from boot, on a box nobody logs into?
+**Options considered:** a system unit running as the user / a `systemd --user` unit with lingering / a cron `@reboot`
+**Chosen:** `files/paseo.service` as a user unit running `bash -lc "exec paseo daemon run"`, `loginctl enable-linger <user>` under `become` gated on `loginctl show-user`, and `systemd_service scope: user` with `XDG_RUNTIME_DIR=/run/user/<uid>` so Ansible reaches the user bus.
+**Decided-by:** agent
+**Justification:** Ansible tasks inherit no user bus, and without lingering a user manager exists only while a session does. A user unit keeps the daemon under the user's own environment and mise shims, as the LaunchAgent's `zsh -lc` does on macOS. Known risk: right after lingering is first enabled the user manager can be slow to appear, and the first `systemctl --user` call can fail; a re-run converges.
+**Outcome:** assumed
+**Ref:** (pending)
+
+## Q22 — interactive/catch-up — tradeoff
+
+**Question:** The ported skills and claude-code comments cite upstream DECISIONS numbers (Q81, Q139-Q155, Q193-Q205) that collide with this repo's own numbering. Rewrite them?
+**Options considered:** rewrite every citation / one header line per file saying the Q-numbers refer to upstream's DECISIONS.md
+**Chosen:** One header line per file; the prose stays as upstream wrote it. The same applies to the `remoteControlAtStartup: true` settings key, ported verbatim as part of the full claude-code settings merge.
+**Decided-by:** agent
+**Justification:** Rewriting dozens of citations would make the next catch-up diff noisy for no information gain. The remote-control key is one line to delete if a server should not start that surface in every session.
+**Outcome:** assumed
+**Ref:** (pending)

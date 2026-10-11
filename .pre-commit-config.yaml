@@ -41,3 +41,13 @@ repos:
         language: script
         pass_filenames: false
         files: ^(AGENTS\.md|main\.yml|roles/)
+
+      # The orphan rule branches three ways and its whole-source branch compares timestamps
+      # with a tolerance. The self-test pins that; it is pure arithmetic on fixtures, so it
+      # needs no network and runs in well under a second.
+      - id: skills-orphan-rule
+        name: skills orphan rule self-test
+        entry: python3 roles/skills/files/find-orphans.py --self-test
+        language: system
+        pass_filenames: false
+        files: ^roles/skills/
