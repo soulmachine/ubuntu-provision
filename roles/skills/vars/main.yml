@@ -137,6 +137,10 @@ skills_sources_partial:
   # whatever it pushes. See DECISIONS.md Q202.
   - source: T0mSIlver/skills
     skills: [test-audit]
+  # Cross-session memory in a local git repo. Ships exactly one skill upstream, installed by hand on
+  # mac-mini-m6 on 2026-10-11; pinned here so every host gets and refreshes it.
+  - source: AgentMemoryRepo/agentmemoryrepo
+    skills: [agent-memory-repo]
 
 # Partial sources that a DIFFERENT role installs. The orphan detector below groups the lock
 # by source and flags anything no source accounts for, so without this every such skill reads
