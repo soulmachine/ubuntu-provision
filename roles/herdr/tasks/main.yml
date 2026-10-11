@@ -168,3 +168,56 @@
     dest: "{{ lookup('env', 'HOME') }}/.claude/skills/herdr"
     state: link
     force: true
+
+# The rename hook from soulmachine/skills' herdr-rename-hook skill (coding-agent Q401): a Claude Code
+# or Codex `/rename` is mirrored onto the calling Herdr pane's agent, pane and tab. The skills
+# role adopts that skill into the store; its install.sh owns the wiring (the script in
+# ~/.claude/hooks, merged entries in ~/.claude/settings.json and ~/.codex/hooks.json), and
+# `install.sh --check` prints the state, which the tasks below diff.
+- name: Check for the herdr rename hook skill
+  ansible.builtin.stat:
+    path: "{{ herdr_rename_installer }}"
+  register: herdr_rename_skill
+
+- name: Report that the herdr rename hook skill is missing
+  ansible.builtin.debug:
+    msg: >-
+      {{ herdr_rename_installer }} is missing, so the /rename hook was not installed. The skills
+      role adopts it from ~/github.com/soulmachine/skills; run that role, then this one.
+  when: not herdr_rename_skill.stat.exists
+
+- name: Install the herdr rename hook
+  when: herdr_rename_skill.stat.exists
+  block:
+    - name: Check the herdr rename hook
+      ansible.builtin.command: sh {{ herdr_rename_installer }} --check
+      register: herdr_rename_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # The installer's self-check runs only inside a Herdr pane, and a play started from an
+    # agent's pane inherits HERDR_ENV; clearing it keeps a play's result the same everywhere.
+    - name: Run the herdr rename hook installer
+      ansible.builtin.command: sh {{ herdr_rename_installer }}
+      environment:
+        HERDR_ENV: ""
+      when: herdr_rename_before.rc != 0
+      changed_when: false
+
+    - name: Check whether the herdr rename hook changed
+      ansible.builtin.command: sh {{ herdr_rename_installer }} --check
+      register: herdr_rename_after
+      changed_when: herdr_rename_after.stdout != herdr_rename_before.stdout
+      failed_when: false
+      check_mode: false
+      when: herdr_rename_before.rc != 0
+
+    # The installer never edits ~/.codex/config.toml, so a Codex with `[features] hooks` off
+    # stays "not installed" here on every play until someone turns it on.
+    - name: Report a herdr rename hook that is still incomplete
+      ansible.builtin.debug:
+        msg: "{{ herdr_rename_after.stdout_lines }}"
+      when:
+        - herdr_rename_before.rc != 0
+        - herdr_rename_after.rc | default(0) != 0

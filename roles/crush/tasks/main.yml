@@ -1,0 +1,8 @@
+---
+# Crush (Charm) from npm. Its gateway provider, a managed block in ~/.config/crush/crushrc, comes
+# from `cliproxy-tier <host>` on mac-mini-m2 (coding-agent Q401).
+- name: Install Crush
+  community.general.npm:
+    name: "@charmland/crush"
+    global: true
+    state: latest

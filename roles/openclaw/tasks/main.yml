@@ -1,0 +1,48 @@
+---
+# OpenClaw from npm. Every Ubuntu host is always-on, so unlike upstream there is no gate. The play
+# installs only the CLI: `cliproxy-tier <host>` on mac-mini-m2 runs the one-time onboarding
+# (gateway provider, key in ~/.openclaw/.env, its systemd user daemon) and keeps that config, as it
+# does for the other agents (coding-agent Q401). A running daemon keeps the old version after an
+# upgrade until it restarts.
+- name: Install OpenClaw
+  community.general.npm:
+    name: openclaw
+    global: true
+    state: latest
+
+# The daemon's service file names an absolute Node and OpenClaw entrypoint, so after the nodejs
+# role moves Node or OpenClaw itself is upgraded, it keeps running the old pair, and it breaks once
+# mise prunes that Node. `gateway install --force` rewrites the service for the current pair and
+# restarts it. OpenClaw prefers a system Node where one exists (Omarchy's /usr/bin/node), so only a
+# service on a mise Node is compared with the current Node; any service is compared by version.
+- name: Read the OpenClaw daemon's state
+  ansible.builtin.command: openclaw gateway status --json
+  register: openclaw_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Read the current Node
+  ansible.builtin.command: node -p process.execPath
+  register: openclaw_node
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide whether the OpenClaw daemon runs an old Node or OpenClaw
+  ansible.builtin.set_fact:
+    openclaw_daemon_stale: >-
+      {{ (openclaw_svc.command.programArguments | default([])) | length > 0
+         and (('/mise/installs/' in openclaw_svc.command.programArguments[0]
+               and openclaw_svc.command.programArguments[0] != openclaw_node.stdout | trim)
+              or openclaw_svc.layout.packageVersion | default('') != openclaw_state.cli.version | default('')) }}
+  vars:
+    openclaw_state: >-
+      {{ openclaw_status.stdout | from_json
+         if openclaw_status.rc == 0 and (openclaw_status.stdout | trim)[:1] == '{' else {} }}
+    openclaw_svc: "{{ openclaw_state.service | default({}) }}"
+
+- name: Rewrite the OpenClaw daemon for the current Node and OpenClaw
+  ansible.builtin.command: openclaw gateway install --force
+  when: openclaw_daemon_stale | bool
+  changed_when: true

@@ -116,6 +116,11 @@ pre-commit run --all-files
 | kimi-code | Kimi Code CLI（通过官方 code.kimi.com 脚本安装）；`kimi upgrade` 报告有新版时重跑安装脚本 |
 | omp | oh-my-pi：bun 全局 `@oh-my-pi/pi-coding-agent`，bash 补全与 `omp-yolo` 别名（依赖 bun） |
 | pi | pi coding agent：bun 全局 `@earendil-works/pi-coding-agent`，并下发 `~/.pi/agent/` 下的 settings、models 与扩展（依赖 bun） |
+| copilot | GitHub Copilot CLI（npm `@github/copilot`）；只经 CLIProxyAPI 使用：`copilot-gw` 由 mac-mini-m2 上的 `cliproxy-tier` 写入（依赖 nodejs） |
+| crush | Crush（Charm，npm `@charmland/crush`）；`~/.config/crush/crushrc` 里的网关 provider 由 `cliproxy-tier` 写入（依赖 nodejs） |
+| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini-gw` 与（没有 Google 登录时）`~/.gemini/settings.json` 由 `cliproxy-tier` 写入（依赖 nodejs） |
+| grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`~/.grok/config.toml` 的网关模型由 `cliproxy-tier` 写入（依赖 nodejs） |
+| openclaw | OpenClaw（npm `openclaw`）；onboarding、网关 provider 与常驻 daemon 由 mac-mini-m2 上的 `cliproxy-tier` 负责（依赖 nodejs） |
 | agent-sync | 把 `~/.agents/` 同步到每个已安装 agent 的技能目录与指令文件；从 GitHub release 下载 linux-x64/arm64 tar 包到 `~/.local/bin`，按最新 release 版本号更新，SHA256SUMS.txt 校验 |
 | skills | 用 `npx skills@latest add` 安装所有技能源到 `~/.agents/skills`（每次运行都刷新，以 store 指纹判断 changed），部分源按名单安装；用 `agent-sync adopt` 收编 `~/github.com/soulmachine/skills` 与 OpenSWE 仓库中的自写技能，`agent-sync sync` 扇出，并检查各 agent 的指令接线；孤儿目录只报告不删除（依赖 claude-code、codex、agent-sync） |
 | agent-reach | 多渠道触达工具；上游只提供面向 AI agent 的安装文档，故由 `claude-gw -p` 按文档驱动安装；不装 OpenCLI（依赖 claude-code、python、nodejs、github） |
@@ -131,7 +136,7 @@ pre-commit run --all-files
 | tailscale | 从官方 apt 源安装 tailscale 并启用 systemd 服务；设了 `TAILSCALE_AUTH_KEY` 时自动加入 tailnet；设了 OAuth client 时关闭节点密钥过期 |
 | zellij | 终端复用器（GitHub release 的静态二进制）；tag `terminal-multiplexer` |
 | tmux | 终端复用器（apt）；tag `terminal-multiplexer` |
-| herdr | 从 herdr.dev 安装脚本安装 herdr，按 `latest.json` 版本差异更新；安装 herdr skill 并以相对符号链接接入 `~/.claude/skills`，`~/.bashrc` 加入给终端标题加主机名的 `herdr()` 包装函数；tag `terminal-multiplexer` |
+| herdr | 从 herdr.dev 安装脚本安装 herdr，按 `latest.json` 版本差异更新；安装 herdr skill 并以相对符号链接接入 `~/.claude/skills`，`~/.bashrc` 加入给终端标题加主机名的 `herdr()` 包装函数；并用 herdr-rename-hook skill 的 `install.sh` 接上 `/rename` 钩子（Claude Code 与 Codex 的 `/rename` 同步成 Herdr 的 agent、pane 和 tab 名）；tag `terminal-multiplexer` |
 
 ### 与 macOS 版的差异
 
@@ -155,6 +160,11 @@ pre-commit run --all-files
 | kimi-code | 官方 `install.sh`（curl \| bash） | `~/.kimi-code/bin/kimi`，命令是 **`kimi`** 而不是 `kimi-code` |
 | omp | bun 全局 `@oh-my-pi/pi-coding-agent` | `~/.bun/bin/omp`，命令是 **`omp`** |
 | pi | bun 全局 `@earendil-works/pi-coding-agent` | `~/.bun/bin/pi` |
+| copilot | npm 全局 `@github/copilot` | 命令 `copilot`；经网关用 `copilot-gw` |
+| crush | npm 全局 `@charmland/crush` | 命令 `crush` |
+| gemini | npm 全局 `@google/gemini-cli` | 命令 `gemini`；经网关用 `gemini-gw` |
+| grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin` |
+| openclaw | npm 全局 `openclaw` | 命令 `openclaw`；常驻 daemon 由 `cliproxy-tier` 的 onboarding 安装 |
 | claude-mem | `npx -y claude-mem install` | 不是独立命令，而是 Claude Code 插件，同时接线 codex-cli 和 opencode |
 | agent-reach | **没有包管理器**，见下 | 由 `claude-gw -p` 按上游文档安装 |
 
@@ -182,6 +192,8 @@ pre-commit run --all-files
 
 - **Codex 的 hook 信任**是一次性的、每台机器各做一次：跑 `codex`、打开 `/hooks`，审核并信任 ponytail 的三个生命周期 hook，然后开一个新 thread。
 - **opencode 的 provider 认证**没有做：安装器带的是 `--skip-auth`。
+- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** `copilot-gw`、`gemini-gw`（主机有自己的 Google 登录时 Gemini 保持原生）、grok、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
+- **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。
 - **`claude-mem` 的模型 id 要手工升级。** `roles/claude-mem/vars/main.yml` 里的模型 id 一旦下架就是一个硬错误，**会让 play 失败**。

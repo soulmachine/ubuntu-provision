@@ -1,0 +1,9 @@
+---
+# Grok CLI (xAI) from npm. The package is a launcher: the first `grok` call downloads the native
+# binary into ~/.grok/bin. Its gateway models in ~/.grok/config.toml come from
+# `cliproxy-tier <host>` on mac-mini-m2 (coding-agent Q401).
+- name: Install Grok CLI
+  community.general.npm:
+    name: "@xai-official/grok"
+    global: true
+    state: latest

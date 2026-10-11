@@ -1,0 +1,9 @@
+---
+# GitHub Copilot CLI from npm, as the opencode role installs its CLI. It reaches models only
+# through CLIProxyAPI: `copilot-gw`, written by `cliproxy-tier <host>` on mac-mini-m2, sets its
+# BYOK variables for that one process (coding-agent Q401).
+- name: Install GitHub Copilot CLI
+  community.general.npm:
+    name: "@github/copilot"
+    global: true
+    state: latest

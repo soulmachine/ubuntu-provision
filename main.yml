@@ -30,6 +30,11 @@
     - kimi-code
     - omp
     - pi
+    - copilot
+    - crush
+    - gemini
+    - grok
+    - openclaw
     - agent-sync
     - skills
     - agent-reach

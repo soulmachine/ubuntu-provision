@@ -1,0 +1,8 @@
+---
+# Gemini CLI from npm. `cliproxy-tier <host>` on mac-mini-m2 writes `gemini-gw` and, unless the
+# host has its own Google login, the gateway settings in ~/.gemini/settings.json (coding-agent Q401).
+- name: Install Gemini CLI
+  community.general.npm:
+    name: "@google/gemini-cli"
+    global: true
+    state: latest

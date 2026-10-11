@@ -1,0 +1,2 @@
+---
+herdr_rename_installer: "{{ lookup('env', 'HOME') }}/.agents/skills/herdr-rename-hook/scripts/install.sh"
