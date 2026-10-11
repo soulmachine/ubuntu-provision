@@ -1,0 +1,38 @@
+---
+# hermes loads one global instruction file, ~/.hermes/SOUL.md, and never looks for AGENTS.md
+# outside a git repo. So link it to the fleet's shared ~/.agents/AGENTS.md, as every other agent
+# is (coding-agent DECISIONS Q295). hermes re-seeds SOUL.md only when it is missing or still its
+# legacy template, so `hermes update` leaves the link alone. A host with no ~/.agents clone yet
+# has no ~/.agents/AGENTS.md (fleet-ssh.md "Add a host"); it is skipped and linked on the first run
+# after the clone.
+- name: Check for the shared agent instructions
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.agents/AGENTS.md"
+  register: hermes_agents_md
+  check_mode: false
+
+- name: Check the current hermes SOUL.md
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.hermes/SOUL.md"
+  register: hermes_soul
+  check_mode: false
+
+# A regular file may be a persona someone wrote, so keep it instead of overwriting it.
+- name: Keep an existing hermes SOUL.md before linking it
+  ansible.builtin.command:
+    cmd: "mv SOUL.md SOUL.md.bak-{{ now(utc=true, fmt='%Y%m%dT%H%M%SZ') }}"
+    chdir: "{{ lookup('env', 'HOME') }}/.hermes"
+  when:
+    - hermes_agents_md.stat.exists
+    - hermes_soul.stat.isreg | default(false)
+  changed_when: true
+
+# Relative, like the links agent-sync makes for codex, pi and omp. `force` matters only under
+# --check, where the mv above is skipped and a plain link task would refuse the regular file.
+- name: Link hermes SOUL.md to the shared agent instructions
+  ansible.builtin.file:
+    src: ../.agents/AGENTS.md
+    dest: "{{ lookup('env', 'HOME') }}/.hermes/SOUL.md"
+    state: link
+    force: true
+  when: hermes_agents_md.stat.exists

@@ -1,0 +1,109 @@
+---
+# Hermes — Nous Research's personal AI agent. https://github.com/NousResearch/hermes-agent
+#
+# The official installer clones the repo to ~/.hermes/hermes-agent, builds a
+# uv-managed venv beside it, installs Playwright/Chromium and Node deps, then
+# writes `hermes` / `hermes-acp` launchers into ~/.local/bin — appending that
+# dir to .bashrc itself (grep-guarded), so no PATH task is needed here.
+#
+# `--skip-setup` is required for unattended runs: the setup wizard reads from
+# /dev/tty rather than stdin, so under ansible-playbook it renders its prompts
+# into Ansible's captured stdout and then blocks the play forever waiting on
+# input nobody can see. Run `hermes setup` interactively once afterwards to
+# configure the model provider and any messaging gateways.
+- name: Install hermes # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: >-
+    curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/hermes"
+
+# This role used to install with `--no-skills` and run `hermes skills opt-out`,
+# both of which write ~/.hermes/.no-bundled-skills — the marker skills_sync.py
+# and `hermes update` honor to skip seeding the bundled skills. Hosts
+# provisioned back then still carry it, and the `creates:` guard above means the
+# installer never runs again there, so remove the marker to opt them back in.
+# Nothing is seeded by this task itself: the bundled skills land on the next
+# `hermes update` that actually runs.
+- name: Remove the hermes bundled-skills opt-out marker
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.hermes/.no-bundled-skills"
+    state: absent
+
+# Two tasks keep this both idempotent and fresh: `creates:` above installs once,
+# and `hermes update` re-checks upstream every run. Use `update --check` for the
+# probe, not `hermes version` — the latter's update status is cached for 6 hours
+# in ~/.hermes/.update_check, while `--check` does a live `git fetch`.
+#
+# Gate on the POSITIVE sentinel. `update --check` prints "⚕ Update available…"
+# only when the checkout is actually behind; it prints "✓ Already up to date."
+# when converged, and exits 1 with a "✗ …" line on every failure branch
+# (network error, auth failure, failed fetch, branch not found). A negated
+# "not up to date" test would fire on all of those and burn a full reinstall on
+# every converged run, so `failed_when: false` swallows the transient ones and
+# the apply task simply doesn't trigger.
+- name: Check whether a hermes update is available
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/hermes update --check"
+  register: hermes_update_check
+  changed_when: false
+  failed_when: false
+
+# `hermes update` is safe unattended: its two prompts (restore stashed local
+# changes, add an 'upstream' remote for forks) read stdin — not /dev/tty — and
+# both catch EOFError, so under Ansible they fall through to their safe default.
+#
+# But it EXITS 1 PRECISELY WHEN IT SUCCEEDS, so its exit code cannot decide this
+# task. It git-pulls ~/.hermes/hermes-agent — its own running source — and then an
+# atexit hook and a lazy tools/browser_tool.py import load the NEW
+# hermes_cli/config.py against the STALE `utils` already in sys.modules, dying with
+#
+#   ImportError: cannot import name 'file_signature' from 'utils'
+#
+# *after* the update has landed. Verified 2026-09-15 on all three always-on hosts
+# that had an update pending: `file_signature` IS defined at utils.py:38 on disk, a
+# fresh interpreter imports hermes_cli.config fine, the checkout moved to 416a8177,
+# and the next run reports "Already up to date". Left on `changed_when: true` with
+# no `failed_when`, a *successful* update failed the play at task 150 of ~264 on
+# every host that reaches this role — and then "passed" on the re-run only because
+# there was nothing left to do, which is what disguised it as a transient.
+#
+# So diff the checkout revision instead, per AGENTS.md "Self-update tasks: diff
+# state, don't grep output" — the shape roles/claude-code uses for `claude update`. Probe
+# with git, not `hermes --version`: the breakage is in Python imports, so a git
+# probe cannot be taken down by the very thing being measured. Both probes carry
+# `failed_when: false` so that `--check` on a host where the clone does not exist
+# yet reads as "no change" rather than failing on a missing directory.
+- name: Record the hermes checkout revision before updating # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: git rev-parse HEAD
+    chdir: "{{ lookup('env', 'HOME') }}/.hermes/hermes-agent"
+  register: hermes_rev_before
+  changed_when: false
+  failed_when: false
+
+- name: Update hermes to the latest version
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/hermes update"
+  when: "'Update available' in hermes_update_check.stdout"
+  register: hermes_update
+  changed_when: false
+  failed_when: false
+
+- name: Check whether hermes was updated # noqa: command-instead-of-module
+  ansible.builtin.command:
+    cmd: git rev-parse HEAD
+    chdir: "{{ lookup('env', 'HOME') }}/.hermes/hermes-agent"
+  register: hermes_rev_after
+  changed_when: hermes_rev_after.stdout != hermes_rev_before.stdout
+  failed_when: false
+
+# The one genuine failure: the updater ran, errored, and the revision did NOT move,
+# so nothing landed. Say so rather than converging over a failed update.
+- name: Fail when a hermes update was attempted but nothing landed
+  ansible.builtin.fail:
+    msg: >-
+      `hermes update` failed and the checkout is still at
+      {{ hermes_rev_before.stdout | default('(unknown)', true) }} —
+      {{ (hermes_update.stderr | default('', true)) | ternary(hermes_update.stderr, hermes_update.stdout | default('', true)) | truncate(400) }}
+  when:
+    - hermes_update is not skipped
+    - hermes_update.rc | default(0) != 0
+    - hermes_rev_after.stdout | default('', true) == hermes_rev_before.stdout | default('', true)

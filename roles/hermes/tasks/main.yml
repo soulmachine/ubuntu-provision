@@ -1,0 +1,10 @@
+---
+# Hermes is a long-running personal agent: a uv-managed checkout, a Chromium for Playwright
+# and messaging gateways that are only useful while the machine is reachable. Upstream gates
+# it on an always-on Mac; every Linux host this repo provisions is a server that stays up,
+# so it installs unconditionally and there is no host-facts role (DECISIONS.md).
+- name: Install and update hermes
+  ansible.builtin.include_tasks: install.yml
+
+- name: Point hermes at the shared agent instructions
+  ansible.builtin.include_tasks: instructions.yml
