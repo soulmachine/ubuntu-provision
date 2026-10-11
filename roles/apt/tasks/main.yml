@@ -1,11 +1,7 @@
 ---
-# Base CLI packages for Ubuntu — the apt analogue of the macOS `homebrew` role.
-#
-# The macOS repo also installed GUI casks here (claude / codex / gemini / chatgpt
-# desktop apps, pearcleaner, pycharm, sublime-text, visual-studio-code). Those are
-# intentionally omitted on the headless server profile: the AI desktop apps and
-# pearcleaner have no Linux build, and the IDEs/editors are GUI-only. See the
-# `cc-switch` skip-stub role and the README.
+# Base CLI packages for Ubuntu, the apt analogue of upstream's `homebrew` role. Upstream's
+# GUI casks (desktop apps, editors) are omitted: nothing in this repo targets a desktop
+# session (DECISIONS Q4).
 #
 # gh and Docker are not shipped at usable versions in Ubuntu's default archive, so
 # each gets its official apt repo below (same source the upstream docs use).
@@ -15,6 +11,28 @@
   ansible.builtin.apt:
     update_cache: true
     cache_valid_time: 3600
+
+# The apt analogue of upstream's `brew upgrade`, deferred the same way: a failed upgrade is
+# recorded as a host fact that main.yml's post_tasks raise after every role has run, so one
+# broken package does not skip the roles below. A kernel upgrade still needs a reboot.
+- name: Upgrade all installed packages
+  block:
+    - name: Run apt full-upgrade
+      become: true
+      ansible.builtin.apt:
+        upgrade: full
+        autoremove: true
+  rescue:
+    - name: Record that the apt upgrade failed
+      ansible.builtin.set_fact:
+        apt_upgrade_failed: >-
+          `apt full-upgrade` failed, so packages already installed may not be current:
+          {{ ansible_failed_result.msg | default('(no message)') | trim }}
+
+    # post_tasks only run in a full play, so a single-role run would never see it there.
+    - name: Report that the apt upgrade failed
+      ansible.builtin.debug:
+        msg: "{{ apt_upgrade_failed }}"
 
 - name: Install base CLI packages
   become: true
