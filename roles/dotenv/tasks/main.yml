@@ -1,0 +1,83 @@
+---
+# dotenv: export the repo's .env into ~/.bashrc, inside a managed block above Ubuntu's
+# interactive guard.
+#
+# `.envrc` runs `dotenv_if_exists .env`, but direnv is hooked from ~/.bashrc after the
+# `case $- in` guard (direnv role), so it only ever fires in an INTERACTIVE shell. Every
+# non-interactive one sees none of it: `ssh host 'cmd'`, git hooks, systemd units, and the
+# `bash -lc "... ansible-playbook ..."` remote-run form, which is a login shell but not an
+# interactive one. Roles gated on `lookup('env', VAR) | length > 0` then skip silently.
+# The block goes ABOVE the guard because that guard returns before anything below it runs
+# in a non-interactive shell; the fleet's jev-fleet-host.py already writes its exports there.
+#
+# This role reads the .env FILE, never `lookup('env', ...)`. The lookup reads the ambient
+# environment, which is exactly what is missing in the case this role exists to fix.
+
+- name: Check for the repo .env
+  ansible.builtin.stat:
+    path: "{{ dotenv_path }}"
+  register: dotenv_env_file
+
+# A missing .env is legitimate: the file is per-machine and gitignored, and a host may
+# deliberately carry no secrets. Say so rather than skipping in silence, because "no .env
+# here" and "run from the wrong directory" look identical from the recap.
+- name: Report that there is no .env to export
+  ansible.builtin.debug:
+    msg: >-
+      No {{ dotenv_path }}: nothing to export, and any existing managed block
+      in ~/.bashrc is left alone. If that is unexpected, check the run is from
+      the repo root; this path comes from playbook_dir.
+  when: not dotenv_env_file.stat.exists
+
+- name: Export the .env into ~/.bashrc
+  when: dotenv_env_file.stat.exists
+  block:
+    - name: Keep the .env private
+      ansible.builtin.file:
+        path: "{{ dotenv_path }}"
+        mode: "0600"
+
+    # blockinfile happily writes an empty block, so a parse that matched nothing would
+    # silently strip every export from every non-interactive shell on the host.
+    - name: Fail when the .env parses to no variables
+      ansible.builtin.assert:
+        that: dotenv_names | length > 0
+        fail_msg: >-
+          {{ dotenv_path }} exists but no line in it parses as an assignment.
+          Refusing to write an empty managed block, which would unset every
+          variable ~/.bashrc currently exports.
+        success_msg: "{{ dotenv_names | length }} variable(s) to export: {{ dotenv_names | join(', ') }}"
+
+    # no_log because the block is the credentials themselves. That hides a failure message
+    # too, which is affordable only because `validate` runs `bash -n` on the candidate
+    # BEFORE anything is written: a bad parse leaves the live file untouched, and
+    # `bash -n ~/.bashrc` reproduces the error.
+    #
+    # Values are single-quoted with the POSIX '\'' escape so an apostrophe survives; one
+    # layer of matching surrounding quotes is stripped first, so KEY="v" in .env resolves
+    # to the same v direnv hands an interactive shell.
+    - name: Write the managed .env block into ~/.bashrc
+      ansible.builtin.blockinfile:
+        path: "{{ lookup('env', 'HOME') }}/.bashrc"
+        marker: "# --- {mark} ---"
+        marker_begin: "ubuntu-provision .env (managed)"
+        marker_end: "end ubuntu-provision .env"
+        insertbefore: '^case \$- in'
+        create: true
+        mode: "0644"
+        validate: bash -n %s
+        block: |
+          # Generated from the repo .env. Edit that file, then re-run. Do not hand-edit.
+          {% for name in dotenv_names %}
+          export {{ name }}='{{ dotenv_values[loop.index0] }}'
+          {% endfor %}
+      no_log: true
+      register: dotenv_block
+
+    # no_log above suppresses this task's own report, so say what happened here instead:
+    # names only, never values.
+    - name: Report the exported variables
+      ansible.builtin.debug:
+        msg: >-
+          ~/.bashrc managed block {{ 'updated' if dotenv_block is changed else 'already current' }}
+          ({{ dotenv_names | length }}): {{ dotenv_names | join(', ') }}

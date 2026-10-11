@@ -1,0 +1,33 @@
+---
+# The repo's own .env. `playbook_dir` is the repo root for `ansible-playbook main.yml`, and
+# the cwd for the `ansible localhost -m include_role` form, which AGENTS.md says to run from
+# the repo root either way.
+dotenv_path: "{{ playbook_dir }}/.env"
+
+# One assignment line. Anchored, so a comment or a blank line cannot match, and a malformed
+# key (a digit first, a hyphen, a stray space) is dropped rather than emitted as a line that
+# would break every bash on the host. \1 = name, \2 = raw value.
+dotenv_assignment_re: '^(?:export[ \t]+)?([A-Za-z_][A-Za-z0-9_]*)[ \t]*=(.*)$'
+
+# Assignment lines only. Holds secrets: never print this, only dotenv_names.
+dotenv_lines: >-
+  {{ lookup('file', dotenv_path).splitlines() | map('trim')
+     | select('match', dotenv_assignment_re) | list }}
+
+# The variable names alone. Safe to log: they are all in .env.example.
+dotenv_names: >-
+  {{ dotenv_lines | map('regex_replace', dotenv_assignment_re, '\1') | list }}
+
+# One layer of matching surrounding quotes, so KEY="v" resolves to v. \2 = the value inside.
+dotenv_dequote_re: '^([''"])(.*)\1$'
+
+# The values, in the same order as dotenv_names, each ready to sit inside a single-quoted
+# bash string: dequoted, then every apostrophe rewritten to the POSIX '\'' form. Built here
+# rather than in the block template because an inline `{% set %}` does not carry into the
+# surrounding expression under Ansible's templating; it renders as empty, silently.
+dotenv_values: >-
+  {{ dotenv_lines
+     | map('regex_replace', dotenv_assignment_re, '\2')
+     | map('regex_replace', dotenv_dequote_re, '\2')
+     | map('replace', "'", "'\''")
+     | list }}

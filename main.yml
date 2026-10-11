@@ -9,6 +9,7 @@
     - shell
     - omarchy
     - direnv
+    - dotenv
     - uv
     - python
     - mise
