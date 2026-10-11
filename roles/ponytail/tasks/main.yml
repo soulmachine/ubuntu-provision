@@ -1,0 +1,27 @@
+---
+# ponytail — https://github.com/DietrichGebert/ponytail — a "lazy senior dev"
+# ruleset plus the /ponytail* commands, shipped as a plugin for many agent
+# hosts. This role installs it into every agent this repo provisions, through
+# that agent's own installer (never a shared skills-dir copy), one task file
+# per host. Each file converges the install behind an idempotent gate and then
+# refreshes it by diffing observable state around the host's own updater —
+# AGENTS.md "Self-update tasks: diff state, don't grep output". kimi-code is
+# absent because neither it nor ponytail offers a mechanism to install into.
+- name: Install ponytail into Claude Code
+  ansible.builtin.include_tasks: claude-code.yml
+
+- name: Install ponytail into Codex
+  ansible.builtin.include_tasks: codex.yml
+
+- name: Install ponytail into OpenCode
+  ansible.builtin.include_tasks: opencode.yml
+
+- name: Install ponytail into pi
+  ansible.builtin.include_tasks: pi.yml
+
+- name: Install ponytail into oh-my-pi
+  ansible.builtin.include_tasks: omp.yml
+
+# Hermes installs on every host here (roles/hermes), so there is always one to install into.
+- name: Install ponytail into Hermes
+  ansible.builtin.include_tasks: hermes.yml

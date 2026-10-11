@@ -1,0 +1,28 @@
+---
+ponytail_home: "{{ lookup('env', 'HOME') }}"
+# GitHub owner/repo, the form every host's installer accepts.
+ponytail_repo: DietrichGebert/ponytail
+
+# Claude Code: plugin `ponytail` in the marketplace named `ponytail`
+# (.claude-plugin/marketplace.json in the repo).
+ponytail_claude_plugin: ponytail@ponytail
+
+# Codex: marketplace name from .agents/plugins/marketplace.json; git
+# marketplaces are snapshotted as a checkout under ~/.codex/.tmp/marketplaces.
+ponytail_codex_marketplace: ponytail
+ponytail_codex_plugin: ponytail@ponytail
+ponytail_codex_snapshot: "{{ ponytail_home }}/.codex/.tmp/marketplaces/ponytail"
+ponytail_codex_record: "{{ ponytail_codex_snapshot }}/.codex-marketplace-install.json"
+
+# The npm package — an OpenCode plugin and a pi package in one — used by both
+# OpenCode and oh-my-pi.
+ponytail_npm_package: "@dietrichgebert/ponytail"
+
+# pi: the source string exactly as pi records it in settings.json, and where
+# pi clones it.
+ponytail_pi_source: "git:github.com/DietrichGebert/ponytail"
+ponytail_pi_dir: "{{ ponytail_home }}/.pi/agent/git/github.com/DietrichGebert/ponytail"
+
+# Hermes: plugin name from the repo's plugin.yaml, and where hermes clones it.
+ponytail_hermes_plugin: ponytail
+ponytail_hermes_dir: "{{ ponytail_home }}/.hermes/plugins/ponytail"

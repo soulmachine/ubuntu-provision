@@ -1,0 +1,45 @@
+---
+# oh-my-pi: not in ponytail's README, but omp's plugin manager reads the same
+# `pi` manifest key (`pkg.omp || pkg.pi`, src/extensibility/plugins/manager.ts)
+# that ponytail's npm package declares (`pi.extensions`, `pi.skills`), and
+# `omp plugin install --dry-run` accepts the spec. omp `bun install`s it into
+# ~/.omp/plugins (package.json + node_modules) and records it in
+# omp-plugins.lock.json there. `omp plugin list --json` prints
+# `{"npm": [{name, version, enabled, …}], "marketplace": […]}`: the names gate
+# the install and the version is the state the upgrade gate reads.
+- name: List oh-my-pi plugins
+  ansible.builtin.command: "{{ ponytail_home }}/.bun/bin/omp plugin list --json"
+  environment:
+    PATH: "{{ ponytail_home }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: ponytail_omp_list
+  changed_when: false
+  check_mode: false
+
+# Refresh path. `omp plugin upgrade` takes only `name@marketplace` IDs — an npm
+# spec errors `Invalid plugin ID … Expected "name@marketplace"` — and the
+# package is pinned `^x.y.z` in ~/.omp/plugins/package.json, so nothing in omp
+# re-resolves an npm plugin. Re-running `omp plugin install` is that path: its
+# install() is `bun install <spec>` in the plugins dir, which bumps the pin to
+# the newest release. It also rewrites the plugin's runtime entry to
+# `enabled: true` with default features, so it must run only when there is a
+# release to move to: the gate compares the installed version with the
+# registry's, the same shape the claude-mem role uses (`npm view … version`).
+# The registry is the observable state here — omp's list reports no
+# "outdated" field. A manual `omp plugin disable` therefore survives every
+# converged run and is undone only by an upgrade; noted, accepted.
+- name: Get the latest published ponytail version
+  ansible.builtin.command: npm view {{ ponytail_npm_package }} version
+  register: ponytail_omp_latest
+  changed_when: false
+  check_mode: false
+
+- name: Install or upgrade the ponytail oh-my-pi plugin
+  ansible.builtin.command: "{{ ponytail_home }}/.bun/bin/omp plugin install {{ ponytail_npm_package }}"
+  environment:
+    PATH: "{{ ponytail_home }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  vars:
+    ponytail_omp_installed: >-
+      {{ (ponytail_omp_list.stdout | from_json).npm
+         | selectattr('name', 'equalto', ponytail_npm_package) | map(attribute='version') | list }}
+  when: ponytail_omp_installed != [ponytail_omp_latest.stdout | trim]
+  changed_when: true

@@ -1,0 +1,140 @@
+---
+# Hermes: `hermes plugins install <owner/repo> --enable` clones the repo into
+# ~/.hermes/plugins/<name> (name from its plugin.yaml: `ponytail`), records the
+# source and revision, and — because of `--enable` — adds it to
+# `plugins.enabled` in ~/.hermes/config.yaml without the y/N prompt, whose
+# non-interactive default is *disabled*. A second install without `--force`
+# errors "already exists", hence the gate on the directory; a manual
+# `hermes plugins disable` is left alone for the same reason the claude-code
+# role gates on key absence.
+#
+# Hermes scans the plugin tree before installing (`plugins.scan_on_install`,
+# on by default). As of 2026-09-08 (ponytail 4.9.0, Hermes 0.21.1) that scan
+# returns a `dangerous` verdict — 93 findings, but only two of them carry the
+# verdict: the literal `/etc/passwd` in two benchmark files
+# (benchmarks/agentic/README.md and tasks.py describe a path-traversal task),
+# which trips the scanner's CRITICAL `system_passwd_access` pattern. The other
+# 91 are MEDIUM/LOW — `npm install` strings in examples, workflows and tests,
+# subprocess calls in the benchmark runner, README prose — and would read
+# `safe` on their own. Upstream tracks the block as ponytail #781/#783 and
+# hermes-agent #93927 (a duplicate of #89610). `--force` cannot override a
+# dangerous verdict; only `plugins.scan_on_install: false` in
+# ~/.hermes/config.yaml can, which is a security posture choice this role will
+# not make. A scanner block is therefore an EXPECTED outcome: reported below
+# with the remedy, not a play-stopping failure (the same `failed_when` +
+# debug shape the bun role uses for a spent rate limit). Every other error
+# still fails. With no directory created, the install is retried on each run
+# and lands by itself once upstream or the scanner changes. Hermes prints the
+# verdict on stdout (stderr stays empty), which is where the match looks.
+#
+# A second refusal is tolerated the same way (DECISIONS Q172). Since Hermes
+# 27c02f632 (2026-10-04) the installer rejects a plugin.json without
+# `"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"`
+# ("declares an unsupported or missing Agent Plugins schema"), and ponytail's
+# is just `{"name": "ponytail"}` — on purpose: ponytail#1021 dropped the field
+# because it makes Codex, VS Code and Qwen load ponytail as an Agent Plugin
+# and lose its hooks. So the fix is on Hermes's side: hermes-agent#125937 lets
+# a native plugin.yaml win over a foreign plugin.json, and the install lands
+# once that merges. Do not ask ponytail to add the field back — it would strip
+# ponytail's hooks from Codex on this fleet. Rich wraps that line at 80
+# columns, so the match allows any whitespace between the words.
+#
+# `changed` comes from the directory appearing, not from the command: a
+# blocked install exits 1 having created nothing, and must not report a
+# change on every converged run of an always-on host.
+- name: Check whether the ponytail Hermes plugin is present
+  ansible.builtin.stat:
+    path: "{{ ponytail_hermes_dir }}"
+  register: ponytail_hermes_before
+
+- name: Install the ponytail Hermes plugin
+  ansible.builtin.command: "{{ ponytail_home }}/.local/bin/hermes plugins install {{ ponytail_repo }} --enable"
+  register: ponytail_hermes_install
+  when: not ponytail_hermes_before.stat.exists
+  failed_when:
+    - ponytail_hermes_install.rc != 0
+    - "'Security scan blocked' not in ponytail_hermes_install.stdout"
+    - ponytail_hermes_install.stdout is not search('Agent\s+Plugins\s+schema')
+  changed_when: false
+
+- name: Report that Hermes's plugin scanner blocked ponytail
+  ansible.builtin.debug:
+    msg: >-
+      Hermes refused to install ponytail: its plugin scanner returned a
+      `dangerous` verdict, which `--force` cannot override. Review the findings
+      by running `hermes plugins install {{ ponytail_repo }} --enable` by hand;
+      to accept them, set `plugins.scan_on_install: false` in
+      ~/.hermes/config.yaml for that one install and re-run this role.
+  when:
+    - ponytail_hermes_install.rc | default(0) != 0
+    - "'Security scan blocked' in ponytail_hermes_install.stdout"
+
+- name: Report that Hermes rejected ponytail's plugin manifest
+  ansible.builtin.debug:
+    msg: >-
+      Hermes refused to install ponytail: its plugin.json declares no Agent
+      Plugins `$schema`, which Hermes now requires. Nothing to do locally —
+      the install is retried on every run and lands once Hermes prefers
+      ponytail's native plugin.yaml (NousResearch/hermes-agent#125937).
+  when:
+    - ponytail_hermes_install.rc | default(0) != 0
+    - ponytail_hermes_install.stdout is search('Agent\s+Plugins\s+schema')
+
+- name: Check whether the ponytail Hermes plugin was installed
+  ansible.builtin.stat:
+    path: "{{ ponytail_hermes_dir }}"
+  register: ponytail_hermes_after
+
+- name: Report the ponytail Hermes plugin install
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'ponytail was just installed into Hermes — restart Hermes (or its
+      gateway) to load its hooks and commands.'
+         if ponytail_hermes_installed else
+         'ponytail Hermes plugin ' ~ ('already installed' if ponytail_hermes_after.stat.exists else 'not installed') }}
+  vars:
+    ponytail_hermes_installed: "{{ ponytail_hermes_after.stat.exists and not ponytail_hermes_before.stat.exists }}"
+  changed_when: ponytail_hermes_installed
+
+# Refresh: `hermes plugins update <name>` is a `git pull --ff-only` in the
+# plugin dir, printing "is already up to date." when nothing moved. Diff the
+# checkout's HEAD instead. Gated on the checkout existing, which it does not
+# after a scanner block or under `--check` on a fresh host.
+#
+# The update re-runs the install scan, and a block there is tolerated the same
+# way. Since 2026-10-08 it returns `caution` (120 findings; the one HIGH is a
+# directory-skip regex in hooks/ponytail-map.js read as exfiltration), which
+# "Requires confirmation" — and `plugins update` has no flag to give it. The
+# checkout stays at its old revision and the update is retried on every run.
+- name: Refresh the ponytail Hermes plugin
+  when: ponytail_hermes_after.stat.exists
+  block:
+    - name: Record the ponytail Hermes plugin revision before updating # noqa: command-instead-of-module
+      ansible.builtin.command: git -C {{ ponytail_hermes_dir }} rev-parse HEAD
+      register: ponytail_hermes_rev_before
+      changed_when: false
+      check_mode: false
+
+    - name: Update the ponytail Hermes plugin
+      ansible.builtin.command: "{{ ponytail_home }}/.local/bin/hermes plugins update {{ ponytail_hermes_plugin }}"
+      register: ponytail_hermes_update
+      failed_when:
+        - ponytail_hermes_update.rc != 0
+        - "'Security scan blocked' not in ponytail_hermes_update.stdout"
+      changed_when: false
+
+    - name: Report that Hermes's plugin scanner blocked the ponytail update
+      ansible.builtin.debug:
+        msg: >-
+          Hermes refused to update ponytail: its plugin scanner wants
+          confirmation that `hermes plugins update` cannot give, so the plugin
+          stays at its current revision. Review the findings by running
+          `hermes plugins update {{ ponytail_hermes_plugin }}` by hand.
+      when:
+        - ponytail_hermes_update.rc | default(0) != 0
+        - "'Security scan blocked' in ponytail_hermes_update.stdout"
+
+    - name: Check whether the ponytail Hermes plugin was updated # noqa: command-instead-of-module
+      ansible.builtin.command: git -C {{ ponytail_hermes_dir }} rev-parse HEAD
+      register: ponytail_hermes_rev_after
+      changed_when: ponytail_hermes_rev_after.stdout != ponytail_hermes_rev_before.stdout

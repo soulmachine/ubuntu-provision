@@ -1,0 +1,12 @@
+---
+dependencies:
+  # The Claude Code and Codex plugins run two Node lifecycle hooks.
+  - nodejs
+  # ponytail is installed *into* each of these, through that agent's own
+  # installer, so the agent must be provisioned first.
+  - claude-code
+  - codex
+  - opencode
+  - pi
+  - omp
+  - hermes

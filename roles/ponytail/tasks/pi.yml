@@ -1,0 +1,52 @@
+---
+# pi: `pi install git:<host>/<path>` clones into ~/.pi/agent/git/<host>/<path>
+# and appends the source string, verbatim, to `packages` in
+# ~/.pi/agent/settings.json (pi's normalizePackageSourceForSettings leaves
+# non-local sources untouched; addSourceToSettings no-ops when the identical
+# string is already listed). The pi role copies roles/pi/files/agent/
+# settings.json over that file on every run, so the SAME bare string is listed
+# there — otherwise each pi run would drop the entry and pi would stop loading
+# a checkout that is still on disk. Unpinned on purpose: the refresh below
+# tracks upstream.
+#
+# `chdir` to $HOME keeps any project-local .pi/ out of the picture; the PATH is
+# for pi's npm/bun calls (it installs a git package's dependencies, and
+# `pi update` spawns bun).
+- name: Install the ponytail pi package
+  ansible.builtin.command:
+    cmd: "{{ ponytail_home }}/.bun/bin/pi install {{ ponytail_pi_source }}"
+    chdir: "{{ ponytail_home }}"
+    creates: "{{ ponytail_pi_dir }}"
+  environment:
+    PATH: "{{ ponytail_home }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+
+# Refresh: `pi update --extension <source>` fetches and hard-resets an unpinned
+# git package to upstream HEAD, exiting 0 whether or not anything moved. The
+# checkout's HEAD is the state to diff. Gated on the checkout existing, which
+# it does not under `--check` on a fresh host.
+- name: Check whether the ponytail pi package is present
+  ansible.builtin.stat:
+    path: "{{ ponytail_pi_dir }}"
+  register: ponytail_pi_stat
+
+- name: Refresh the ponytail pi package
+  when: ponytail_pi_stat.stat.exists
+  block:
+    - name: Record the ponytail pi package revision before updating # noqa: command-instead-of-module
+      ansible.builtin.command: git -C {{ ponytail_pi_dir }} rev-parse HEAD
+      register: ponytail_pi_rev_before
+      changed_when: false
+      check_mode: false
+
+    - name: Update the ponytail pi package
+      ansible.builtin.command:
+        cmd: "{{ ponytail_home }}/.bun/bin/pi update --extension {{ ponytail_pi_source }}"
+        chdir: "{{ ponytail_home }}"
+      environment:
+        PATH: "{{ ponytail_home }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+      changed_when: false
+
+    - name: Check whether the ponytail pi package was updated # noqa: command-instead-of-module
+      ansible.builtin.command: git -C {{ ponytail_pi_dir }} rev-parse HEAD
+      register: ponytail_pi_rev_after
+      changed_when: ponytail_pi_rev_after.stdout != ponytail_pi_rev_before.stdout
