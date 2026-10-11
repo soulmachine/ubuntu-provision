@@ -1,0 +1,55 @@
+---
+# Ubuntu's own bash with starship, zoxide and fzf, no framework: the same three tools as
+# Omarchy and as upstream's zsh `shell` role. The migration tasks at the end converge a host
+# the old oh-my-zsh role had switched to zsh, and are no-ops on a fresh host.
+- name: Install starship, zoxide, fzf and bash-completion
+  become: true
+  ansible.builtin.apt:
+    name:
+      - starship
+      - zoxide
+      - fzf
+      - bash-completion
+    state: present
+
+- name: Deploy the bash baseline
+  ansible.builtin.copy:
+    src: bash/
+    dest: "{{ lookup('env', 'HOME') }}/.config/bash/"
+    mode: "0644"
+    directory_mode: "0755"
+
+# Appended, so it lands after Ubuntu's `case $- in` guard and runs only in interactive
+# shells. The lines every shell needs (secrets, PATH) go above that guard: see the dotenv
+# and mise roles.
+- name: Source the bash baseline from .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'source ~/.config/bash/rc'
+    regexp: '^source ~/\.config/bash/rc$'
+    create: true
+    mode: "0644"
+
+# --- Migration off the oh-my-zsh role. Each task is a no-op on a host that never ran it. ---
+- name: Check current login shell
+  ansible.builtin.shell:
+    cmd: 'set -o pipefail && getent passwd "$(id -un)" | cut -d: -f7'
+    executable: /bin/bash
+  register: shell_login_shell
+  changed_when: false
+  check_mode: false
+
+- name: Set bash as the login shell
+  become: true
+  ansible.builtin.user:
+    name: "{{ lookup('env', 'USER') }}"
+    shell: /bin/bash
+  when: shell_login_shell.stdout != '/bin/bash'
+
+- name: Remove oh-my-zsh
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/{{ item }}"
+    state: absent
+  loop:
+    - .oh-my-zsh
+    - .zshrc.pre-oh-my-zsh

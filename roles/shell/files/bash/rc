@@ -1,0 +1,7 @@
+# Plain-bash baseline, deployed by the shell role of ubuntu-provision and sourced from
+# ~/.bashrc after Ubuntu's interactive guard. shell: history and completion. init: fzf,
+# zoxide, starship. inputrc: Omarchy's readline settings. Omarchy's aliases, envs and
+# functions are the omarchy role's ~/.config/omarchy/bash/rc.
+source ~/.config/bash/shell
+source ~/.config/bash/init
+[[ $- == *i* ]] && bind -f ~/.config/bash/inputrc

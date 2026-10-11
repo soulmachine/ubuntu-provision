@@ -1,0 +1,46 @@
+---
+# Omarchy's shell environment (aliases, envs, functions, the starship prompt), taken from
+# /usr/share/omarchy/default/bash as it is: Omarchy is bash, so nothing needs porting.
+# Provenance and every skip are in files/bash/rc. Depends on shell, which owns history,
+# completion and the fzf / zoxide / starship hooks.
+- name: Install the tools Omarchy's aliases and functions use
+  become: true
+  ansible.builtin.apt:
+    name:
+      - eza # ls
+      - bat # ff, man pager
+      - neovim # n, EDITOR
+      - gum # gd
+      - inotify-tools # rsw
+      - rsync # rsw
+    state: present
+
+# Ubuntu ships bat's binary as `batcat` (the name was taken), and the aliases and MANPAGER
+# call `bat`. Same fix as the apt role's fd symlink.
+- name: Symlink batcat -> ~/.local/bin/bat
+  ansible.builtin.file:
+    src: /usr/bin/batcat
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/bat"
+    state: link
+    force: true
+
+- name: Deploy Omarchy's bash files
+  ansible.builtin.copy:
+    src: bash/
+    dest: "{{ lookup('env', 'HOME') }}/.config/omarchy/bash/"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Deploy Omarchy's starship prompt
+  ansible.builtin.copy:
+    src: starship.toml
+    dest: "{{ lookup('env', 'HOME') }}/.config/starship.toml"
+    mode: "0644"
+
+# Right after the shell role's line, which the meta dependency guarantees is there.
+- name: Source the Omarchy files from .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'source ~/.config/omarchy/bash/rc'
+    regexp: '^source ~/\.config/omarchy/bash/rc$'
+    insertafter: '^source ~/\.config/bash/rc$'

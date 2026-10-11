@@ -5,9 +5,9 @@
     name: direnv
     state: present
 
-- name: Enable direnv oh-my-zsh plugin in .zshrc
+# Interactive shells only, by design: see the dotenv role for what non-interactive ones get.
+- name: Hook direnv into .bashrc
   ansible.builtin.lineinfile:
-    path: "{{ lookup('env', 'HOME') }}/.zshrc"
-    regexp: '^(plugins=\((?!.*\bdirenv\b).*)\)$'
-    line: '\1 direnv)'
-    backrefs: true
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'eval "$(direnv hook bash)"'
+    regexp: 'direnv hook bash'

@@ -1,0 +1,4 @@
+# Omarchy 4.0.0.alpha fns/compression, unchanged.
+# Compression
+compress() { tar -czf "${1%/}.tar.gz" "${1%/}"; }
+alias decompress="tar -xzf"

@@ -9,9 +9,9 @@
   register: claude_code_self_update
   changed_when: "'Claude Code is up to date' not in claude_code_self_update.stdout"
 
-- name: Add ccd alias to .zshrc
+- name: Add ccd alias to .bashrc
   ansible.builtin.lineinfile:
-    path: "{{ lookup('env', 'HOME') }}/.zshrc"
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
     line: 'alias ccd="claude --dangerously-skip-permissions --effort max"'
     regexp: '^alias ccd='
     state: present

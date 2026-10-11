@@ -1,0 +1,5 @@
+# The three tools, each guarded like Omarchy's init so a shell without them still starts.
+# `fzf --bash` stands in for Omarchy's /usr/share/fzf/*.bash, which Ubuntu's fzf does not ship.
+command -v fzf &> /dev/null && eval "$(fzf --bash)"   # Ctrl-R, Ctrl-T, Alt-C, **<Tab>
+command -v zoxide &> /dev/null && eval "$(zoxide init bash)"
+[[ ${TERM:-} != "dumb" ]] && command -v starship &> /dev/null && eval "$(starship init bash)"

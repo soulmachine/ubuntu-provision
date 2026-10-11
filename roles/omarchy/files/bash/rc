@@ -1,0 +1,18 @@
+# Omarchy's shell environment, as shipped. Source: /usr/share/omarchy/default/bash on
+# mac-mini-2018-omarchy, Omarchy 4.0.0.alpha, read 2026-10-11. To refresh, diff these files
+# against that directory. Deployed by the omarchy role of ubuntu-provision and sourced from
+# ~/.bashrc after ~/.config/bash/rc (shell role).
+#
+# Not deployed, and why:
+#   shell, inputrc   history, completion and readline: the shell role's ~/.config/bash
+#   init             mise (mise role), fzf / zoxide / starship (shell role); `try` is not installed
+#   completions      completes the `omarchy` command, which does not exist here
+#   env-bootstrap    sets OMARCHY_PATH, which nothing here reads
+#   envs             BROWSER (omarchy-launch-browser), the locale block (Ubuntu's pam_env sets
+#                    LANG for ssh sessions), the PATH append (mise role)
+#   aliases          a (omarchy-agent)
+#   fns/drives       omarchy-drive-select
+# fns/tmux carries one fix, named in its first line.
+source ~/.config/omarchy/bash/envs
+source ~/.config/omarchy/bash/aliases
+source ~/.config/omarchy/bash/functions

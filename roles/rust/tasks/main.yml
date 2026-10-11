@@ -20,10 +20,3 @@
   loop:
     - rust-src
     - rust-analyzer
-
-- name: Enable rust oh-my-zsh plugin in .zshrc
-  ansible.builtin.lineinfile:
-    path: "{{ lookup('env', 'HOME') }}/.zshrc"
-    regexp: '^(plugins=\((?!.*\brust\b).*)\)$'
-    line: '\1 rust)'
-    backrefs: true

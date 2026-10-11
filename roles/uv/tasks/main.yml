@@ -4,9 +4,9 @@
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/uv"
 
-- name: Enable uv oh-my-zsh plugin in .zshrc
+# Replaces the completions the oh-my-zsh uv plugin used to provide.
+- name: Add uv shell completions to .bashrc
   ansible.builtin.lineinfile:
-    path: "{{ lookup('env', 'HOME') }}/.zshrc"
-    regexp: '^(plugins=\((?!.*\buv\b).*)\)$'
-    line: '\1 uv)'
-    backrefs: true
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'eval "$(uv generate-shell-completion bash)"'
+    regexp: 'uv generate-shell-completion bash'
