@@ -229,3 +229,13 @@
 **Justification:** Each keeps the role in step with upstream at zero cost on amd64, or has no Linux equivalent to port.
 **Outcome:** assumed
 **Ref:** (pending)
+
+## Q24 — interactive/catch-up — gate-resolution
+
+**Question:** The end-to-end run on supermicro (2026-10-11) was meant to finish with a second play at `changed=0`. It finished at `failed=0, changed=2`, both in the skills role: the store fingerprint and the `agent-sync sync` that follows it. Is that a role defect or a real change?
+**Options considered:** accept as-is / treat the fingerprint as volatile and gate it / measure
+**Chosen:** measured. A third run of the skills role alone, with sha256 snapshots of `~/.agents/skills` taken outside Ansible before and after, reported `changed=0` and no file differed. So the two changes were upstream skill content moving between run 1 (13:36) and run 2 (13:40), which the role is designed to pull down and report. Accepted; nothing changed in the role.
+**Decided-by:** agent
+**Justification:** The role refreshes every source on every play by design (upstream 244db02); a `changed` on a real upstream edit is the signal, not noise. Gating it away would hide the one mechanism that keeps skills current.
+**Outcome:** validated
+**Ref:** a7e905b..de6b37f (the catch-up), run logs `~/ubuntu-provision-run{1,2}.log` on supermicro
