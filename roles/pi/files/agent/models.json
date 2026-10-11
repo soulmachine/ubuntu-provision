@@ -1,0 +1,45 @@
+{
+  "providers": {
+    "openai-codex": {
+      "modelOverrides": {
+        "gpt-5.6-luna": {
+          "contextWindow": 272000
+        },
+        "gpt-5.6-sol": {
+          "contextWindow": 272000
+        },
+        "gpt-5.6-terra": {
+          "contextWindow": 272000
+        }
+      }
+    },
+    "cliproxy": {
+      "baseUrl": "http://127.0.0.1:8317",
+      "api": "anthropic-messages",
+      "apiKey": "$CLIPROXY_API_KEY",
+      "models": [
+        {
+          "id": "claude-opus-5-5"
+        },
+        {
+          "id": "claude-sonnet-5-5"
+        },
+        {
+          "id": "claude-fable-5-1"
+        },
+        {
+          "id": "claude-haiku-5-5"
+        },
+        {
+          "id": "claude-opus-5"
+        },
+        {
+          "id": "claude-sonnet-5"
+        },
+        {
+          "id": "claude-haiku-4-5-20251001"
+        }
+      ]
+    }
+  }
+}

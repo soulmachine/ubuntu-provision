@@ -1,0 +1,84 @@
+---
+# `--ignore-scripts` skips the package's postinstall (a native-binary download
+# helper); pi runs fine without it and bun blocks it by default anyway.
+- name: Install pi coding agent
+  ansible.builtin.command: bun add -g --ignore-scripts @earendil-works/pi-coding-agent
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.bun/bin/pi"
+
+# Bare `pi update` updates pi itself only (extensions are skipped; the CLI
+# says so and points at `pi update --extensions`).
+#
+# Don't read the verdict from its wording. `pi update` exits 0 on every path,
+# so a check that failed or got rate-limited prints neither the "pi is already
+# up to date" sentinel nor an error — and the negated match this used to carry
+# called every one of those a change. Diff `pi --version` (a bare `0.84.3`)
+# instead, per the "diff state, don't grep output" rule in AGENTS.md.
+#
+# The PATH below is not decoration: `pi update` shells out to `bun` to do the
+# install, so without it the task dies on `Error: spawn bun ENOENT` — but only
+# on a run that has an update to apply, since a current pi exits early without
+# spawning anything. That is why it stayed hidden until a drift test.
+- name: Record the pi version before updating
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/pi --version"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: pi_version_before
+  changed_when: false
+
+- name: Update pi coding agent
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/pi update"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  changed_when: false
+
+- name: Check whether pi was updated
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/pi --version"
+  environment:
+    PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: pi_version_after
+  changed_when: pi_version_after.stdout != pi_version_before.stdout
+
+# Mirrors https://github.com/kunchenguid/dotfiles/tree/main/home/.pi/agent,
+# minus the `calm` extension. The author's rationale for each setting is at
+# https://blog.kunchenguid.com/p/kuns-pi-agent-config.
+# Extensions are auto-discovered from every *.js /
+# *.ts file and */index.{js,ts} under ~/.pi/agent/extensions, so leaving the
+# `calm/` directory out of files/ is the whole of "without calm" — no
+# settings.json entry references it.
+#
+# This is a merge, not a sync: `copy` only writes the files shipped here, so
+# the sibling ~/.pi/agent/skills tree (populated by the `skills` role) and
+# pi's own runtime state are left alone. It does overwrite settings.json on
+# every run, so tweaks made in-app via `/settings` belong in files/ to survive.
+#
+# That overwrite is also why settings.json's `packages` list carries the
+# `git:github.com/DietrichGebert/ponytail` entry: the `ponytail` role installs
+# that package with `pi install`, which appends exactly this string, and
+# without it here every run of this copy would strip the entry again and pi
+# would stop loading a checkout still on disk (roles/ponytail/tasks/pi.yml).
+# The payload carries the cliproxy provider + defaultModel: this copy used to overwrite
+# the hand-installed gateway config every night (the "pi rewrites its config" mystery
+# behind cliproxy-assert-pi). pi is gateway-only by policy; see DECISIONS.md Q81.
+- name: Install pi agent configuration
+  ansible.builtin.copy:
+    src: agent/
+    dest: "{{ lookup('env', 'HOME') }}/.pi/agent/"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Add pi-yolo alias to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias pi-yolo="pi --thinking max --approve"'
+    regexp: '^alias pi-yolo='
+    state: present
+
+- name: Add pi-yolo-kimi alias to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias pi-yolo-kimi="pi --thinking max --approve --model k3"'
+    regexp: '^alias pi-yolo-kimi='
+    state: present
