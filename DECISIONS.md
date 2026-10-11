@@ -249,3 +249,13 @@
 **Justification:** The repo cannot know which blocks a fleet tool owns, and the markers are the only contract those tools have; replicating them keeps the next key rotation working without a re-run of cliproxy-tier or jev-fleet.
 **Outcome:** validated: run 1 `failed=0`; a fresh non-login ssh command sees all eight exports, claude-gw, node and agent-sync. The migration also exposed the above-guard blind spot fixed in e97fe97.
 **Ref:** e97fe97, dot-agents 8d506ef
+
+## Q26 — interactive/dev-server-frank — gate-resolution
+
+**Question:** The end-to-end run on dev-server-frank (2026-10-11) was meant to end at `changed=0` on the second play. It ended at `failed=0, changed=3`: the task that makes Claude Code's transcript directories private, and the skills pair (fingerprint plus fan-out), the same pair supermicro showed on its second play (Q24). Defect or convergence?
+**Options considered:** accept at face value / measure a third play with checksum snapshots around it and a skills-only pass after it
+**Chosen:** measured. The third full play reported `changed=0`, the skills-only pass after it `changed=0`, and both sha256 diffs of `~/.agents/skills` were empty, so no role rewrites a store directory another role owns. The privacy task changed once because the directories it protects exist only after later roles ran `claude` for the first time. The skills pair changed on the second play of both hosts and on neither third play; whether that is upstream content moving twice (Q24's reading) or a one-time second-run effect of the installer is not settled, and it converges either way. Accepted.
+**Decided-by:** agent
+**Justification:** Three consecutive plays with the last at `changed=0`, plus empty content diffs, is a stronger idempotency check than the two-play rule asked for; nothing remains to fix in the roles. Two real defects the run did expose are fixed in the repo: the above-guard PATH blind spot (e97fe97) and kimi's installer writing to the `$SHELL` startup file (872875b).
+**Outcome:** validated
+**Ref:** e97fe97, 872875b, run logs `~/ubuntu-provision-run{1,2,3}.log` on dev-server-frank
