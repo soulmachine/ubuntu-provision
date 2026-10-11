@@ -28,6 +28,13 @@
   register: agent_sync_release
   check_mode: false
 
+# A single-role run (`ansible localhost -m include_role -a name=skills`, which depends on this
+# role) gathers no facts, so the arch lookup below failed there. Same guard as roles/python.
+- name: Ensure architecture fact is gathered
+  ansible.builtin.setup:
+    gather_subset: architecture
+  when: ansible_facts['architecture'] is not defined
+
 - name: Work out the version and asset names
   ansible.builtin.set_fact:
     agent_sync_latest: "{{ agent_sync_release.location | regex_search('agent-sync-v([0-9][^/]*)$', '\\1') | first }}"
