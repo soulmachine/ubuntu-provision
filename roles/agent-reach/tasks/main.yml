@@ -1,0 +1,75 @@
+---
+# agent-reach — selector/installer/router giving agents read access to 15
+# internet platforms (Twitter, Reddit, 小红书, B站, YouTube, GitHub, …).
+# https://github.com/Panniantong/agent-reach
+#
+# Upstream ships its install and update procedures as *agent prompts*, not as
+# shell scripts: docs/install.md and docs/update.md are addressed "For AI
+# Agents" and branch on environment detection, doctor output, and which upstream
+# CLIs are already present. There is no idempotent one-liner to call. So this
+# role drives `claude-gw -p` headless and lets the agent execute the upstream doc.
+#
+# claude-gw, not claude: the nightly sweep runs this playbook over non-interactive
+# ssh, where native Claude Code cannot unlock the login keychain and prints "Not
+# logged in" (verified on mac-mini-m2, 2026-10-09). claude-gw reaches the
+# gateway instead and already passes --dangerously-skip-permissions --effort
+# xhigh. It is installed by gateway/cliproxy-tier, not by this playbook, so a
+# fresh host fails here until `cliproxy-tier <host>` has run on mac-mini-m2.
+#
+# chdir to $HOME so the sub-agent never treats this repo as its workspace —
+# install.md forbids cloning/writing inside the working directory, and pointing
+# it at $HOME also keeps this repo's AGENTS.md out of the sub-agent's context.
+
+- name: Check whether agent-reach is installed
+  # `command -v` is a shell builtin, hence shell rather than command. Covers a
+  # pipx, `pip --user`, or venv install alike — anything that lands on PATH.
+  ansible.builtin.shell: command -v agent-reach # noqa: command-instead-of-shell
+  register: agent_reach_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install agent-reach
+  ansible.builtin.command:
+    cmd: >-
+      claude-gw -p "Install agent-reach https://raw.githubusercontent.com/Panniantong/agent-reach/main/docs/install.md"
+    chdir: "{{ lookup('env', 'HOME') }}"
+  when: agent_reach_probe.rc != 0
+  changed_when: true
+
+# The installer is an LLM following a prose doc, so it can report success while
+# having landed nothing on PATH. Fail loudly here rather than let a later run
+# silently re-attempt the install forever.
+- name: Verify agent-reach is on PATH after install
+  ansible.builtin.shell: command -v agent-reach # noqa: command-instead-of-shell
+  register: agent_reach_verify
+  when: agent_reach_probe.rc != 0
+  changed_when: false
+  failed_when: agent_reach_verify.rc != 0
+
+# Only reached when agent-reach predates this run — a fresh install is already
+# at the latest version, so skip straight past the update path.
+- name: Check agent-reach for updates
+  ansible.builtin.command: agent-reach check-update
+  register: agent_reach_check
+  when: agent_reach_probe.rc == 0
+  changed_when: false
+  check_mode: false
+
+# `check-update` discards its own result and always exits 0, so rc says nothing;
+# the outcome is only in stdout, and only in Chinese. Match the positive
+# sentinel "有更新" (printed solely by the update-available branch, and absent
+# from the update instructions it prints alongside) rather than negating the
+# up-to-date string. A negative match would also fire on the two failure
+# branches — GitHub rate limit / network error ("无法检查更新") and the
+# no-releases commit-SHA fallback ("最新提交:") — burning a full agent run on
+# every converged playbook, which is what keeps this role idempotent.
+- name: Update agent-reach
+  ansible.builtin.command:
+    cmd: >-
+      claude-gw -p "update agent-reach: https://raw.githubusercontent.com/Panniantong/agent-reach/main/docs/update.md"
+    chdir: "{{ lookup('env', 'HOME') }}"
+  when:
+    - agent_reach_probe.rc == 0
+    - "'有更新' in (agent_reach_check.stdout | default(''))"
+  changed_when: true

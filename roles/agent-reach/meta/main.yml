@@ -1,0 +1,12 @@
+---
+dependencies:
+  # The role drives the `claude` binary headlessly, through the claude-gw wrapper,
+  # to run upstream's agent-facing install/update docs.
+  - claude-code
+  # agent-reach is a Python package; install.md's recommended path is
+  # `pipx install`, with a venv fallback. Both need the provisioned Python.
+  - python
+  # Core install pulls npm-based upstream tools (mcporter).
+  - nodejs
+  # `gh` is one of the zero-config channels agent-reach activates on install.
+  - github
