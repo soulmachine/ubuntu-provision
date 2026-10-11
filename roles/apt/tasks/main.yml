@@ -95,14 +95,14 @@
     dest: /etc/apt/sources.list.d/github-cli.list
     content: "deb [arch={{ apt_arch }} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n"
     mode: "0644"
-  register: _gh_repo
+  register: apt_gh_repo
 
 - name: Install gh
   become: true
   ansible.builtin.apt:
     name: gh
     state: present
-    update_cache: "{{ _gh_repo.changed }}"
+    update_cache: "{{ apt_gh_repo.changed }}"
 
 # ── Docker Engine — official apt repo (download.docker.com) ───────────────────
 # The macOS repo installed only the `docker` CLI formula; on Linux containers run
@@ -121,9 +121,12 @@
   become: true
   ansible.builtin.copy:
     dest: /etc/apt/sources.list.d/docker.list
-    content: "deb [arch={{ apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable\n"
+    content: >-
+      deb [arch={{ apt_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable
+
     mode: "0644"
-  register: _docker_repo
+  register: apt_docker_repo
 
 - name: Install Docker Engine
   become: true
@@ -135,7 +138,7 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     state: present
-    update_cache: "{{ _docker_repo.changed }}"
+    update_cache: "{{ apt_docker_repo.changed }}"
 
 - name: Add current user to the docker group
   become: true
