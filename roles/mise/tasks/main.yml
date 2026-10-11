@@ -1,0 +1,91 @@
+---
+# mise is installed once by bootstrap.sh (standalone, into ~/.local/bin/mise) and, until this
+# role existed, by nothing ever again, so hosts froze on whatever release bootstrap fetched.
+# `mise self-update` is the right updater because the install is standalone; its own help says
+# the command is unavailable for a package-manager install, and no host here has mise from apt.
+#
+# Bare `mise`, not an absolute path: that is what go, jdk and nodejs already use, and
+# ~/.local/bin is on the non-interactive PATH through the line this role keeps in ~/.bashrc.
+
+# Same GitHub rate-limit problem the bun role documents: self-update resolves the newest
+# release through the GitHub API (60 calls an hour per IP, shared with every other tool
+# here). mise reads GITHUB_API_TOKEN, not GITHUB_TOKEN, which is why the name below differs.
+#
+# Both GH_TOKEN and GITHUB_TOKEN are blanked for the lookup because gh resolves in the order
+# GH_TOKEN, GITHUB_TOKEN, keyring: leaving either set makes `gh auth token` echo back the very
+# value the fallback exists to replace, and a stale one then fails 401 instead of 403.
+- name: Read the GitHub token stored by gh
+  ansible.builtin.command: gh auth token
+  environment:
+    GH_TOKEN: ""
+    GITHUB_TOKEN: ""
+  register: mise_gh_token
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Record the mise version before updating
+  ansible.builtin.command: mise --version
+  register: mise_version_before
+  changed_when: false
+
+# `--no-plugins` keeps what this command changes aligned with what the gate below measures:
+# by default self-update also updates plugins, which `mise --version` does not report.
+# `-y` because there is a confirmation prompt and nothing here can answer it.
+# failed_when: false, not ignore_errors: true: a spent rate limit is an expected outcome.
+- name: Update mise to the latest release
+  ansible.builtin.command: mise self-update --yes --no-plugins
+  environment:
+    GITHUB_API_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') | trim or (mise_gh_token.stdout | trim if mise_gh_token.rc == 0 else '') }}"
+  register: mise_self_update
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+# Decide `changed` from the observable version: self-update prints its own wording on every
+# path and exits 0 whether or not it moved.
+- name: Check whether mise was updated
+  ansible.builtin.command: mise --version
+  register: mise_version_after
+  changed_when: mise_version_after.stdout != mise_version_before.stdout
+
+- name: Warn that mise could not check for a newer release
+  ansible.builtin.debug:
+    msg:
+      - "`mise self-update` exited {{ mise_self_update.rc }}. mise {{ mise_version_after.stdout }} is installed and working,"
+      - "but it could not confirm whether a newer release exists, so this host may be pinned to an old mise."
+      - "Most likely the unauthenticated GitHub API rate limit (60/hr per IP) is spent; check with `curl -s https://api.github.com/rate_limit`."
+      - "Diagnose: run `mise self-update --yes --no-plugins` by hand to see mise's own error."
+  when: mise_self_update.rc != 0
+
+# The three ~/.bashrc lines mise needs. bootstrap.sh writes them too; the regexps match any
+# existing spelling, so an existing line is normalized in place, not duplicated.
+#
+# The two PATH lines sit ABOVE Ubuntu's `case $- in` guard, which returns early from every
+# non-interactive shell. `ssh host 'cmd'` runs exactly such a shell, and so does the
+# `bash -lc "... ansible-playbook ..."` remote-run form (login, not interactive): both would
+# otherwise miss ~/.local/bin and mise's shims, which carry node, npm, go and java without
+# activation. `insertbefore` only places a NEW line; a matched line stays where it is.
+- name: Ensure ~/.local/bin is on PATH for every shell
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: '^export PATH=".*\$HOME/\.local/bin.*"$'
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    insertbefore: '^case \$- in'
+    state: present
+
+- name: Ensure mise shims are on PATH for every shell
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: '^export PATH=".*mise/shims.*"$'
+    line: 'export PATH="$HOME/.local/share/mise/shims:$PATH"'
+    insertbefore: '^case \$- in'
+    state: present
+
+# Interactive shells only: activation puts the real install directories ahead of the shims.
+- name: Ensure mise is activated in .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: 'mise activate bash'
+    line: 'eval "$(mise activate bash)"'
+    state: present

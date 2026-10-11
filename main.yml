@@ -11,6 +11,7 @@
     - direnv
     - uv
     - python
+    - mise
     - go
     - nodejs
     - bun
