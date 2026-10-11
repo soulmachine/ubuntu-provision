@@ -24,6 +24,7 @@
 
 - name: Add the ponytail Codex marketplace
   ansible.builtin.command: codex plugin marketplace add {{ ponytail_repo }}
+  timeout: 120
   when: >-
     '[marketplaces.' ~ ponytail_codex_marketplace ~ ']' not in ponytail_codex_config
   register: ponytail_codex_mp_add
@@ -31,6 +32,7 @@
 
 - name: Install the ponytail Codex plugin
   ansible.builtin.command: codex plugin add {{ ponytail_codex_plugin }}
+  timeout: 120
   when: >-
     '[plugins."' ~ ponytail_codex_plugin ~ '"]' not in ponytail_codex_config
   register: ponytail_codex_install
@@ -68,6 +70,7 @@
 
     - name: Upgrade the ponytail Codex marketplace
       ansible.builtin.command: codex plugin marketplace upgrade {{ ponytail_codex_marketplace }}
+      timeout: 120
       changed_when: false
 
     - name: Read the ponytail Codex marketplace record after upgrading

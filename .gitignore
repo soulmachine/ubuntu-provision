@@ -10,3 +10,7 @@ __pycache__/
 
 # Fork worktrees Claude Code creates while agents work in parallel.
 .claude/worktrees/
+
+# JVM crash reports: mise installs Java from this checkout, and a build that dies at
+# startup drops its report here (upstream 04d8db1).
+hs_err_pid*.log

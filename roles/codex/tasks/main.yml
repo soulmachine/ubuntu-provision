@@ -33,6 +33,7 @@
 # `--ref main` is upstream's own install line.
 - name: Add the open-pstack Codex marketplace
   ansible.builtin.command: codex plugin marketplace add {{ codex_pstack_source }} --ref main
+  timeout: 120
   when: >-
     '[marketplaces.' ~ codex_pstack_marketplace ~ ']' not in codex_config
   register: codex_pstack_mp_add
@@ -40,6 +41,7 @@
 
 - name: Install the pstack Codex plugin
   ansible.builtin.command: codex plugin add {{ codex_pstack_plugin }}
+  timeout: 120
   when: >-
     '[plugins."' ~ codex_pstack_plugin ~ '"]' not in codex_config
   changed_when: true
@@ -62,6 +64,7 @@
 
     - name: Upgrade the open-pstack Codex marketplace
       ansible.builtin.command: codex plugin marketplace upgrade {{ codex_pstack_marketplace }}
+      timeout: 120
       changed_when: false
 
     # changed_when on a `slurp`, not a following `debug`: the minimal callback hides a debug's
