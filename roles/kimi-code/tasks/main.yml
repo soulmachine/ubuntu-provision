@@ -1,0 +1,29 @@
+---
+# Installs a native prebuilt binary to $HOME/.kimi-code/bin/kimi (the command is
+# named `kimi`) and appends its PATH line to .bashrc itself (grep-guarded, so the
+# script stays idempotent on its own). The `creates:` guard skips the whole
+# curl | bash on re-runs once the binary is present.
+- name: Install kimi-code # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.kimi-code/bin/kimi"
+
+# kimi's own updater only checks at startup, and on a native install `kimi upgrade` just
+# prints the installer command, so hosts sat on 0.29-0.38 for weeks after 2.1.1 shipped
+# (DECISIONS Q187). Re-run the installer whenever `kimi upgrade` reports a newer version.
+- name: Check for a newer kimi-code
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.kimi-code/bin/kimi upgrade"
+  register: kimi_upgrade_check
+  changed_when: false
+
+- name: Update kimi-code # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash
+  when: "'is available' in (kimi_upgrade_check.stdout + kimi_upgrade_check.stderr)"
+  changed_when: true  # runs only when an update exists
+
+- name: Add kimi-yolo alias to .bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias kimi-yolo="kimi --yolo"'
+    regexp: '^alias kimi-yolo='
+    state: present
