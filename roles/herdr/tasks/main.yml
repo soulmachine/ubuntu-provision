@@ -1,12 +1,170 @@
 ---
-# herdr — multiplexer that lives in your terminal (https://herdr.dev). Installed
-# via the official install script, which fetches the prebuilt binary for this
-# platform (amd64 + arm64 both supported) into ~/.local/bin. The macOS repo used
-# the Homebrew core formula.
+# herdr, the multiplexer that lives in your terminal. Installed from upstream's own
+# script, which writes the binary to ~/.local/bin/herdr (amd64 and arm64 both
+# supported). https://herdr.dev
 #
-# NOTE: a non-herdr.dev herdr may already exist at ~/.local/bin/herdr; the
-# `creates:` guard below treats any existing binary at that path as installed.
+# `herdr --remote` writes a version-matched binary to that same path on its
+# target, so that the far side speaks the local client's protocol. This role
+# will move such a host to the public latest on its next run, which is the
+# right default for a fleet that all tracks latest, but means a deliberately
+# pinned remote server does not survive a play.
+
 - name: Install herdr # noqa: command-instead-of-module risky-shell-pipe
   ansible.builtin.shell: curl -fsSL https://herdr.dev/install.sh | sh
   args:
     creates: "{{ lookup('env', 'HOME') }}/.local/bin/herdr"
+
+# Full path because ~/.local/bin may not be on Ansible's PATH.
+- name: Get the installed herdr version
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/herdr --version"
+  register: herdr_version
+  changed_when: false
+
+# `herdr update` is NOT the updater to call from here: it refuses to run from
+# inside a herdr session ("run `herdr update` outside herdr after detaching"),
+# and this playbook is routinely driven from a herdr pane, so it would fail on
+# every converged run and there is no way to tell that refusal from a real
+# network failure. Re-piping install.sh has no such restriction.
+#
+# https://herdr.dev/latest.json is the same manifest install.sh reads, so gating
+# on it cannot disagree with what the script would then install.
+#
+# check_mode: false because `uri` declares no check-mode support and would be
+# skipped under --check, leaving the register undefined for the tasks below.
+# Reading a public manifest changes nothing.
+- name: Fetch the herdr release manifest
+  ansible.builtin.uri:
+    url: https://herdr.dev/latest.json
+  register: herdr_manifest
+  check_mode: false
+  # An unreachable manifest is a check that did not happen, not a broken
+  # machine; herdr is installed and working by this point.
+  failed_when: false
+
+- name: Warn that the herdr version check could not reach upstream
+  ansible.builtin.debug:
+    msg:
+      - "Could not read https://herdr.dev/latest.json (status {{ herdr_manifest.status }})."
+      - "{{ herdr_version.stdout }} is installed and working, but this run could not"
+      - "confirm whether a newer release exists. Diagnose with"
+      - "`curl -fsSL https://herdr.dev/latest.json`."
+  when: herdr_manifest.status != 200
+
+# `herdr --version` prints "herdr <semver>"; match the number rather than
+# splitting on whitespace, so a future suffix such as a channel name cannot feed
+# a non-version into the comparison.
+#
+# Re-running the installer really does replace the binary, so changed_when: true
+# is honest; the `when` is what keeps it off a converged run.
+- name: Update herdr to the latest release # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://herdr.dev/install.sh | sh
+  changed_when: true
+  register: herdr_updated
+  vars:
+    herdr_installed_semver: "{{ herdr_version.stdout | regex_search('[0-9]+[.][0-9]+[.][0-9]+') | default('', true) }}"
+  when:
+    - herdr_manifest.status == 200
+    - herdr_manifest.json.version | default('', true) | length > 0
+    - herdr_installed_semver != herdr_manifest.json.version
+
+# The installer replaces the file, which leaves an already-running server on the
+# old inode, so the machine keeps serving the previous version until herdr
+# restarts. Say so, rather than letting a green playbook imply the upgrade has
+# already taken effect.
+#
+# noqa no-handler: a handler fires at the end of the whole play, dozens of roles
+# downstream of this one, and is skipped outright if any of them fail. A notice
+# about what just happened here belongs here.
+- name: Report that a running herdr still needs a restart # noqa: no-handler
+  ansible.builtin.debug:
+    msg: >-
+      herdr was updated ({{ herdr_version.stdout }} ->
+      {{ herdr_manifest.json.version }}). A herdr server that is already running
+      stays on the old binary until it is restarted: detach, then
+      `pkill -f 'herdr server'` and relaunch.
+  when: herdr_updated is changed
+
+# Multi-line, so blockinfile rather than the lineinfile used for one-line aliases
+# elsewhere. The named marker keeps this block from colliding with any other
+# role's managed block in the same .bashrc. bash has $HOSTNAME where zsh has $HOST.
+- name: Add the herdr terminal-title wrapper to .bashrc
+  ansible.builtin.blockinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: herdr"
+    state: present
+    block: |
+      # herdr: title the terminal "herdr <hostname>" instead of just "herdr".
+      # The bare "herdr" title comes from the terminal's shell-integration preexec; herdr itself never
+      # sets a title, so retitling here after preexec sticks for the whole session.
+      herdr() {
+        printf '\e]0;herdr %s\a' "${HOSTNAME%%.*}"
+        command herdr "$@"
+      }
+
+# Two tasks keep this both idempotent and fresh: `add` installs once (guarded by
+# `creates`, so it no-ops once the skill exists), and `update` re-checks upstream
+# every run, reporting `changed` only when the SKILL.md actually moves.
+- name: Install the herdr skill (teaches the agent to control Herdr from inside a Herdr pane)
+  ansible.builtin.command:
+    cmd: npx skills add herdrdev/herdr --skill herdr -g -y
+    creates: "{{ lookup('env', 'HOME') }}/.agents/skills/herdr"
+
+# `skills update` exits 0 no matter what happens and only prints "...up to date"
+# on one of its several no-change paths. It stays silent about being current
+# when a source is skipped, when there is nothing global to check, and, most
+# often here, when the check itself fails because the unauthenticated GitHub
+# API allows just 60 calls an hour. Matching on the phrase therefore reports a
+# phantom change whenever the quota runs dry, so checksum the installed skill
+# around the call and let the files decide.
+- name: Fingerprint the herdr skill before updating
+  ansible.builtin.find:
+    paths: "{{ lookup('env', 'HOME') }}/.agents/skills/herdr"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: herdr_skill_before
+
+- name: Keep the herdr skill up to date from upstream
+  ansible.builtin.command:
+    cmd: npx skills update herdr -g -y
+  register: herdr_skill_update
+  changed_when: false
+
+# `skills add` records the skill's upstream path in ~/.agents/.skill-lock.json at
+# install time and never revisits it. When upstream moves the file (herdr went
+# from a root SKILL.md to skills/herdr/SKILL.md) the lock keeps pointing at the
+# old path, so `skills update` finds nothing there, calls the skill "deleted
+# upstream", declines to act on it in non-interactive mode, and the skill
+# silently freezes at its last-good version. Re-running `add` is what rewrites
+# the path, and the `creates:` guard above will never do it, so trigger it from
+# the warning. This is a positive sentinel on exactly one branch, and a missed
+# match leaves a stale skill rather than inventing a change that never happened.
+- name: Re-add the herdr skill when upstream has moved its path
+  ansible.builtin.command:
+    cmd: npx skills add herdrdev/herdr --skill herdr -g -y
+  when: "'deleted upstream' in herdr_skill_update.stdout"
+  # Reaching this task means the drift was detected, and running it rewrites the
+  # lock entry, so the repair is a real change even when the skill's own files
+  # come back byte-identical. The checksum task below reports content separately.
+  changed_when: true
+
+- name: Check whether the herdr skill was updated
+  ansible.builtin.find:
+    paths: "{{ lookup('env', 'HOME') }}/.agents/skills/herdr"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: herdr_skill_after
+  changed_when: >-
+    (herdr_skill_after.files | map(attribute='checksum') | sort)
+    != (herdr_skill_before.files | map(attribute='checksum') | sort)
+
+- name: Symlink ~/.claude/skills/herdr to ~/.agents/skills/herdr
+  ansible.builtin.file:
+    # Relative, not absolute: this is agent-sync's canonical link form, and it
+    # owns the same path. An absolute target reads as "not in canonical form" in
+    # `agent-sync status`, so the two would rewrite each other forever.
+    src: "../../.agents/skills/herdr"
+    dest: "{{ lookup('env', 'HOME') }}/.claude/skills/herdr"
+    state: link
+    force: true
