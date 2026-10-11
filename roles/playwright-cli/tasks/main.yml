@@ -1,10 +1,79 @@
 ---
+# The old gate read `'added' in stdout or 'updated' in stdout`, which is never true:
+# `npm install -g` prints `changed N packages in <time>` on a converged run and on a real
+# upgrade alike, so this role reported `ok` through every CLI upgrade it performed. The
+# skill comparison below already diffs state; this is the same rule applied to the package
+# that carries it. An absent package prints `{"name": "lib"}` and exits 1, hence
+# `failed_when: false` on the read, so a first install reads as a change.
+- name: Read the installed Playwright CLI version
+  ansible.builtin.command: npm ls -g --depth=0 --json @playwright/cli
+  register: playwright_cli_before
+  changed_when: false
+  failed_when: false
+
 - name: Install Playwright CLI globally
   ansible.builtin.command: npm install -g @playwright/cli@latest
-  register: playwright_cli_install
-  changed_when: "'added' in playwright_cli_install.stdout or 'updated' in playwright_cli_install.stdout"
+  changed_when: false
 
-- name: Install Playwright CLI skills
-  ansible.builtin.command: playwright-cli install --skills
-  register: playwright_cli_skills
-  changed_when: "'downloading' in playwright_cli_skills.stdout | lower"
+- name: Check whether the Playwright CLI changed
+  ansible.builtin.command: npm ls -g --depth=0 --json @playwright/cli
+  register: playwright_cli_after
+  changed_when: playwright_cli_after.stdout != playwright_cli_before.stdout
+
+# `playwright-cli install --skills --global` lands the bundled skill in
+# ~/.claude/skills/playwright-cli with a recursive `fs.cp` over whatever is
+# already there: files the bundle still ships are overwritten, files it has
+# since dropped are left behind, so a skill upgraded in place accumulates stale
+# reference docs. Remove the directory first so every run lands exactly what the
+# installed CLI ships and nothing else. Removal also unlinks an agent-sync
+# symlink if one is sitting there, rather than following it, so the copy
+# cannot write through into the shared ~/.agents/skills store.
+#
+# Because the directory is recreated on every run, `creates:` could never fire,
+# and the CLI prints the same "Skill installed" line whether or not anything
+# differed, so `changed` is decided the way the self-update roles decide it:
+# a checksum of the tree before and after. The removal and the install both
+# carry `changed_when: false` on purpose; they are the two halves of one
+# replace, reported once by the final comparison. Both checksums are read-only
+# and run under `--check` (`check_mode: false`) so that comparison stays
+# defined on a dry run. The `-d` guard covers a host that has no skill yet:
+# an empty "before" against a real "after" reports the first install as changed.
+- name: Checksum the installed Playwright CLI skill
+  ansible.builtin.shell: |
+    set -o pipefail
+    [ -d "{{ playwright_cli_skill_dir }}" ] || exit 0
+    find "{{ playwright_cli_skill_dir }}" -type f -exec sha256sum {} + \
+      | LC_ALL=C sort | sha256sum
+  args:
+    executable: /bin/bash
+  register: playwright_cli_skill_before
+  changed_when: false
+  check_mode: false
+
+- name: Remove the installed Playwright CLI skill
+  ansible.builtin.file:
+    path: "{{ playwright_cli_skill_dir }}"
+    state: absent
+  changed_when: false
+
+# `--global` resolves the target from the home directory, so cwd no longer
+# decides where the skill lands. It stays pinned to $HOME anyway, so nothing
+# workspace-scoped in the CLI ever runs against the repo the playbook was
+# invoked from.
+- name: Install the Playwright CLI skill globally
+  ansible.builtin.command: playwright-cli install --skills --global
+  args:
+    chdir: "{{ lookup('env', 'HOME') }}"
+  changed_when: false
+
+- name: Check whether the Playwright CLI skill changed
+  ansible.builtin.shell: |
+    set -o pipefail
+    [ -d "{{ playwright_cli_skill_dir }}" ] || exit 0
+    find "{{ playwright_cli_skill_dir }}" -type f -exec sha256sum {} + \
+      | LC_ALL=C sort | sha256sum
+  args:
+    executable: /bin/bash
+  register: playwright_cli_skill_after
+  changed_when: playwright_cli_skill_after.stdout != playwright_cli_skill_before.stdout
+  check_mode: false

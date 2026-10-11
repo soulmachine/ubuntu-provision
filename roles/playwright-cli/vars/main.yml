@@ -1,0 +1,2 @@
+---
+playwright_cli_skill_dir: "{{ lookup('env', 'HOME') }}/.claude/skills/playwright-cli"
