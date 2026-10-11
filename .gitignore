@@ -7,3 +7,6 @@
 .agents/
 .serena/
 __pycache__/
+
+# Fork worktrees Claude Code creates while agents work in parallel.
+.claude/worktrees/
