@@ -1,0 +1,11 @@
+---
+# open-pstack (https://github.com/ericlitman/open-pstack): Cursor's pstack ported to Claude
+# Code and Codex. The claude-code role installs the Claude half from its plugin list; this is
+# the Codex half. The marketplace name comes from .agents/plugins/marketplace.json in the
+# repo, and git marketplaces are snapshotted as a checkout under ~/.codex/.tmp/marketplaces —
+# the same layout the ponytail role's codex.yml documents.
+codex_pstack_source: ericlitman/open-pstack
+codex_pstack_marketplace: open-pstack
+codex_pstack_plugin: pstack@open-pstack
+codex_home: "{{ lookup('env', 'HOME') }}/.codex"
+codex_pstack_record: "{{ codex_home }}/.tmp/marketplaces/{{ codex_pstack_marketplace }}/.codex-marketplace-install.json"
