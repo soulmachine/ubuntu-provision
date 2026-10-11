@@ -127,6 +127,7 @@ pre-commit run --all-files
 | paseo | agent 多路复用：npm 全局 `@getpaseo/cli`（CLI + daemon），daemon 以 systemd user unit 运行（`bash -lc`，开启 linger），启用 relay（配对仍需手动 `paseo daemon pair`）与插件并安装 `npm:@oliexe/paseo-bots`；daemon 未运行时记录下来、在 play 末尾才报错；tag `agent-multiplexer`（依赖 nodejs、claude-code、codex） |
 | cloudflare | Cloudflare CLI：npm 全局 `cf`（其 skills 由 skills role 安装）（依赖 claude-code） |
 | multica-cli | 通过官方 install.sh 安装 multica CLI，并以相对路径链接其 skill |
+| purelymail | Purelymail API CLI，GitHub release 二进制装入 `~/.local/bin`，跟随最新 release；token 手工放在 `~/.profile` |
 | tailscale | 从官方 apt 源安装 tailscale 并启用 systemd 服务；设了 `TAILSCALE_AUTH_KEY` 时自动加入 tailnet；设了 OAuth client 时关闭节点密钥过期 |
 | zellij | 终端复用器（GitHub release 的静态二进制）；tag `terminal-multiplexer` |
 | tmux | 终端复用器（apt）；tag `terminal-multiplexer` |

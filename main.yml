@@ -42,6 +42,7 @@
       tags: [agent-multiplexer]
     - cloudflare
     - multica-cli
+    - purelymail
     - tailscale
     - role: zellij
       tags: [terminal-multiplexer]

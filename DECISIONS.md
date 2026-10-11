@@ -259,3 +259,13 @@
 **Justification:** Three consecutive plays with the last at `changed=0`, plus empty content diffs, is a stronger idempotency check than the two-play rule asked for; nothing remains to fix in the roles. Two real defects the run did expose are fixed in the repo: the above-guard PATH blind spot (e97fe97) and kimi's installer writing to the `$SHELL` startup file (872875b).
 **Outcome:** validated
 **Ref:** e97fe97, 872875b, run logs `~/ubuntu-provision-run{1,2,3}.log` on dev-server-frank
+
+## Q27 — interactive/purelymail-cli — gate-resolution
+
+**Question:** How does the `purelymail` CLI (github.com/soulmachine/purelymail, Frank's Rust tool for the Purelymail API) reach every personal host, and where do its credentials live?
+**Options considered:** `cargo install purelymail` on each host / a role that installs the GitHub release tarball into `~/.local/bin` / by hand over ssh with nothing in the playbook
+**Chosen:** A `purelymail` role modelled on ubuntu-provision's `agent-sync` role: resolve the newest release from the releases/latest redirect, download the tarball for the host's architecture, unpack the one binary into `~/.local/bin`, converge on the reported version. No cargo needed. The two tokens, `PURELYMAIL_API_TOKEN` and `CARGO_REGISTRY_TOKEN`, are free-standing exports placed by hand in ~/.profile (mode 600, outside the dotenv managed block, like `GITHUB_TOKEN`), so the role never touches credentials and the dotenv role cannot clobber them.
+**Decided-by:** human
+**Justification:** Frank chose the token files on 2026-10-11 (`~/.zshenv` on macOS, `~/.profile` on Linux). The tarball avoids a Rust toolchain on hosts that have none (supermicro, mac-mini-2018-omarchy) and a minute of compile on the rest.
+**Outcome:** applied
+**Ref:** purelymail DECISIONS Q30, release v0.1.0

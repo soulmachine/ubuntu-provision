@@ -1,0 +1,65 @@
+---
+# purelymail: the Purelymail API CLI, github.com/soulmachine/purelymail. One static binary from
+# its GitHub release, installed into ~/.local/bin and kept at the latest release, so the host
+# needs no cargo. Its token, PURELYMAIL_API_TOKEN, is placed by hand in ~/.profile
+# (shell-startup.md), never by this role.
+
+- name: Read the installed purelymail version
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/purelymail --version"
+  register: purelymail_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false # read-only probe; run in --check so the gate below sees real state
+
+# The release page's redirect names the newest tag, so no GitHub API call and no rate limit.
+- name: Resolve the latest purelymail release
+  ansible.builtin.uri:
+    url: https://github.com/soulmachine/purelymail/releases/latest
+    follow_redirects: none
+    status_code: [301, 302]
+  register: purelymail_release
+  check_mode: false
+
+# uname rather than ansible_facts, so `ansible localhost -m include_role` works without a
+# fact-gathering play.
+- name: Work out the version and asset name
+  ansible.builtin.set_fact:
+    purelymail_latest: "{{ purelymail_release.location | regex_search('/tag/v([0-9][^/]*)$', '\\1') | first }}"
+    purelymail_arch: "{{ 'aarch64' if lookup('pipe', 'uname -m') in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+- name: Install or update purelymail
+  when: (purelymail_installed.stdout | default('')) != 'purelymail ' ~ purelymail_latest
+  vars:
+    purelymail_asset: "purelymail-v{{ purelymail_latest }}-{{ purelymail_arch }}-unknown-linux-gnu.tar.gz"
+    purelymail_url: "https://github.com/soulmachine/purelymail/releases/download/v{{ purelymail_latest }}/{{ purelymail_asset }}"
+  block:
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    # shortcut: the release publishes no checksum file, so this trusts GitHub's TLS; add
+    # `checksum: sha256:<url>` once release.yml ships SHA256SUMS.txt.
+    - name: Download the purelymail release tarball
+      ansible.builtin.get_url:
+        url: "{{ purelymail_url }}"
+        dest: "/tmp/{{ purelymail_asset }}"
+        mode: "0644"
+
+    # tar itself, not the unarchive module: that module insists on GNU tar, and macOS ships
+    # bsdtar. The archive holds the one file, mode 0755.
+    - name: Unpack the purelymail binary into ~/.local/bin # noqa: command-instead-of-module
+      ansible.builtin.command: tar -xzf "/tmp/{{ purelymail_asset }}" -C "{{ lookup('env', 'HOME') }}/.local/bin" purelymail
+      changed_when: true
+
+    - name: Remove the downloaded tarball
+      ansible.builtin.file:
+        path: "/tmp/{{ purelymail_asset }}"
+        state: absent
+
+# `changed` from the observable version: this is what proves the new binary answers.
+- name: Check whether purelymail changed
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/purelymail --version"
+  register: purelymail_after
+  changed_when: purelymail_after.stdout != (purelymail_installed.stdout | default(''))
