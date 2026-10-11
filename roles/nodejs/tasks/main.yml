@@ -1,5 +1,45 @@
 ---
-- name: Install Node.js via mise
+# `mise use --global node@lts` only guarantees *an* LTS is installed: the request
+# "lts" is satisfied by any already-installed LTS release, so on a box that
+# already has one it never pulls a newer one. That drift is not cosmetic — a
+# multi-clause engines.node range leaves gaps *between* its clauses, and a stale
+# LTS can sit in one, satisfying none of them. corepack, which ships inside the
+# mise-managed node install rather than being installed alongside it, declares
+# `^22.22.2 || ^24.15.0 || >=26.0.0`: 24.14.1 falls in the gap and satisfies
+# nothing, where the 24.21.0 this fleet runs satisfies the second clause (both
+# measured 2026-09-16). `mise upgrade` moves to the newest release inside the
+# configured range, so config.toml keeps the readable `node = "lts"` instead of
+# a pinned exact version.
+#
+# changed_when compares state before and after, per the "diff state, don't grep
+# output" rule in AGENTS.md: `mise use` prints its tool line on every run whether
+# or not it did anything, and `mise upgrade` is silent when already current —
+# neither output is a usable change signal.
+#
+# The probe is `mise ls --json`, not `mise current`, because these tasks change
+# two independent pieces of state and `mise current` only sees one of them. On a
+# machine whose config.toml carries a hand-pinned `node = "24.19.0"`, `mise use`
+# rewrites that line to `node = "lts"` while the resolved version stays 24.19.0 —
+# a real edit to a managed file that a resolved-version-only diff reports as
+# unchanged. The JSON carries `requested_version` (what config.toml asks for)
+# alongside `version` (what that resolves to), so one comparison covers both. It
+# also degrades cleanly on a fresh machine: node unconfigured prints `[]`, rc 0.
+
+- name: Read the Node.js state before updating
+  ansible.builtin.command: mise ls --current node --json
+  register: nodejs_before
+  changed_when: false
+  failed_when: false
+
+- name: Configure Node.js LTS via mise
   ansible.builtin.command: mise use --global node@lts
-  register: nodejs_mise
-  changed_when: "'installed' in nodejs_mise.stderr"
+  changed_when: false
+
+- name: Upgrade Node.js to the newest LTS release
+  ansible.builtin.command: mise upgrade node
+  changed_when: false
+
+- name: Check whether the Node.js state changed
+  ansible.builtin.command: mise ls --current node --json
+  register: nodejs_after
+  changed_when: nodejs_after.stdout != nodejs_before.stdout
