@@ -392,3 +392,13 @@
 **Justification:** Ego Lite ships no Linux build. The skill's `scripts/install.sh` downloads only `cdn.ego.app/setup/macos/{arm64,x64}` DMGs, and lite.ego.app offers only macOS and Windows (checked 2026-10-12). Without the app, the skill has nothing to drive. Revisit when a Linux build appears.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q239, Q241
+
+## Q40 — interactive/orca — gate-resolution
+
+**Question:** Upstream macbook-provision Q243 adds an `orca` role: the desktop app on MacBooks, plus the server from upstream's `orca serve service install` on always-on Macs. Where does Orca come from on Ubuntu, and which hosts run the server?
+**Options considered:** the `.deb` / the AppImage from the GitHub release; the server on every host / only on headless hosts
+**Chosen:** The `.deb` (`orca-ide_<tag>_<arch>.deb`), versioned from the `releases/latest` redirect, on every host, with the server on every host through `orca-ide serve service install --port 6768` and lingering enabled. As upstream does, the role skips the server with a message while the installed Orca predates `serve service`. The upstream sync point moves to 734e118. 81b7b61 (OpenSWE/lessons) was ported already.
+**Decided-by:** human (the server on always-on hosts, and waiting for the upstream installer: Frank, 2026-10-12); agent (the `.deb`)
+**Justification:** Every host here is a server (Q9), so the always-on gate is always true. Orca ships no apt repo. The `.deb`'s post-install script links `/usr/bin/orca-ide`, a stable path that the service unit can pin. An AppImage would need its own link and FUSE. The redirect gives the tag without a GitHub API call, as in roles/email.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q243

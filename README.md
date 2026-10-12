@@ -132,6 +132,7 @@ pre-commit run --all-files
 | browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`；dev-server-frank 无桌面）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
 | ponytail | 给所有 agent 安装 [ponytail](https://github.com/DietrichGebert/ponytail) 插件：Claude Code / Codex / OpenCode / pi / oh-my-pi / Hermes 各用其原生安装方式（依赖 nodejs、claude-code、codex、opencode、pi、omp、hermes） |
 | paseo | agent 多路复用：npm 全局 `@getpaseo/cli`（CLI + daemon），daemon 以 systemd user unit 运行（`bash -lc`，开启 linger），启用 relay（配对仍需手动 `paseo daemon pair`）与插件并安装 `npm:@oliexe/paseo-bots`；daemon 未运行时记录下来、在 play 末尾才报错；tag `agent-multiplexer`（依赖 nodejs、claude-code、codex） |
+| orca | [Orca](https://onorca.dev)（多 agent IDE）的服务端：Orca 没有单独的服务端包，CLI 和 `orca serve` 都在应用里，所以从 GitHub release 装 `orca-ide_<版本>_<arch>.deb`（版本由 releases/latest 的跳转得出，与 `dpkg-query` 不同才装；CLI 是 `/usr/bin/orca-ide`），开启 linger，再用上游的 `orca-ide serve service install --port 6768` 装 systemd user unit `orca-serve`（`--supervise --no-pairing`），只在服务不是 `live` 时安装；当前 Orca 还没有这个子命令时跳过并提示；服务未 live 时在 play 末尾才报错。配对仍需手动；tag `agent-multiplexer`（依赖 claude-code、codex） |
 | cloudflare | Cloudflare CLI：npm 全局 `cf`（其 skills 由 skills role 安装）（依赖 claude-code） |
 | multica-cli | 通过官方 install.sh 安装 multica CLI，并以相对路径链接其 skill |
 | purelymail | Purelymail API CLI，GitHub release 二进制装入 `~/.local/bin`，跟随最新 release；token 手工放在 `~/.profile` |
@@ -201,4 +202,5 @@ pre-commit run --all-files
 - **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。
+- **orca 的配对**：服务不打印配对链接；先停服务，在终端跑 `orca-ide serve --port 6768 --pairing-address <tailscale-ip>`，把链接贴进客户端的 **Add Server**。
 - **`claude-mem` 的模型 id 要手工升级。** `roles/claude-mem/vars/main.yml` 里的模型 id 一旦下架就是一个硬错误，**会让 play 失败**。

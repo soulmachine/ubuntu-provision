@@ -1,0 +1,127 @@
+---
+# Orca (https://onorca.dev) as a server. Orca has no separate server package: the CLI and
+# `orca serve` ship inside the app, and the .deb links that CLI as /usr/bin/orca-ide (Orca's
+# Linux name, because GNOME's screen reader owns `orca`). Every host here is a server
+# (DECISIONS Q9), so every host gets the .deb and the server (DECISIONS Q40, upstream Q243).
+- name: Ensure architecture and user facts are gathered
+  ansible.builtin.setup:
+    gather_subset: [architecture, min]
+  when: ansible_facts['architecture'] is not defined or ansible_facts['user_uid'] is not defined
+
+- name: Read the installed Orca version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' orca-ide
+  register: orca_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# Orca ships no apt repo. The release page's redirect names the newest tag, so no GitHub API
+# call and no rate limit, as roles/email does.
+- name: Resolve the latest Orca release
+  ansible.builtin.uri:
+    url: https://github.com/stablyai/orca/releases/latest
+    follow_redirects: none
+    status_code: [301, 302]
+  register: orca_release
+  check_mode: false
+
+- name: Work out the Orca version
+  ansible.builtin.set_fact:
+    orca_latest: "{{ orca_release.location | regex_search('/tag/v([0-9][^/]*)$', '\\1') | first }}"
+    orca_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}"
+
+# The supervisor below waits while an update replaces the app, so an upgrade needs no restart.
+- name: Install or update the Orca .deb
+  become: true
+  ansible.builtin.apt:
+    deb: https://github.com/stablyai/orca/releases/download/v{{ orca_latest }}/orca-ide_{{ orca_latest }}_{{ orca_arch }}.deb
+  when: (orca_installed.stdout | default('')) != orca_latest
+
+# Without lingering, systemd stops the user manager at logout, taking the server with it.
+# Same tasks as roles/paseo. `show-user` fails for a user with no session and no linger,
+# which reads as "no".
+- name: Read whether the user lingers
+  ansible.builtin.command: loginctl show-user {{ lookup('env', 'USER') }} --property=Linger --value
+  register: orca_linger
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Enable lingering so the server runs without a login session
+  become: true
+  ansible.builtin.command: loginctl enable-linger {{ lookup('env', 'USER') }}
+  changed_when: true
+  when: orca_linger.stdout | default('') | trim != 'yes'
+
+# Upstream's `orca serve service install` writes, enables and restarts the systemd user unit
+# `orca-serve.service`, which runs `orca-ide serve --supervise --no-pairing`: it restarts the
+# server with backoff and waits while an update replaces the app. It runs only when the service
+# is not live, because a reinstall restarts the server and kills its sessions. Port 6768 is
+# fixed so paired clients keep their address across restarts. A login shell, because the unit
+# pins the PATH it is installed with, and the agent CLIs the server spawns live on mise's shims.
+# XDG_RUNTIME_DIR, because `systemctl --user` needs the user manager's bus, which no Ansible
+# task inherits. Pairing stays manual (see README).
+- name: Run the Orca server
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ ansible_facts['user_uid'] }}"
+  block:
+    # `default('{}', true)`: under `--check` a skipped read leaves an empty stdout.
+    - name: Read the Orca server service
+      ansible.builtin.command: bash -lc 'orca-ide serve service status --json'
+      register: orca_service
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Parse the Orca server service status
+      ansible.builtin.set_fact:
+        orca_status: "{{ orca_service.stdout | default('{}', true) | from_json }}"
+
+    # Orca 1.4.224 (2026-10-10) predates `serve service` (upstream Q243): it answers
+    # `invalid_argument`. Skip until a release ships it; the .deb step above picks it up.
+    - name: Report that this Orca cannot install its server yet
+      ansible.builtin.debug:
+        msg: >-
+          Skipping the Orca server: this Orca has no `orca-ide serve service` command yet
+          ({{ orca_status.error.message | default('') }}). A later play installs it once a
+          release ships it.
+      when: orca_status.error.code | default('') == 'invalid_argument'
+
+    - name: Install and check the Orca server service
+      when: orca_status.error.code | default('') != 'invalid_argument'
+      block:
+        - name: Install the Orca server service
+          ansible.builtin.command: bash -lc 'orca-ide serve service install --port 6768 --json'
+          changed_when: true
+          when: orca_status.result.verdict | default('') != 'live'
+
+        # An active unit is not a live server, as roles/paseo explains. Allow 60s for the
+        # install above to come up. `failed_when: false` holds when the retries run out, so a
+        # down server is recorded, and main.yml's post_tasks fail the play on it after the
+        # other roles have run.
+        - name: Read whether the Orca server is live
+          ansible.builtin.command: bash -lc 'orca-ide serve service status --json'
+          register: orca_service_after
+          changed_when: false
+          failed_when: false
+          check_mode: false
+          retries: 12
+          delay: 5
+          until: (orca_service_after.stdout | default('{}', true) | from_json).result.verdict | default('') == 'live'
+
+        # A host fact, not a role var, so main.yml's post_tasks can read it.
+        - name: Record an Orca server that is not live
+          ansible.builtin.set_fact:
+            orca_serve_down: >-
+              The Orca server is not live after 60s of waiting
+              ({{ (orca_service_after.stdout | default('{}', true) | from_json).result | default('no status') }}).
+              `orca-ide serve service status` says why, and `journalctl --user -u orca-serve`
+              holds its log. `orca-ide serve service install --port 6768` clears a supervisor
+              that gave up.
+          when: (orca_service_after.stdout | default('{}', true) | from_json).result.verdict | default('') != 'live'
+
+        # post_tasks only run in a full play; a single-role run reports it here.
+        - name: Report an Orca server that is not live
+          ansible.builtin.debug:
+            msg: "{{ orca_serve_down }}"
+          when: orca_serve_down is defined

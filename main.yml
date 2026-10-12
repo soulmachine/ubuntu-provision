@@ -47,6 +47,8 @@
     - ponytail
     - role: paseo
       tags: [agent-multiplexer]
+    - role: orca
+      tags: [agent-multiplexer]
     - cloudflare
     - multica-cli
     - purelymail
@@ -117,4 +119,10 @@
       ansible.builtin.fail:
         msg: "{{ paseo_daemon_down }}"
       when: paseo_daemon_down is defined
+      tags: [agent-multiplexer]
+
+    - name: Fail when the Orca server is not live
+      ansible.builtin.fail:
+        msg: "{{ orca_serve_down }}"
+      when: orca_serve_down is defined
       tags: [agent-multiplexer]

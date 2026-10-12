@@ -1,0 +1,5 @@
+---
+dependencies:
+  # The server's sessions run these two agents.
+  - claude-code
+  - codex
