@@ -54,10 +54,13 @@
       register: bitwarden_release
       check_mode: false
 
+    # A set_fact template, not the `when:` below: a bare expression reads '\1' as an escape.
+    - name: Work out the Bitwarden desktop version
+      ansible.builtin.set_fact:
+        bitwarden_latest: "{{ bitwarden_release.location | regex_search('/Bitwarden-([0-9][^/]*)-amd64\\.deb$', '\\1') | first }}"
+
     - name: Install the Bitwarden desktop .deb
       become: true
       ansible.builtin.apt:
         deb: "{{ bitwarden_release.location }}"
-      when: >-
-        (bitwarden_installed.stdout | default(''))
-        != (bitwarden_release.location | regex_search('/Bitwarden-([0-9][^/]*)-amd64\.deb$', '\1') | first)
+      when: (bitwarden_installed.stdout | default('')) != bitwarden_latest

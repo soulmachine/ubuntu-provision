@@ -361,3 +361,14 @@
 **Justification:** Ubuntu 26.04 universe ships rbw 1.15.0, the same version as Homebrew. npm is how this repo installs other Node CLIs. The `.deb` is Bitwarden's own build; the redirect names the version with no GitHub API call (the Proton Bridge pattern in roles/email). Frank stated the rule as "headless", and Q34 already describes dev-server-frank as headless because it has no xsessions, so the session-file test states the rule directly and needs no list to maintain.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q242
+
+## Q37 — interactive/bitwarden — deviation
+
+**Question:** Q36 says Ubuntu 26.04 ships rbw 1.15.0, the same version as Homebrew. The first run on supermicro and dev-server-frank installed 1.13.2-7. Keep apt?
+**Options considered:** keep apt `rbw` 1.13.2 / the `.deb` on doy/rbw's GitHub release / `cargo install rbw`
+**Chosen:** Keep apt. `apt` role upgrades bring a newer rbw when the archive gets one.
+**Decided-by:** agent
+**Justification:** 1.15.0 is in a newer Ubuntu series, not in resolute. 1.13.2 talks to Vaultwarden the same way, and the apt package keeps rbw on the repo's normal upgrade path with no second channel.
+**Outcome:** applied
+**Ref:** (this commit)
+**Supersedes:** Q36 — only its claim that resolute ships rbw 1.15.0
