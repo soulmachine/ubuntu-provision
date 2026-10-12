@@ -34,13 +34,14 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
 
 ## Upstream
 
-Synced with `soulmachine/macbook-provision` at **5b12eed** (2026-10-12). To catch up again: run
-`git -C ../macbook-provision log --oneline 321660b..HEAD`, port each commit role by role (apt for
+Synced with `soulmachine/macbook-provision` at **5aee25f** (2026-10-12). To catch up again: run
+`git -C ../macbook-provision log --oneline 5aee25f..HEAD`, port each commit role by role (apt for
 brew, `~/.bashrc` for `~/.zshrc`, no always-on gate), then move this sha. `main.yml` keeps upstream's
 role order; `apt` stands where `homebrew` stands and `shell` + `omarchy` are the bash versions of
 upstream's zsh pair. Roles upstream has and this repo deliberately omits, with no stub: host-facts,
 homebrew, cua, cc-switch, ghostty, cmux, intellij-idea, obsidian, apple-container, moshi, 1password
-(macOS hosts with `~/personal-agent` only, upstream Q222).
+(macOS hosts with `~/personal-agent` only, upstream Q222), lcu (needs the ChatGPT desktop app and
+an X11 desktop, which neither host has; Q32).
 `DECISIONS.md` records every other difference.
 
 ## Read before you act

@@ -310,3 +310,13 @@
 **Justification:** The bug was found on this repo's host and the file is shared verbatim with upstream.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q227
+
+## Q32 — interactive/lcu-role — scope
+
+**Question:** Upstream macbook-provision Q228 adds an `lcu` role (Local Computer Use, amontlabs/lcu). Port it?
+**Options considered:** a role gated on `/usr/lib/chatgpt` that skips today / also install the ChatGPT .deb / no role
+**Chosen:** No role. supermicro and dev-server-frank have no ChatGPT desktop app and no X11 desktop session (`XDG_SESSION_TYPE=tty`), and LCU needs both. Should a desktop host appear, the Linux path is `/opt/lcu` through `sudo ./scripts/install.sh --user "$(id -un)" --runtime-only`, then `lcu setup --agent <x> --session direct --yes` from inside the desktop session. AGENTS.md lists the omission.
+**Decided-by:** human
+**Justification:** Frank chose "skip the Linux roles" on 2026-10-12 when the prerequisites were laid out; a role that always skips is dead code.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q228
