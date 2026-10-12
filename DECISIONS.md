@@ -372,3 +372,23 @@
 **Outcome:** applied
 **Ref:** (this commit)
 **Supersedes:** Q36 — only its claim that resolute ships rbw 1.15.0
+
+## Q38 — interactive/macos-connectors — scope
+
+**Question:** Upstream macbook-provision Q236 adds a `macos-connectors` role: CLIs for Reminders, Messages, Notes and the other Apple apps. Port it?
+**Options considered:** port it / no role
+**Chosen:** No role. AGENTS.md and README list the omission.
+**Decided-by:** agent
+**Justification:** Each CLI drives a macOS app that Linux does not have. Precedent Q33 (`removemacai`): a macOS-only role is not ported and is listed with the omitted roles.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q236
+
+## Q39 — interactive/ego-browser — scope
+
+**Question:** Upstream macbook-provision Q239 and Q241 add an `ego-browser` role: the `ego-browser` skill, Ego Lite through the skill's `install.sh`, an onboarding check and a nightly upgrade. Port it?
+**Options considered:** port it for supermicro, as Q34 did for BrowserOS neo / no role
+**Chosen:** No role, and no `citrolabs/ego-lite` entry in the skills role. AGENTS.md and README list the omission. The upstream sync point moves to 5b2ec85. The other commits since fdb74fc need no port here: lcu (Q229, Q230, Q233, Q234) and removemacai (Q235) are omitted roles, fec7f1c is a cask `--adopt` fix, Q231, Q232 and Q238 change only upstream's journal, and Q237, Q240 and Q242 are ported as Q34, Q35 and Q36.
+**Decided-by:** agent
+**Justification:** Ego Lite ships no Linux build. The skill's `scripts/install.sh` downloads only `cdn.ego.app/setup/macos/{arm64,x64}` DMGs, and lite.ego.app offers only macOS and Windows (checked 2026-10-12). Without the app, the skill has nothing to drive. Revisit when a Linux build appears.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q239, Q241

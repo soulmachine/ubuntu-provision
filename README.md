@@ -90,7 +90,7 @@ pre-commit run --all-files
 
 ### Playbook 中的 Roles（`main.yml`）
 
-按 `main.yml` 中的执行顺序排列，顺序与上游 `macbook-provision` 一致，只是去掉了没有 Linux 版或属于 GUI 的 role（host-facts、homebrew、cua、cc-switch、ghostty、cmux、intellij-idea、obsidian、apple-container、moshi、removemacai）。
+按 `main.yml` 中的执行顺序排列，顺序与上游 `macbook-provision` 一致，只是去掉了没有 Linux 版或属于 GUI 的 role（host-facts、homebrew、cua、cc-switch、ghostty、cmux、intellij-idea、obsidian、apple-container、moshi、removemacai、macos-connectors、ego-browser）。
 
 | Role | 说明 |
 |------|------|
