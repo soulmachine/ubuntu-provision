@@ -300,3 +300,13 @@
 **Justification:** One tool's update check must not skip every role after it; the mise role here already handles the same failure this way.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q225
+
+## Q31 — interactive/npm-global-stale-shim — bugfix
+
+**Question:** Upstream macbook-provision Q227 fixes the shared `npm_global` probe after dev-server-frank's openclaw and gemini were stranded under node 24.17.0 with a stale mise shim that made the role skip the install. Port it?
+**Options considered:** port it / fix the two hosts by hand
+**Chosen:** Ported as is; the file is identical in both repos. dev-server-frank is repaired by rerunning its openclaw and gemini roles.
+**Decided-by:** agent
+**Justification:** The bug was found on this repo's host and the file is shared verbatim with upstream.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q227

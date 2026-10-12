@@ -24,16 +24,25 @@
   check_mode: false
   when: nodejs_npm_owned.rc != 0
 
+# A hit under mise's shims is not another channel: mise here manages only node, go and java, so
+# a shim for any other command is an npm global's, and `npm ls` just said npm does not own it under
+# the current Node. That is a shim left from an older Node after `mise use --global node@lts` moved
+# on (dev-server-frank, 2026-10-12: openclaw and gemini sat under node 24.17.0, the shim answered
+# `which`, and this skipped the install while `openclaw` itself failed with "No version is set").
+- name: Decide whether another channel really owns {{ nodejs_npm_cmd }}
+  ansible.builtin.set_fact:
+    nodejs_npm_foreign: "{{ nodejs_npm_owned.rc != 0 and nodejs_npm_other.rc == 0 and '/mise/shims/' not in nodejs_npm_other.stdout }}"
+
 - name: Install from npm {{ nodejs_npm_package }}
   community.general.npm:
     name: "{{ nodejs_npm_package }}"
     global: true
     state: latest
-  when: nodejs_npm_owned.rc == 0 or nodejs_npm_other.rc != 0
+  when: not nodejs_npm_foreign
 
 - name: Report another channel's copy of {{ nodejs_npm_cmd }}
   ansible.builtin.debug:
     msg: >-
       {{ nodejs_npm_cmd }} is already installed at {{ nodejs_npm_other.stdout }} by another channel, so npm
       leaves it alone; that channel keeps it current.
-  when: nodejs_npm_owned.rc != 0 and nodejs_npm_other.rc == 0
+  when: nodejs_npm_foreign
