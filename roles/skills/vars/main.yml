@@ -31,6 +31,7 @@ skills_selfauthored_repos:
   - "{{ skills_home }}/github.com/soulmachine/skills" # the monorepo, ~29 skills
   - "{{ skills_home }}/github.com/OpenSWE/herdr-advisor/skills"
   - "{{ skills_home }}/github.com/OpenSWE/log-decisions/skills"
+  - "{{ skills_home }}/github.com/OpenSWE/lessons/skills"
 
 # Every skill source the CLI owns and re-fetches, declared in one place. A source
 # belongs here rather than in the role for the app it accompanies: this role is
