@@ -320,3 +320,13 @@
 **Justification:** Frank chose "skip the Linux roles" on 2026-10-12 when the prerequisites were laid out; a role that always skips is dead code.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q228
+
+## Q33 — interactive/removemacai — scope
+
+**Question:** Upstream macbook-provision Q229 adds a `removemacai` role (RemoveMacAI's CLI, its configuration profile and per-user tweaks). Port it?
+**Options considered:** port it / no role
+**Chosen:** No role. RemoveMacAI changes macOS settings only: Apple Intelligence, a macOS configuration profile, and Finder, Dock and macOS defaults. Linux has none of them. AGENTS.md and README list the omission, and the upstream sync point moves to fdb74fc.
+**Decided-by:** agent
+**Justification:** Precedent macbook-provision Q222 (`1password`): a macOS-only role is not ported, and the sibling repos list it among the roles they leave out.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q229
