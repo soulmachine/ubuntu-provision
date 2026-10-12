@@ -351,3 +351,13 @@
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q240, ubuntu-provision Q34
 **Supersedes:** ubuntu-provision Q34 — its MCP port 9200 and its skill refresh on every play
+
+## Q36 — interactive/bitwarden — gate-resolution
+
+**Question:** Upstream macbook-provision Q242 adds a `bitwarden` role: the Electron app, `bw` and `rbw`. Frank wants the app skipped on headless Linux hosts. Where does each client come from here, and what counts as headless?
+**Options considered:** for the app: the official `.deb` / snap / Flathub (community build); for `bw`: npm `@bitwarden/cli` / the release zip; for `rbw`: apt / cargo; for the gate: a hostname list like Q34 / a desktop session file
+**Chosen:** apt `rbw`; npm `@bitwarden/cli` through `nodejs/npm_global`; the official `.deb`, whose version comes from the redirect of Bitwarden's download link and is compared with `dpkg-query`. The app installs only when `/usr/share/xsessions` or `/usr/share/wayland-sessions` holds a `*.desktop` file. The upstream sync sha stays at fdb74fc, as it did for Q34 and Q35, because upstream's ego-browser commits are still not ported.
+**Decided-by:** human (the headless rule: Frank, 2026-10-12); agent (the sources)
+**Justification:** Ubuntu 26.04 universe ships rbw 1.15.0, the same version as Homebrew. npm is how this repo installs other Node CLIs. The `.deb` is Bitwarden's own build; the redirect names the version with no GitHub API call (the Proton Bridge pattern in roles/email). Frank stated the rule as "headless", and Q34 already describes dev-server-frank as headless because it has no xsessions, so the session-file test states the rule directly and needs no list to maintain.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q242

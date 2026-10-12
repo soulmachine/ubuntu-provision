@@ -25,6 +25,7 @@
     - claude-code
     - claude-extras
     - typesafe
+    - bitwarden
     - codex
     - opencode
     - kimi-code

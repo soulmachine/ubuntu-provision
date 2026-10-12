@@ -1,0 +1,4 @@
+---
+dependencies:
+  # `bw` is the npm global `@bitwarden/cli`.
+  - nodejs

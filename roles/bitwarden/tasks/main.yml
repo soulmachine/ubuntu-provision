@@ -1,0 +1,63 @@
+---
+# Bitwarden clients for Frank's Vaultwarden (~/coding-agent/docs/vaultwarden.md): `rbw` from apt,
+# the official `bw` CLI from npm, and the official Electron desktop app on hosts with a desktop
+# session only. Install only: the server URL, email and login are set by hand (upstream Q242).
+
+# Ubuntu's rbw depends on pinentry-curses, so `rbw unlock` works over ssh.
+- name: Install rbw
+  become: true
+  ansible.builtin.apt:
+    name: rbw
+    state: present
+
+- name: Install the Bitwarden CLI from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: "@bitwarden/cli"
+    nodejs_npm_cmd: bw
+
+# Headless means no X11 or Wayland session file (DECISIONS Q36): dev-server-frank has none,
+# supermicro's GNOME Flashback has one.
+- name: Look for a desktop session
+  ansible.builtin.find:
+    paths:
+      - /usr/share/xsessions
+      - /usr/share/wayland-sessions
+    patterns: "*.desktop"
+  register: bitwarden_sessions
+
+- name: Report that the Bitwarden desktop app was skipped
+  ansible.builtin.debug:
+    msg: Skipping the Bitwarden desktop app, because this host has no X11 or Wayland session.
+  when: bitwarden_sessions.matched == 0
+
+# Bitwarden ships no apt repo. Its download link redirects to the newest .deb on the GitHub
+# release, so the redirect names the version without a GitHub API call, as roles/email does.
+# shortcut: the .deb is amd64 only and so are both hosts; add a `uname -m` guard for an arm64 host.
+- name: Install or update the Bitwarden desktop app
+  when: bitwarden_sessions.matched > 0
+  block:
+    - name: Read the installed Bitwarden version
+      ansible.builtin.command: dpkg-query -W -f='${Version}' bitwarden
+      register: bitwarden_installed
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Resolve the latest Bitwarden desktop .deb
+      ansible.builtin.uri:
+        url: https://vault.bitwarden.com/download/?app=desktop&platform=linux&variant=deb
+        follow_redirects: none
+        status_code: [301, 302]
+      register: bitwarden_release
+      check_mode: false
+
+    - name: Install the Bitwarden desktop .deb
+      become: true
+      ansible.builtin.apt:
+        deb: "{{ bitwarden_release.location }}"
+      when: >-
+        (bitwarden_installed.stdout | default(''))
+        != (bitwarden_release.location | regex_search('/Bitwarden-([0-9][^/]*)-amd64\.deb$', '\1') | first)
