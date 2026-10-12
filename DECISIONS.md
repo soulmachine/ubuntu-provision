@@ -279,3 +279,14 @@
 **Justification:** Frank picked the tarball over `install.sh` (which re-downloads every run, so it would need the same version probe) and over cargo (minutes of compile per release, rejected for purelymail in Q27), and chose no gate for dev-server-frank, on 2026-10-12. Both Ubuntu hosts are x86_64.
 **Outcome:** applied
 **Ref:** macbook-provision Q223, omarchy-provision Q16
+
+## Q29 — interactive/whats-next-audit — gate-resolution
+
+**Question:** The port's eight `assumed` calls, Q16 to Q23 (startup-line placement, the bash omarchy role, the `shell`/`omarchy` role names, codex via npm, agent-sync's release lookup, paseo's systemd user unit, keeping upstream's DECISIONS citations, four small group-A calls), were listed to Frank on 2026-10-12. Ratify them?
+**Options considered:** ratify all eight / revisit any / leave them assumed
+**Chosen:** Ratified all eight as applied, in one batch.
+**Decided-by:** human
+**Justification:** Every one has been running in the nightly sweep on both hosts since the port; none was questioned.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q224
+**Supersedes:** Q16, Q17, Q18, Q19, Q20, Q21, Q22, Q23 — assumed calls ratified by the user
