@@ -1,0 +1,12 @@
+---
+# BrowserOS neo on the hosts in `browseros_neo_hosts` only. The hostname comes from a pipe lookup,
+# not from facts: a single-role `include_role` run gathers none, and the lookup runs on the
+# control node, which is always this host (inventory holds only 127.0.0.1).
+- name: Report that BrowserOS neo is not for this host
+  ansible.builtin.debug:
+    msg: "Skipping BrowserOS neo: {{ lookup('pipe', 'hostname -s') }} is not in browseros_neo_hosts."
+  when: lookup('pipe', 'hostname -s') not in browseros_neo_hosts
+
+- name: Install BrowserOS neo and connect it to Claude Code
+  ansible.builtin.include_tasks: install.yml
+  when: lookup('pipe', 'hostname -s') in browseros_neo_hosts

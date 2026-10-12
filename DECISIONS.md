@@ -330,3 +330,13 @@
 **Justification:** Precedent macbook-provision Q222 (`1password`): a macOS-only role is not ported, and the sibling repos list it among the roles they leave out.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q229
+
+## Q34 — interactive/browseros-neo — gate-resolution
+
+**Question:** Upstream macbook-provision Q237 adds `browseros-neo`. Frank wants it on supermicro, not on every Ubuntu host. Upstream's docs say neo has no Linux build yet. How is it installed, and on which hosts?
+**Options considered:** the CDN's undocumented `.deb` / its AppImage / no Linux role; gate by hostname / by the presence of a desktop session / no gate
+**Chosen:** apt installs `https://cdn.browseros.com/download/BrowserOS_neo.deb` (package `browserclaw`) on each run, and only on the hostnames in `browseros_neo_hosts`, which holds supermicro alone. The MCP entry and skill steps are upstream's.
+**Decided-by:** human (the hosts: Frank, 2026-10-12); agent (the package and the gate)
+**Justification:** The CDN alias returns the 0.51.0 build (182 MB). Its postinst adds no apt repo and only registers `x-www-browser` alternatives, so the deb URL is the only upgrade path. The apt module's version compare keeps `changed` honest. dev-server-frank is headless (no xsessions) and a company host. A hostname list states Frank's ask directly. The hostname comes from `hostname -s` because single-role runs gather no facts.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q237

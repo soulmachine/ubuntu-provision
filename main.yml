@@ -42,6 +42,7 @@
     - playwright-cli
     - claude-mem
     - hermes
+    - browseros-neo
     - ponytail
     - role: paseo
       tags: [agent-multiplexer]

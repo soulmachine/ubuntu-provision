@@ -1,0 +1,6 @@
+---
+dependencies:
+  # `claude mcp add` registers neo's MCP endpoint.
+  - claude-code
+  # `npx skills add` installs the browseros-neo skill.
+  - nodejs

@@ -1,0 +1,80 @@
+---
+# BrowserOS neo (https://browseros.com) — a Chromium browser that agents drive over MCP, with
+# the user's own logins. Three parts: the app, its MCP endpoint registered in Claude Code, and
+# upstream's browseros-neo skill. Claude Code reaches the endpoint only while neo is open;
+# nothing starts it at login (upstream Q237).
+#
+# On supermicro the desktop user is `soulmachine` and this play runs as `fdai`. The .deb is
+# system-wide, and 127.0.0.1:9200 is shared, so fdai's Claude Code reaches the neo that
+# soulmachine has open.
+
+# --- the app -----------------------------------------------------------------
+# The apt module compares the deb's version with the installed one, so `changed` means a new
+# build. The cost is a 182 MB download each run: the deb adds no apt repo, so this is the only
+# thing that upgrades it.
+- name: Install BrowserOS neo
+  become: true
+  ansible.builtin.apt:
+    deb: "{{ browseros_neo_deb_url }}"
+
+# --- the Claude Code MCP entry -------------------------------------------------
+# Writes the same `~/.claude.json` entry neo's "Connect" button writes (type http, same name),
+# so neo shows Claude Code as connected. An existing entry is left alone, whoever wrote it.
+- name: Check whether Claude Code has the browseros-neo MCP server
+  ansible.builtin.command: claude mcp get {{ browseros_neo_mcp_name }}
+  register: _browseros_neo_mcp
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Register the browseros-neo MCP server in Claude Code
+  ansible.builtin.command: >-
+    claude mcp add --scope user --transport http
+    {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
+  when: _browseros_neo_mcp.rc != 0
+  changed_when: true
+
+# --- the browseros-neo skill ---------------------------------------------------
+# The typesafe role's skill steps, for this skill: re-run the installer every play (the only
+# thing that pulls upstream edits) and decide `changed` from a checksum taken around it.
+- name: Fingerprint the browseros-neo skill before installing
+  ansible.builtin.find:
+    paths: "{{ browseros_neo_skill_dir }}"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: _browseros_neo_skill_before
+  changed_when: false
+
+# The flag is repeated per agent rather than comma-joined: `--agent a,b` is parsed as the
+# single name `a,b`, measured 2026-09-18 in the skills role.
+- name: Install the browseros-neo skill for every agent
+  ansible.builtin.command: >-
+    npx skills@latest add {{ browseros_neo_skill_source }} -g -y
+    {% for a in browseros_neo_skill_agents %}--agent {{ a }} {% endfor %}
+    --skill {{ browseros_neo_skill }}
+  register: _browseros_neo_skill_install
+  changed_when: false
+  # A renamed or withdrawn skill makes the CLI exit 1. Report it rather than stop every role
+  # after this one.
+  failed_when: false
+
+- name: Report that the browseros-neo skill could not be installed
+  ansible.builtin.debug:
+    msg: >-
+      `npx skills add {{ browseros_neo_skill_source }} --skill {{ browseros_neo_skill }}` exited
+      {{ _browseros_neo_skill_install.rc }}. Check what the source still ships with
+      `npx skills@latest add {{ browseros_neo_skill_source }} -l`, then correct the name in
+      roles/browseros-neo/vars/main.yml.
+  when: _browseros_neo_skill_install.rc | default(0) != 0
+
+- name: Check whether the browseros-neo skill was updated
+  ansible.builtin.find:
+    paths: "{{ browseros_neo_skill_dir }}"
+    recurse: true
+    file_type: file
+    get_checksum: true
+  register: _browseros_neo_skill_after
+  changed_when: >-
+    (_browseros_neo_skill_after.files | map(attribute='checksum') | sort)
+    != (_browseros_neo_skill_before.files | map(attribute='checksum') | sort)

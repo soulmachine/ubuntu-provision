@@ -1,0 +1,31 @@
+---
+browseros_neo_home: "{{ lookup('env', 'HOME') }}"
+
+# neo is a desktop browser. supermicro has a desktop (GNOME Flashback on seat0); dev-server-frank
+# is a headless Nickel host and stays without it (DECISIONS Q34).
+browseros_neo_hosts:
+  - supermicro
+
+# Upstream's stable alias for the newest Linux build. The docs still say "no Linux build yet",
+# but the CDN serves it; the package inside is named `browserclaw` (binary /usr/bin/browserclaw).
+browseros_neo_deb_url: https://cdn.browseros.com/download/BrowserOS_neo.deb
+
+# The endpoint neo's claw-server listens on (DEFAULT_SERVER_PORT 9200 in
+# apps/claw-server/src/config.rs). The name matches what neo's own "Connect" button writes into
+# ~/.claude.json, so the two never produce a second entry.
+browseros_neo_mcp_name: browseros-neo
+browseros_neo_mcp_url: http://127.0.0.1:9200/mcp
+
+# https://github.com/browseros-ai/BrowserOS/tree/main/skills/browseros-neo. Only this one skill:
+# the source also ships BrowserOS's internal development skills.
+browseros_neo_skill: browseros-neo
+browseros_neo_skill_source: browseros-ai/browseros
+browseros_neo_skill_dir: "{{ browseros_neo_home }}/.agents/skills/{{ browseros_neo_skill }}"
+
+# Same list as `skills_agents` in roles/skills/vars/main.yml, where the full reasoning is.
+# `universal` IS the store (~/.agents/skills) and is reached only by being named.
+browseros_neo_skill_agents:
+  - universal
+  - claude-code
+  - pi
+  - hermes-agent

@@ -158,6 +158,9 @@ skills_sources_foreign:
   # about the skill changed, only which role refreshes it.
   - source: typesafe-ai/skills
     skills: [typesafe-ai]
+  # roles/browseros-neo/tasks/install.yml installs this one beside the app and its MCP entry.
+  - source: browseros-ai/browseros
+    skills: [browseros-neo]
 
 # The agents this fleet fans skills out to, named rather than taken as `--agent '*'`.
 #
