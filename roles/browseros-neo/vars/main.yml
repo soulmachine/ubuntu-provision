@@ -10,11 +10,66 @@ browseros_neo_hosts:
 # but the CDN serves it; the package inside is named `browserclaw` (binary /usr/bin/browserclaw).
 browseros_neo_deb_url: https://cdn.browseros.com/download/BrowserOS_neo.deb
 
-# The endpoint neo's claw-server listens on (DEFAULT_SERVER_PORT 9200 in
-# apps/claw-server/src/config.rs). The name matches what neo's own "Connect" button writes into
-# ~/.claude.json, so the two never produce a second entry.
+# The endpoint the neo app serves: its MCP proxy, on `kDefaultProxyPort = 9010`
+# (chromium_patches/.../browseros_server_prefs.h; `ports.proxy` in neo's own
+# BrowserClaw/.browseros/config.json). The docs' 9200 is the
+# standalone claw-server's default, which the app does not use (DECISIONS Q35). Name and URL
+# match what neo's own "Connect" button writes, so the two never fight over an entry.
 browseros_neo_mcp_name: browseros-neo
-browseros_neo_mcp_url: http://127.0.0.1:9200/mcp
+browseros_neo_mcp_url: http://127.0.0.1:9010/mcp
+
+# The other agents, each in its own native way (DECISIONS Q35). pi has no MCP support.
+# Agents with an `mcp add` CLI. When the CLI exists and `config` does not hold the URL, the
+# entry is removed (it may carry an old URL) and added again.
+browseros_neo_cli_agents:
+  - exe: codex
+    config: .codex/config.toml
+    remove: codex mcp remove {{ browseros_neo_mcp_name }}
+    add: codex mcp add {{ browseros_neo_mcp_name }} --url {{ browseros_neo_mcp_url }}
+  - exe: gemini
+    config: .gemini/settings.json
+    remove: gemini mcp remove --scope user {{ browseros_neo_mcp_name }}
+    add: gemini mcp add --scope user --transport http {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
+  - exe: copilot
+    config: .copilot/mcp-config.json
+    remove: copilot mcp remove {{ browseros_neo_mcp_name }}
+    add: copilot mcp add --transport http {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
+  - exe: grok
+    config: .grok/config.toml
+    remove: grok mcp remove {{ browseros_neo_mcp_name }}
+    add: grok mcp add --scope user --transport http {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
+  # hermes prompts twice, and EOF answers no to both while it still exits 0: "Does this server
+  # require authentication?" (no), then "Enable all N tools?" when neo is open or "Save config
+  # anyway?" when it is closed (yes). A save made while neo is closed is written disabled, so
+  # the entry is enabled afterwards.
+  - exe: hermes
+    config: .hermes/config.yaml
+    remove: hermes mcp remove {{ browseros_neo_mcp_name }}
+    add: >-
+      hermes mcp add {{ browseros_neo_mcp_name }} --url {{ browseros_neo_mcp_url }} --connect-timeout 5 &&
+      hermes config set mcp_servers.{{ browseros_neo_mcp_name }}.enabled true
+    stdin: "n\ny"
+
+# Agents with no `mcp add` CLI: the entry is merged into their JSON config when the agent's
+# directory exists and the entry differs. Each shape is the one that agent's own loader reads
+# for a URL server.
+browseros_neo_json_agents:
+  - dir: .kimi-code
+    file: mcp.json
+    key: mcpServers
+    entry: {transport: http, url: "{{ browseros_neo_mcp_url }}"}
+  - dir: .omp/agent
+    file: mcp.json
+    key: mcpServers
+    entry: {type: http, url: "{{ browseros_neo_mcp_url }}"}
+  - dir: .config/opencode
+    file: opencode.json
+    key: mcp
+    entry: {type: remote, url: "{{ browseros_neo_mcp_url }}", enabled: true}
+  - dir: .config/crush
+    file: crush.json
+    key: mcp
+    entry: {type: http, url: "{{ browseros_neo_mcp_url }}"}
 
 # https://github.com/browseros-ai/BrowserOS/tree/main/skills/browseros-neo. Only this one skill:
 # the source also ships BrowserOS's internal development skills.

@@ -340,3 +340,14 @@
 **Justification:** The CDN alias returns the 0.51.0 build (182 MB). Its postinst adds no apt repo and only registers `x-www-browser` alternatives, so the deb URL is the only upgrade path. The apt module's version compare keeps `changed` honest. dev-server-frank is headless (no xsessions) and a company host. A hostname list states Frank's ask directly. The hostname comes from `hostname -s` because single-role runs gather no facts.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q237
+
+## Q35 — interactive/browseros-neo — deviation
+
+**Question:** Upstream macbook-provision Q240 registers neo's MCP server in every agent and corrects two parts of upstream Q237: the port and the skill refresh. Port it?
+**Options considered:** port it as is / keep Q237's shape
+**Chosen:** Ported as is: URL `http://127.0.0.1:9010/mcp`; the same `mcp add` and JSON-merge tables; an entry with another URL is replaced; the skill installs only when missing. This repo's install steps are unchanged.
+**Decided-by:** human (the other agents: Frank, 2026-10-12); agent (the port)
+**Justification:** The Linux build is the same Chromium with the same `kDefaultProxyPort = 9010` patch, so the port fix applies here too. The agents and their config paths are the same as on macOS.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q240, ubuntu-provision Q34
+**Supersedes:** ubuntu-provision Q34 — its MCP port 9200 and its skill refresh on every play

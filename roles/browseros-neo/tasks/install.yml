@@ -1,11 +1,11 @@
 ---
 # BrowserOS neo (https://browseros.com) — a Chromium browser that agents drive over MCP, with
-# the user's own logins. Three parts: the app, its MCP endpoint registered in Claude Code, and
-# upstream's browseros-neo skill. Claude Code reaches the endpoint only while neo is open;
+# the user's own logins. Three parts: the app, its MCP endpoint registered in Claude Code and the
+# other agents, and upstream's browseros-neo skill. Claude Code reaches the endpoint only while neo is open;
 # nothing starts it at login (upstream Q237).
 #
 # On supermicro the desktop user is `soulmachine` and this play runs as `fdai`. The .deb is
-# system-wide, and 127.0.0.1:9200 is shared, so fdai's Claude Code reaches the neo that
+# system-wide, and 127.0.0.1:9010 is shared, so fdai's Claude Code reaches the neo that
 # soulmachine has open.
 
 # --- the app -----------------------------------------------------------------
@@ -18,8 +18,8 @@
     deb: "{{ browseros_neo_deb_url }}"
 
 # --- the Claude Code MCP entry -------------------------------------------------
-# Writes the same `~/.claude.json` entry neo's "Connect" button writes (type http, same name),
-# so neo shows Claude Code as connected. An existing entry is left alone, whoever wrote it.
+# Writes the same `~/.claude.json` entry neo's "Connect" button writes (type http, same name,
+# same URL), so neo shows Claude Code as connected. An entry with another URL is replaced.
 - name: Check whether Claude Code has the browseros-neo MCP server
   ansible.builtin.command: claude mcp get {{ browseros_neo_mcp_name }}
   register: _browseros_neo_mcp
@@ -28,33 +28,89 @@
   check_mode: false
 
 - name: Register the browseros-neo MCP server in Claude Code
-  ansible.builtin.command: >-
+  ansible.builtin.shell: >-
+    claude mcp remove --scope user {{ browseros_neo_mcp_name }} >/dev/null 2>&1;
     claude mcp add --scope user --transport http
     {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
-  when: _browseros_neo_mcp.rc != 0
+  when: browseros_neo_mcp_url not in _browseros_neo_mcp.stdout
   changed_when: true
 
-# --- the browseros-neo skill ---------------------------------------------------
-# The typesafe role's skill steps, for this skill: re-run the installer every play (the only
-# thing that pulls upstream edits) and decide `changed` from a checksum taken around it.
-- name: Fingerprint the browseros-neo skill before installing
-  ansible.builtin.find:
-    paths: "{{ browseros_neo_skill_dir }}"
-    recurse: true
-    file_type: file
-    get_checksum: true
-  register: _browseros_neo_skill_before
+# --- the other agents' MCP entries ----------------------------------------------
+# rc 0 = the agent is installed and its config does not hold the URL yet. A missing config
+# file counts as "not there" (grep rc 2), so a fresh install still gets the entry.
+- name: Check which agents still need the browseros-neo MCP server
+  ansible.builtin.shell: >-
+    command -v {{ item.exe }} >/dev/null &&
+    ! grep -qF '{{ browseros_neo_mcp_url }}' '{{ browseros_neo_home }}/{{ item.config }}' 2>/dev/null
+  loop: "{{ browseros_neo_cli_agents }}"
+  loop_control:
+    label: "{{ item.exe }}"
+  register: _browseros_neo_cli_probe
   changed_when: false
+  failed_when: false
+  check_mode: false
 
+- name: Register the browseros-neo MCP server in the CLI agents
+  ansible.builtin.shell:
+    cmd: "{{ item.item.remove }} </dev/null >/dev/null 2>&1; {{ item.item.add }}"
+    stdin: "{{ item.item.stdin | default(omit) }}"
+  loop: "{{ _browseros_neo_cli_probe.results }}"
+  loop_control:
+    label: "{{ item.item.exe }}"
+  when: item.rc == 0
+  changed_when: true
+
+# The files can carry API keys (jev-register-agents writes them into MCP env blocks), so the
+# read and the write are no_log and the write is 0600, as roles/ponytail/tasks/opencode.yml does.
+- name: Read the JSON-configured agents' MCP files
+  ansible.builtin.slurp:
+    src: "{{ browseros_neo_home }}/{{ item.dir }}/{{ item.file }}"
+  loop: "{{ browseros_neo_json_agents }}"
+  loop_control:
+    label: "{{ item.dir }}/{{ item.file }}"
+  register: _browseros_neo_json_raw
+  failed_when: false
+  no_log: true
+
+- name: Find which JSON-configured agents are installed
+  ansible.builtin.stat:
+    path: "{{ browseros_neo_home }}/{{ item.dir }}"
+  loop: "{{ browseros_neo_json_agents }}"
+  loop_control:
+    label: "{{ item.dir }}"
+  register: _browseros_neo_json_dirs
+
+# `e30=` is base64 `{}`, for an agent that is installed but has no MCP file yet.
+- name: Register the browseros-neo MCP server in the JSON-configured agents
+  ansible.builtin.copy:
+    dest: "{{ browseros_neo_home }}/{{ item.0.item.dir }}/{{ item.0.item.file }}"
+    content: "{{ _config | combine({item.0.item.key: {browseros_neo_mcp_name: item.0.item.entry}}, recursive=true) | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  vars:
+    _config: "{{ (item.0.content | default('e30=') | b64decode | trim or '{}') | from_json }}"
+  loop: "{{ _browseros_neo_json_raw.results | zip(_browseros_neo_json_dirs.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item.dir }}/{{ item.0.item.file }}"
+  when:
+    - item.1.stat.exists
+    - (_config[item.0.item.key] | default({}))[browseros_neo_mcp_name] | default(none) != item.0.item.entry
+  no_log: true
+
+# --- the browseros-neo skill ---------------------------------------------------
+# Seeded once, not refreshed every play as the typesafe role does: the running neo app writes
+# its own bundled copy (resources/skills/browserclaw/SKILL.md) into each agent it knows, through
+# the ~/.claude/skills symlink into this store. Re-installing from GitHub every play swapped the
+# two copies back and forth, so neo owns the updates (DECISIONS Q35).
 # The flag is repeated per agent rather than comma-joined: `--agent a,b` is parsed as the
 # single name `a,b`, measured 2026-09-18 in the skills role.
 - name: Install the browseros-neo skill for every agent
-  ansible.builtin.command: >-
-    npx skills@latest add {{ browseros_neo_skill_source }} -g -y
-    {% for a in browseros_neo_skill_agents %}--agent {{ a }} {% endfor %}
-    --skill {{ browseros_neo_skill }}
+  ansible.builtin.command:
+    cmd: >-
+      npx skills@latest add {{ browseros_neo_skill_source }} -g -y
+      {% for a in browseros_neo_skill_agents %}--agent {{ a }} {% endfor %}
+      --skill {{ browseros_neo_skill }}
+    creates: "{{ browseros_neo_skill_dir }}/SKILL.md"
   register: _browseros_neo_skill_install
-  changed_when: false
   # A renamed or withdrawn skill makes the CLI exit 1. Report it rather than stop every role
   # after this one.
   failed_when: false
@@ -67,14 +123,3 @@
       `npx skills@latest add {{ browseros_neo_skill_source }} -l`, then correct the name in
       roles/browseros-neo/vars/main.yml.
   when: _browseros_neo_skill_install.rc | default(0) != 0
-
-- name: Check whether the browseros-neo skill was updated
-  ansible.builtin.find:
-    paths: "{{ browseros_neo_skill_dir }}"
-    recurse: true
-    file_type: file
-    get_checksum: true
-  register: _browseros_neo_skill_after
-  changed_when: >-
-    (_browseros_neo_skill_after.files | map(attribute='checksum') | sort)
-    != (_browseros_neo_skill_before.files | map(attribute='checksum') | sort)
