@@ -19,11 +19,18 @@
   register: omp_version_before
   changed_when: false
 
+# failed_when: false, as the mise role does: `omp update` resolves the newest release through
+# the GitHub API, whose anonymous budget (60 calls an hour per IP) is shared with every other
+# tool here and is spent on hosts without a GitHub token by design (the company hosts). On
+# 2026-10-12 that failed dev-server-frank-lume's whole play at this task, so the 40 roles after
+# it never ran. The installed omp keeps working; the warning below says what was not checked.
 - name: Update oh-my-pi
   ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/omp update"
   environment:
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  register: omp_update
   changed_when: false
+  failed_when: false
 
 - name: Check whether oh-my-pi was updated
   ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.bun/bin/omp --version"
@@ -31,6 +38,14 @@
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
   register: omp_version_after
   changed_when: omp_version_after.stdout != omp_version_before.stdout
+
+- name: Warn that oh-my-pi could not check for a newer release
+  ansible.builtin.debug:
+    msg:
+      - "`omp update` exited {{ omp_update.rc }}: {{ omp_update.stderr | default('') | trim }}"
+      - "omp {{ omp_version_after.stdout }} is installed and working, but it may be behind."
+      - "Most likely the unauthenticated GitHub API rate limit; retry by hand with `omp update`."
+  when: omp_update.rc != 0
 
 - name: Add omp-yolo alias to .bashrc
   ansible.builtin.lineinfile:

@@ -290,3 +290,13 @@
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q224
 **Supersedes:** Q16, Q17, Q18, Q19, Q20, Q21, Q22, Q23 — assumed calls ratified by the user
+
+## Q30 — interactive/omp-update-rate-limit — deviation
+
+**Question:** Upstream macbook-provision Q225 gives `omp update` `failed_when: false` and a warning task, after an unauthenticated GitHub API rate limit aborted a whole play at that task on 2026-10-12. Port it?
+**Options considered:** port it / leave the task failing here
+**Chosen:** Ported as is. The two Ubuntu hosts carry a GitHub token today, but the same per-IP budget is shared with every other tool, so the failure is possible here too.
+**Decided-by:** human (upstream, 2026-10-12); agent (the port)
+**Justification:** One tool's update check must not skip every role after it; the mise role here already handles the same failure this way.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q225
