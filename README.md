@@ -133,6 +133,7 @@ pre-commit run --all-files
 | cloudflare | Cloudflare CLI：npm 全局 `cf`（其 skills 由 skills role 安装）（依赖 claude-code） |
 | multica-cli | 通过官方 install.sh 安装 multica CLI，并以相对路径链接其 skill |
 | purelymail | Purelymail API CLI，GitHub release 二进制装入 `~/.local/bin`，跟随最新 release；token 手工放在 `~/.profile` |
+| email | Himalaya 邮件 CLI + ortie OAuth CLI（GitHub release 二进制装入 `~/.local/bin`，跟随最新 release，Ubuntu 无 apt 包）+ Proton Mail Bridge（GitHub release 的 amd64 .deb，Proton 无 apt 源）；账号配置手工完成 |
 | tailscale | 从官方 apt 源安装 tailscale 并启用 systemd 服务；设了 `TAILSCALE_AUTH_KEY` 时自动加入 tailnet；设了 OAuth client 时关闭节点密钥过期 |
 | zellij | 终端复用器（GitHub release 的静态二进制）；tag `terminal-multiplexer` |
 | tmux | 终端复用器（apt）；tag `terminal-multiplexer` |

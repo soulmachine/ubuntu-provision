@@ -21,7 +21,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
 
 - **Runs per-host only.** `inventory` holds only `127.0.0.1 ansible_connection=local`, so each host
   provisions itself. Keep it that way, and reach other hosts with the ssh command above. The roles read
-  `lookup('env', 'HOME')` in 114 places across 30 roles (`scripts/check-home-lookup-count.sh` checks
+  `lookup('env', 'HOME')` in 118 places across 31 roles (`scripts/check-home-lookup-count.sh` checks
   this), with zero uses of `ansible_env.HOME`. Ansible evaluates every `lookup()` on the control node,
   so a fan-out writes one host's `$HOME` and `.env` secrets onto every target.
 - **Self-update tasks: diff state, don't grep output.** A task that runs a tool's own updater measures
@@ -34,7 +34,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
 
 ## Upstream
 
-Synced with `soulmachine/macbook-provision` at **bdd5333** (2026-10-11). To catch up again: run
+Synced with `soulmachine/macbook-provision` at **d4e6a3f** (2026-10-12). To catch up again: run
 `git -C ../macbook-provision log --oneline 321660b..HEAD`, port each commit role by role (apt for
 brew, `~/.bashrc` for `~/.zshrc`, no always-on gate), then move this sha. `main.yml` keeps upstream's
 role order; `apt` stands where `homebrew` stands and `shell` + `omarchy` are the bash versions of

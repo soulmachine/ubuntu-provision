@@ -48,6 +48,7 @@
     - cloudflare
     - multica-cli
     - purelymail
+    - email
     - tailscale
     - role: zellij
       tags: [terminal-multiplexer]

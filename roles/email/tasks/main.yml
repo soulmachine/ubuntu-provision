@@ -1,0 +1,66 @@
+---
+# email: the terminal mail stack. Himalaya (github.com/pimalaya/himalaya) and ortie
+# (github.com/pimalaya/ortie, its OAuth helper) from their GitHub releases, because neither is in
+# the Ubuntu or Debian archives; Proton Mail Bridge from the amd64 .deb on its GitHub release,
+# because Proton ships no apt repo. Accounts are configured by hand (`~/.config/himalaya/config.toml`,
+# `ortie configure`, `protonmail-bridge --cli`); this role installs the binaries only.
+
+- name: Install himalaya
+  ansible.builtin.include_tasks: pimalaya.yml
+  vars:
+    email_tool: himalaya
+
+- name: Install ortie
+  ansible.builtin.include_tasks: pimalaya.yml
+  vars:
+    email_tool: ortie
+
+- name: Read the installed Proton Mail Bridge version
+  ansible.builtin.command: dpkg-query -W -f='${Version}' protonmail-bridge
+  register: email_bridge_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# The release page's redirect names the newest tag, so no GitHub API call and no rate limit.
+- name: Resolve the latest Proton Mail Bridge release
+  ansible.builtin.uri:
+    url: https://github.com/ProtonMail/proton-bridge/releases/latest
+    follow_redirects: none
+    status_code: [301, 302]
+  register: email_bridge_release
+  check_mode: false
+
+- name: Work out the Proton Mail Bridge version
+  ansible.builtin.set_fact:
+    email_bridge_latest: "{{ email_bridge_release.location | regex_search('/tag/v([0-9][^/]*)$', '\\1') | first }}"
+    email_bridge_amd64: "{{ lookup('pipe', 'uname -m') == 'x86_64' }}"
+
+- name: Report that Proton Mail Bridge was skipped
+  ansible.builtin.debug:
+    msg: Skipping Proton Mail Bridge, because Proton ships only an amd64 .deb.
+  when: not email_bridge_amd64
+
+# The .deb's version is `<tag>-1`.
+- name: Install or update Proton Mail Bridge
+  when: email_bridge_amd64 and (email_bridge_installed.stdout | default('')) != email_bridge_latest ~ '-1'
+  vars:
+    email_bridge_deb: "protonmail-bridge_{{ email_bridge_latest }}-1_amd64.deb"
+  block:
+    # shortcut: the release also publishes <deb>.sig and bridge_pubkey.gpg; this trusts GitHub's
+    # TLS like the purelymail role. Add a `gpg --verify` step if that policy changes.
+    - name: Download the Proton Mail Bridge .deb
+      ansible.builtin.get_url:
+        url: "https://github.com/ProtonMail/proton-bridge/releases/download/v{{ email_bridge_latest }}/{{ email_bridge_deb }}"
+        dest: "/tmp/{{ email_bridge_deb }}"
+        mode: "0644"
+
+    - name: Install the Proton Mail Bridge .deb
+      become: true
+      ansible.builtin.apt:
+        deb: "/tmp/{{ email_bridge_deb }}"
+
+    - name: Remove the downloaded .deb
+      ansible.builtin.file:
+        path: "/tmp/{{ email_bridge_deb }}"
+        state: absent

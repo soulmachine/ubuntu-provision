@@ -1,0 +1,66 @@
+---
+# One pimalaya tool (himalaya or ortie) from its GitHub release: the same shape as the purelymail
+# role, parametrised. `email_tool` comes from the include, `email_os` from vars/main.yml.
+# The tarball holds the binary at its root plus share/ (man pages, completions, schemas), which
+# this does not install.
+
+- name: Read the installed version of {{ email_tool }}
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/{{ email_tool }} --version"
+  register: email_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false # read-only probe; run in --check so the gate below sees real state
+
+# The release page's redirect names the newest tag, so no GitHub API call and no rate limit.
+- name: Resolve the latest release of {{ email_tool }}
+  ansible.builtin.uri:
+    url: https://github.com/pimalaya/{{ email_tool }}/releases/latest
+    follow_redirects: none
+    status_code: [301, 302]
+  register: email_release
+  check_mode: false
+
+# uname rather than ansible_facts, so `ansible localhost -m include_role` works without a
+# fact-gathering play.
+- name: Work out the version and asset name of {{ email_tool }}
+  ansible.builtin.set_fact:
+    email_latest: "{{ email_release.location | regex_search('/tag/v([0-9][^/]*)$', '\\1') | first }}"
+    email_arch: "{{ 'aarch64' if lookup('pipe', 'uname -m') in ['aarch64', 'arm64'] else 'x86_64' }}"
+
+# `--version` is several lines; the first is `<tool> v<version> +feature ...`.
+- name: Install or update {{ email_tool }}
+  when: (email_installed.stdout_lines | default([]) | first | default('')) is not match('^' ~ email_tool ~ ' v' ~ email_latest ~ '( |$)')
+  vars:
+    email_asset: "{{ email_tool }}.{{ email_arch }}-{{ email_os }}.tgz"
+    email_url: "https://github.com/pimalaya/{{ email_tool }}/releases/download/v{{ email_latest }}/{{ email_asset }}"
+  block:
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    # shortcut: the release publishes no checksum file, so this trusts GitHub's TLS; add
+    # `checksum: sha256:<url>` if upstream ever ships one.
+    - name: Download the release tarball of {{ email_tool }}
+      ansible.builtin.get_url:
+        url: "{{ email_url }}"
+        dest: "/tmp/{{ email_asset }}"
+        mode: "0644"
+
+    # tar itself, not the unarchive module: that module insists on GNU tar, and macOS ships
+    # bsdtar. Only the binary member is extracted.
+    - name: Unpack the binary into ~/.local/bin for {{ email_tool }} # noqa: command-instead-of-module
+      ansible.builtin.command: tar -xzf "/tmp/{{ email_asset }}" -C "{{ lookup('env', 'HOME') }}/.local/bin" {{ email_tool }}
+      changed_when: true
+
+    - name: Remove the downloaded tarball
+      ansible.builtin.file:
+        path: "/tmp/{{ email_asset }}"
+        state: absent
+
+# `changed` from the observable version: this is what proves the new binary answers.
+- name: Check for a change in {{ email_tool }}
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.local/bin/{{ email_tool }} --version"
+  register: email_after
+  changed_when: email_after.stdout != (email_installed.stdout | default(''))

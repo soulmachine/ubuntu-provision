@@ -269,3 +269,13 @@
 **Justification:** Frank chose the token files on 2026-10-11 (`~/.zshenv` on macOS, `~/.profile` on Linux). The tarball avoids a Rust toolchain on hosts that have none (supermicro, mac-mini-2018-omarchy) and a minute of compile on the rest.
 **Outcome:** applied
 **Ref:** purelymail DECISIONS Q30, release v0.1.0
+
+## Q28 — interactive/email-role — gate-resolution
+
+**Question:** How do the Himalaya CLI (github.com/pimalaya/himalaya), its OAuth helper ortie (github.com/pimalaya/ortie) and Proton Mail Bridge (proton.me/mail/bridge) reach the Ubuntu hosts, where none of the three is in the Ubuntu or Debian archives?
+**Options considered:** himalaya and ortie from the GitHub release tarball into `~/.local/bin` / upstream's `install.sh` with `PREFIX=~/.local` / `cargo install`; Bridge from the amd64 .deb on its GitHub release / the .deb from proton.me's download page / skipped on Linux; a gate for the company host dev-server-frank / none
+**Chosen:** One `email` role on both hosts, no gate. himalaya and ortie come from their release tarballs through `tasks/pimalaya.yml`, a parametrised copy of the purelymail role (Q27): resolve the tag from the releases/latest redirect, unpack the one binary, converge on the first line of `--version`. Bridge comes from the `.deb` on the ProtonMail/proton-bridge GitHub release, gated on `dpkg-query`'s version and on `uname -m` being `x86_64`, because Proton ships amd64 only; the .deb's `.sig` is not verified, which the task's `shortcut:` comment records. Accounts are configured by hand.
+**Decided-by:** human
+**Justification:** Frank picked the tarball over `install.sh` (which re-downloads every run, so it would need the same version probe) and over cargo (minutes of compile per release, rejected for purelymail in Q27), and chose no gate for dev-server-frank, on 2026-10-12. Both Ubuntu hosts are x86_64.
+**Outcome:** applied
+**Ref:** macbook-provision Q223, omarchy-provision Q16
