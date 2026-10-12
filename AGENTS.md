@@ -39,7 +39,8 @@ Synced with `soulmachine/macbook-provision` at **bdd5333** (2026-10-11). To catc
 brew, `~/.bashrc` for `~/.zshrc`, no always-on gate), then move this sha. `main.yml` keeps upstream's
 role order; `apt` stands where `homebrew` stands and `shell` + `omarchy` are the bash versions of
 upstream's zsh pair. Roles upstream has and this repo deliberately omits, with no stub: host-facts,
-homebrew, cua, cc-switch, ghostty, cmux, intellij-idea, obsidian, apple-container, moshi.
+homebrew, cua, cc-switch, ghostty, cmux, intellij-idea, obsidian, apple-container, moshi, 1password
+(macOS hosts with `~/personal-agent` only, upstream Q222).
 `DECISIONS.md` records every other difference.
 
 ## Read before you act
