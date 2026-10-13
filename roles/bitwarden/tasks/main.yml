@@ -1,7 +1,8 @@
 ---
 # Bitwarden clients for Frank's Vaultwarden (~/coding-agent/docs/vaultwarden.md): `rbw` from apt,
 # the official `bw` CLI from npm, and the official Electron desktop app on hosts with a desktop
-# session only. Install only: the server URL, email and login are set by hand (upstream Q242).
+# session only. `bw` and `rbw` are then pointed at the server (upstream Q244, DECISIONS Q41); the
+# desktop app's server and every login stay manual.
 
 # Ubuntu's rbw depends on pinentry-curses, so `rbw unlock` works over ssh.
 - name: Install rbw
@@ -64,3 +65,6 @@
       ansible.builtin.apt:
         deb: "{{ bitwarden_release.location }}"
       when: (bitwarden_installed.stdout | default('')) != bitwarden_latest
+
+- name: Point bw and rbw at Vaultwarden
+  ansible.builtin.include_tasks: config.yml

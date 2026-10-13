@@ -402,3 +402,14 @@
 **Justification:** Every host here is a server (Q9), so the always-on gate is always true. Orca ships no apt repo. The `.deb`'s post-install script links `/usr/bin/orca-ide`, a stable path that the service unit can pin. An AppImage would need its own link and FUSE. The redirect gives the tag without a GitHub API call, as in roles/email.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q243
+
+## Q41 — interactive/bitwarden — deviation
+
+**Question:** Upstream macbook-provision Q244 has the `bitwarden` role point `bw` and `rbw` at Vaultwarden, except on archs-mac-mini. Port it?
+**Options considered:** port it as is / keep install-only
+**Chosen:** Ported: the same `tasks/config.yml` (read, write only when different, report a `bw` that is logged in to another server) and the same URL and email vars. No host gate: archs-mac-mini, the one host with its own Vaultwarden, is a Mac.
+**Decided-by:** human (configure every host except archs-mac-mini: Frank, 2026-10-12); agent (the port)
+**Justification:** `bw config server` and `rbw config` behave the same on Linux. Frank already had both set by hand on this repo's hosts, so the role keeps that across a rebuild.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q244
+**Supersedes:** Q36 — only its "install only" part

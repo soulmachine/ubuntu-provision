@@ -1,0 +1,42 @@
+---
+# Point `bw` and `rbw` at Frank's Vaultwarden. Each value is read first and written only when it
+# differs, so a converged host reports no change. No login: that needs the master password.
+
+- name: Read the bw server
+  ansible.builtin.command: bw config server
+  register: bitwarden_bw_server
+  changed_when: false
+  check_mode: false
+
+# bw refuses to change the server while it is logged in to another one ("Logout required").
+# Report that rather than stop every role after this one.
+- name: Point bw at Vaultwarden
+  ansible.builtin.command: bw config server {{ bitwarden_server_url }}
+  register: bitwarden_bw_set
+  when: bitwarden_bw_server.stdout | trim != bitwarden_server_url
+  changed_when: bitwarden_bw_set.rc == 0
+  failed_when: false
+
+- name: Report that bw kept another server
+  ansible.builtin.debug:
+    msg: >-
+      `bw config server {{ bitwarden_server_url }}` exited {{ bitwarden_bw_set.rc }}:
+      {{ (bitwarden_bw_set.stderr | default('') or bitwarden_bw_set.stdout | default('')) | trim }}.
+      Run `bw logout`, then re-run this role.
+  when: bitwarden_bw_set.rc | default(0) != 0
+
+# A host that never ran `rbw config set` has no config file, and `rbw config show` exits 1.
+- name: Read the rbw config
+  ansible.builtin.command: rbw config show
+  register: bitwarden_rbw_config
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Point rbw at Vaultwarden
+  ansible.builtin.command: rbw config set {{ item.key }} {{ item.value }}
+  loop: "{{ {'base_url': bitwarden_server_url, 'email': bitwarden_email} | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: ((bitwarden_rbw_config.stdout if bitwarden_rbw_config.rc == 0 else '{}') | from_json).get(item.key) != item.value
+  changed_when: true
