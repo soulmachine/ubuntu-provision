@@ -1,0 +1,10 @@
+---
+onepassword_home: "{{ lookup('env', 'HOME') }}"
+onepassword_arch: "{{ 'arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else 'amd64' }}"
+# The paths the `1password` package's postinst writes (see tasks/main.yml).
+onepassword_keyring: /usr/share/keyrings/1password-archive-keyring.gpg
+onepassword_sources: /etc/apt/sources.list.d/1password.sources
+# GitHub owner/repo of 1Password's official Claude Code plugin.
+onepassword_plugin_repo: 1Password/1password-claude-plugin
+# Plugin `1password` in the marketplace named `1password` (.claude-plugin/marketplace.json).
+onepassword_claude_plugin: 1password@1password

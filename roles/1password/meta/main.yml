@@ -1,0 +1,4 @@
+---
+dependencies:
+  # The plugin is installed into Claude Code, so the CLI must be provisioned first.
+  - claude-code

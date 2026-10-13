@@ -1,0 +1,121 @@
+---
+# 1Password for agents (upstream Q220, Q245; DECISIONS Q42): the desktop app, the `op` CLI and
+# 1Password's official Claude Code plugin. App and CLI come from 1Password's apt repo, so the apt
+# role's upgrade keeps them current; the app is skipped on a headless host. Two switches stay
+# manual, in the app under Settings → Developer: "Integrate with 1Password CLI" for `op`, and
+# "Integrate with MCP clients" for the server the plugin launches. Signing in is manual too.
+
+# The `1password` package's postinst rewrites this keyring and .sources file on every upgrade
+# (and comments out a `1password.list`), so the role writes the same bytes at the same paths
+# and neither side ever changes the other's copy.
+- name: Add the 1Password apt signing key
+  become: true
+  ansible.builtin.shell: |
+    set -eu -o pipefail
+    curl -fsS https://downloads.1password.com/linux/keys/1password.asc \
+      | gpg --dearmor --output {{ onepassword_keyring }}
+  args:
+    executable: /bin/bash
+    creates: "{{ onepassword_keyring }}"
+
+- name: Add the 1Password apt repository
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ onepassword_sources }}"
+    content: |
+      # This file is automatically added and configured by the 1Password package. Modifications may be overwritten.
+      Types: deb
+      URIs: https://downloads.1password.com/linux/debian/{{ onepassword_arch }}
+      Suites: stable
+      Components: main
+      Architectures: {{ onepassword_arch }}
+      Signed-By: {{ onepassword_keyring }}
+    mode: "0644"
+  register: onepassword_repo
+
+# `present`, not `latest`: the apt role's upgrade keeps both current.
+- name: Install the 1Password CLI
+  become: true
+  ansible.builtin.apt:
+    name: 1password-cli
+    state: present
+    update_cache: "{{ onepassword_repo.changed }}"
+
+# Headless means no X11 or Wayland session file (DECISIONS Q36): dev-server-frank has none,
+# supermicro's GNOME Flashback has one.
+- name: Look for a desktop session
+  ansible.builtin.find:
+    paths:
+      - /usr/share/xsessions
+      - /usr/share/wayland-sessions
+    patterns: "*.desktop"
+  register: onepassword_sessions
+
+- name: Install the 1Password app
+  become: true
+  ansible.builtin.apt:
+    name: 1password
+    state: present
+  when: onepassword_sessions.matched > 0
+
+- name: Report that the 1Password app was skipped
+  ansible.builtin.debug:
+    msg: Skipping the 1Password app, because this host has no X11 or Wayland session.
+  when: onepassword_sessions.matched == 0
+
+# Claude Code plugin: the same marketplace, install and ledger-diffed update steps as the
+# ponytail role (roles/ponytail/tasks/claude-code.yml explains each gate).
+- name: Read the known Claude Code marketplaces
+  ansible.builtin.slurp:
+    src: "{{ onepassword_home }}/.claude/plugins/known_marketplaces.json"
+  register: onepassword_mp_raw
+  failed_when: false
+
+- name: Add the 1Password Claude Code marketplace
+  ansible.builtin.command: claude plugin marketplace add {{ onepassword_plugin_repo }}
+  when: >-
+    onepassword_claude_plugin.split('@')[1] not in
+    (onepassword_mp_raw.content | default('e30=') | b64decode | from_json)
+  changed_when: true
+
+- name: Read the Claude Code plugin ledger before installing
+  ansible.builtin.slurp:
+    src: "{{ onepassword_home }}/.claude/plugins/installed_plugins.json"
+  register: onepassword_before
+  failed_when: false
+
+- name: Install the 1Password Claude Code plugin
+  ansible.builtin.command: claude plugin install {{ onepassword_claude_plugin }}
+  when: >-
+    onepassword_claude_plugin not in
+    ((onepassword_before.content | default('e30=') | b64decode | from_json).plugins | default({}))
+  changed_when: true
+
+- name: Update the 1Password Claude Code plugin
+  ansible.builtin.command: claude plugin update {{ onepassword_claude_plugin }}
+  changed_when: false
+
+- name: Read the Claude Code plugin ledger after updating
+  ansible.builtin.slurp:
+    src: "{{ onepassword_home }}/.claude/plugins/installed_plugins.json"
+  register: onepassword_after
+  failed_when: false
+
+# The install above already reports its own change, so this diff only has to catch an
+# update. On the install run both sides differ too, which double-counts one change; harmless.
+- name: Check whether the 1Password Claude Code plugin was updated
+  ansible.builtin.debug:
+    msg: >-
+      1Password Claude Code plugin
+      {{ 'updated' if onepassword_updated else 'already up to date' }}
+  vars:
+    onepassword_sha_before: >-
+      {{ ((onepassword_before.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[onepassword_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    onepassword_sha_after: >-
+      {{ ((onepassword_after.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[onepassword_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    onepassword_updated: "{{ onepassword_sha_before != onepassword_sha_after }}"
+  changed_when: onepassword_updated

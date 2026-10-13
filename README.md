@@ -111,6 +111,7 @@ pre-commit run --all-files
 | claude-code | Claude Code CLI 及插件；`~/.claude/settings.json` 的合并与 `claude-yolo` 别名（依赖 nodejs） |
 | claude-extras | Claude Code 周边工具：npm `@inulute/cux`、uv 工具 `claude-swap`（依赖 nodejs、uv、claude-code） |
 | typesafe | TypeSafe Jev 模型相关的一切：官方 `typesafe-ai` skill（不需要 key），以及两个 Claude Code 插件 fast-jev-compaction 与 claude-jev；把 `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` 与 `TYPESAFE_API_KEY` 写入 `~/.claude/settings.json` 的 `env`；`.env` 无 `TYPESAFE_API_KEY` 时只跳过插件部分（依赖 claude-code、nodejs） |
+| 1password | 1Password 桌面 App 与官方 CLI `op`，都来自 1Password 的 apt 仓库，由 apt role 升级；仓库的 keyring 与 `/etc/apt/sources.list.d/1password.sources` 和 `1password` 包的 postinst 写的逐字节相同，两边互不覆盖；没有桌面会话的主机（dev-server-frank）只装 CLI；再装官方 Claude Code 插件 [`1password@1password`](https://github.com/1Password/1password-claude-plugin)；App 的 Settings → Developer 中「Integrate with 1Password CLI」与「Integrate with MCP clients」两个开关和登录需手动（依赖 claude-code） |
 | bitwarden | Bitwarden 客户端（用于自建的 Vaultwarden）：apt `rbw`（依赖 `pinentry-curses`，ssh 下可用）、npm 全局 `@bitwarden/cli`（命令 `bw`）；有桌面会话（`/usr/share/xsessions` 或 `/usr/share/wayland-sessions` 下有 `.desktop`）的主机再装官方 Electron 桌面 App：跟随 `vault.bitwarden.com` 下载链接的重定向得到最新 `.deb` 的版本，与 `dpkg-query` 不同才下载安装（supermicro 装，dev-server-frank 无桌面跳过）；再把 `bw` 的 server 与 `rbw` 的 `base_url`/`email` 设为 `https://vaultwarden.soulmachine.me` 与 `soulmachine@gmail.com`（先读、不同才写）；桌面 App 的服务器与所有登录仍需手动（依赖 nodejs） |
 | codex | OpenAI Codex CLI（npm `@openai/codex`），并安装 [open-pstack](https://github.com/ericlitman/open-pstack) 的 `pstack` 插件（Claude Code 那一半在 claude-code role 的插件列表里；`/pstack:setup-pstack` 需手动运行）（依赖 nodejs） |
 | opencode | OpenCode CLI（npm `opencode-ai`）；并用 `npx oh-my-openagent` 写入 `~/.config/opencode/opencode.json`，由版本戳门控，避免每次 play 重装（依赖 nodejs） |
@@ -146,7 +147,7 @@ pre-commit run --all-files
 
 - **shell 是 bash。** 上游用 zsh；这里每个 role 往 `~/.bashrc` 写别名、hook 与补全，都放在文件末尾（只对交互 shell 生效）；每个 shell 都要看到的行（PATH、`.env` 的密钥）放在 `case $- in` 守卫之上。
 - **没有 host-facts。** 上游按机型判断是否常驻开机；这里 Linux 主机一律常驻，hermes、ponytail、paseo 无条件安装。
-- **没有 GUI。** 上游的桌面应用、编辑器、cc-switch、ghostty、obsidian 等一概不装，也不留空 role。例外只有两个：browseros-neo 只装在 supermicro，bitwarden 的桌面 App 只装在有桌面会话的主机。
+- **没有 GUI。** 上游的桌面应用、编辑器、cc-switch、ghostty、obsidian 等一概不装，也不留空 role。例外只有三个：browseros-neo 只装在 supermicro，bitwarden 与 1password 的桌面 App 只装在有桌面会话的主机。
 - **apt 会升级。** `apt` role 每次 `full-upgrade`，对应上游的 `brew upgrade`；内核升级后需要手工重启。
 - **gateway 是前提。** claude-mem 的 observer、agent-reach 与 pi 的默认模型都走 mac-mini-m2 上的 CLIProxyAPI（`CLIPROXY_API_KEY` / `CLIPROXY_BASE_URL` 与 `claude-gw` 包装脚本由 `cliproxy-tier` 写到每台机器）。没有这些的机器上，这几个 role 会直接失败，这是有意的。
 

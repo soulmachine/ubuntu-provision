@@ -1,0 +1,4 @@
+# A variable cannot start with a digit, so the 1password role cannot use the 1password_ prefix
+# var-naming[no-role-prefix] demands; it uses onepassword_ instead.
+roles/1password/vars/main.yml var-naming[no-role-prefix]
+roles/1password/tasks/main.yml var-naming[no-role-prefix]

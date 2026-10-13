@@ -413,3 +413,14 @@
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q244
 **Supersedes:** Q36 — only its "install only" part
+
+## Q42 — interactive/1password — deviation
+
+**Question:** Frank asked for the `1password` role here too (upstream Q245 drops its `~/personal-agent` gate): the desktop app, the `op` CLI and the Claude Code plugin. How does it port to apt?
+**Options considered:** the documented `.list` repo setup / the exact files the package's postinst writes; app on every host / app only with a desktop session
+**Chosen:** The role writes `/usr/share/keyrings/1password-archive-keyring.gpg` and `/etc/apt/sources.list.d/1password.sources` with the same bytes as the `1password` package's postinst, then apt-installs `1password-cli`, and `1password` only when a desktop session exists (the Q36 probe). The plugin steps are upstream's, unchanged. No debsig policy: Ubuntu does not run debsig-verify by default, and the app's postinst adds the policy where the app is installed.
+**Decided-by:** human (every host, plugin too, skip the app when headless: Frank, 2026-10-13); agent (the repo files)
+**Justification:** The postinst rewrites the `.sources` file and keyring on every upgrade, and comments out a `1password.list`, so any other path or content would flip back and forth between the package and the role. dev-server-frank has no session file, so it gets the CLI and plugin only.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q220, Q245
+**Supersedes:** the "omits 1password (upstream Q222)" line in AGENTS.md
