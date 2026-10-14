@@ -14,10 +14,10 @@ skills_store: "{{ skills_home }}/.agents/skills"
 # The self-authored skills, whose truth lives in git rather than in the store. Adopted by the
 # task below with `agent-sync adopt`, NOT by `skills add` — see the exclusion note further down.
 #
-# A LIST, not one path, because a skill that outgrows the monorepo graduates to the OpenSWE org:
-# into the shared `OpenSWE/skills` repo (`log-decisions`, `distill-prompt`), or into a repo of
-# its own (`herdr-advisor`, `lessons`). Each is laid out as `skills/<name>/SKILL.md`, so
-# `npx skills add` and the Claude plugin marketplace each resolve it.
+# A LIST, not one path, because a skill that outgrows the monorepo graduates to the shared
+# `OpenSWE/skills` repo, laid out as `skills/<name>/SKILL.md`, so `npx skills add` and the Claude
+# plugin marketplace each resolve it. `herdr-advisor` and `lessons` had repos of their own until
+# 2026-10-14, when they were folded in too.
 # Every entry below is a directory that DIRECTLY contains skill directories, so
 # one `find` at depth 2 covers all of them uniformly. Always name the path INSIDE the clone, never
 # the clone itself: that keeps the store entry a Sourced symlink out to the repo, so a `git pull`
@@ -30,9 +30,7 @@ skills_store: "{{ skills_home }}/.agents/skills"
 # host without one legitimately carries fewer skills.
 skills_selfauthored_repos:
   - "{{ skills_home }}/github.com/soulmachine/skills" # the monorepo, ~29 skills
-  - "{{ skills_home }}/github.com/OpenSWE/herdr-advisor/skills"
-  - "{{ skills_home }}/github.com/OpenSWE/skills/skills" # log-decisions, distill-prompt
-  - "{{ skills_home }}/github.com/OpenSWE/lessons/skills"
+  - "{{ skills_home }}/github.com/OpenSWE/skills/skills" # log-decisions, herdr-advisor, lessons, distill-prompt
 
 # Every skill source the CLI owns and re-fetches, declared in one place. A source
 # belongs here rather than in the role for the app it accompanies: this role is

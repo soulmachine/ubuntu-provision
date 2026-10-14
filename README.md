@@ -187,7 +187,7 @@ pre-commit run --all-files
 
 这个 role **故意不加 gate**，每次 play 都重新跑一遍安装器：这是唯一能把上游改动拉下来的机制。`changed` 由前后对 `~/.agents/skills/` 做校验和指纹比对得出。代价是每个源一次网络请求，是整个 playbook 里最慢的 role 之一。`skills add` **从不删除**任何东西，上游下架的技能会作为孤儿目录留在存储里，role 只报告不删除。
 
-自写技能的收编（`agent-sync adopt`）需要本机有 `~/github.com/soulmachine/skills`、`~/github.com/OpenSWE/herdr-advisor`、`~/github.com/OpenSWE/skills` 这几个 clone；缺哪个就跳过哪个并打印出来。
+自写技能的收编（`agent-sync adopt`）需要本机有 `~/github.com/soulmachine/skills`、`~/github.com/OpenSWE/skills` 这两个 clone；缺哪个就跳过哪个并打印出来。
 
 #### 看起来像报错、其实是预期输出
 
