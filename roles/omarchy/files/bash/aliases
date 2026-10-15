@@ -1,8 +1,11 @@
 # File system
 if command -v eza &> /dev/null; then
-  alias ls='eza -lh --group-directories-first --icons=auto'
+  # With no path and a non-tty stdin, eza lists names read from stdin, so agents' shells hang
+  # or print nothing. Pass . when no argument is a path. shortcut: `--level 2` counts as a path.
+  _eza() { local a; for a in "$@"; do [[ $a == -* ]] || { eza "$@"; return; }; done; eza "$@" .; }
+  alias ls='_eza -lh --group-directories-first --icons=auto'
   alias lsa='ls -a'
-  alias lt='eza --tree --level=2 --long --icons --git'
+  alias lt='_eza --tree --level=2 --long --icons --git'
   alias lta='lt -a'
 fi
 
