@@ -84,6 +84,29 @@
       `pkill -f 'herdr server'` and relaunch.
   when: herdr_updated is changed
 
+# Herdr UI (https://herdrui.dev), a native GUI client for the local herdr daemon. Upstream's
+# script verifies the release's .deb and installs it with sudo apt-get, which puts the binary at
+# /usr/bin/herdr-gpui. Later updates come from the app's App Updates panel, as upstream intends.
+# Headless means no X11 or Wayland session file, the same probe as roles/1password (Q36).
+- name: Look for a desktop session
+  ansible.builtin.find:
+    paths:
+      - /usr/share/xsessions
+      - /usr/share/wayland-sessions
+    patterns: "*.desktop"
+  register: herdr_sessions
+
+- name: Install Herdr UI # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://herdrui.dev/install.sh | sh
+  args:
+    creates: /usr/bin/herdr-gpui
+  when: herdr_sessions.matched > 0
+
+- name: Report that Herdr UI was skipped
+  ansible.builtin.debug:
+    msg: Skipping Herdr UI, because this host has no X11 or Wayland session.
+  when: herdr_sessions.matched == 0
+
 # Multi-line, so blockinfile rather than the lineinfile used for one-line aliases
 # elsewhere. The named marker keeps this block from colliding with any other
 # role's managed block in the same .bashrc. bash has $HOSTNAME where zsh has $HOST.

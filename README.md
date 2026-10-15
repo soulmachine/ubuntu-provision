@@ -141,7 +141,7 @@ pre-commit run --all-files
 | tailscale | 从官方 apt 源安装 tailscale 并启用 systemd 服务；设了 `TAILSCALE_AUTH_KEY` 时自动加入 tailnet；设了 OAuth client 时关闭节点密钥过期 |
 | zellij | 终端复用器（GitHub release 的静态二进制）；tag `terminal-multiplexer` |
 | tmux | 终端复用器（apt）；tag `terminal-multiplexer` |
-| herdr | 从 herdr.dev 安装脚本安装 herdr，按 `latest.json` 版本差异更新；安装 herdr skill 并以相对符号链接接入 `~/.claude/skills`，`~/.bashrc` 加入给终端标题加主机名的 `herdr()` 包装函数；并用 herdr-rename-hook skill 的 `install.sh` 接上 `/rename` 钩子（Claude Code 与 Codex 的 `/rename` 同步成 Herdr 的 agent、pane 和 tab 名）；tag `terminal-multiplexer` |
+| herdr | 从 herdr.dev 安装脚本安装 herdr，按 `latest.json` 版本差异更新；有桌面会话时用 herdrui.dev 安装脚本装 Herdr UI（herdr 的原生 GUI 客户端），无头主机跳过；安装 herdr skill 并以相对符号链接接入 `~/.claude/skills`，`~/.bashrc` 加入给终端标题加主机名的 `herdr()` 包装函数；并用 herdr-rename-hook skill 的 `install.sh` 接上 `/rename` 钩子（Claude Code 与 Codex 的 `/rename` 同步成 Herdr 的 agent、pane 和 tab 名）；tag `terminal-multiplexer` |
 
 ### 与 macOS 版的差异
 

@@ -424,3 +424,13 @@
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q220, Q245
 **Supersedes:** the "omits 1password (upstream Q222)" line in AGENTS.md
+
+## Q43 — interactive/herdr-ui — deviation
+
+**Question:** Frank asked for Herdr UI (`curl -fsSL https://herdrui.dev/install.sh | sh`) on the Linux hosts. Does the herdr role install it on a headless host too?
+**Options considered:** every host / only a host with a desktop session
+**Chosen:** Only a host with an X11 or Wayland session file (the Q36 probe), so supermicro gets it and dev-server-frank does not; the role says so in a debug message. A `creates: /usr/bin/herdr-gpui` guard keeps it to one install, and updates come from the app's own App Updates panel.
+**Decided-by:** agent
+**Justification:** Herdr UI is a GUI client, and its package pulls in X11, Wayland and Vulkan libraries that a host without a display cannot use. Q42 settled the same case for the 1Password app the same way.
+**Outcome:** assumed
+**Ref:** (pending); macbook-provision herdr role (`penso/tap/herdr-gpui` cask)
