@@ -2,10 +2,11 @@
 if command -v eza &> /dev/null; then
   # With no path and a non-tty stdin, eza lists names read from stdin, so agents' shells hang
   # or print nothing. Pass . when no argument is a path. shortcut: `--level 2` counts as a path.
-  _eza() { local a; for a in "$@"; do [[ $a == -* ]] || { eza "$@"; return; }; done; eza "$@" .; }
-  alias ls='_eza -lh --group-directories-first --icons=auto'
+  # No leading _: Claude Code's shell snapshot drops _-prefixed functions as completions, so the alias dangled.
+  eza_ls() { local a; for a in "$@"; do [[ $a == -* ]] || { eza "$@"; return; }; done; eza "$@" .; }
+  alias ls='eza_ls -lh --group-directories-first --icons=auto'
   alias lsa='ls -a'
-  alias lt='_eza --tree --level=2 --long --icons --git'
+  alias lt='eza_ls --tree --level=2 --long --icons --git'
   alias lta='lt -a'
 fi
 
