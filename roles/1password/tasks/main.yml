@@ -4,6 +4,8 @@
 # role's upgrade keeps them current; the app is skipped on a headless host. Two switches stay
 # manual, in the app under Settings → Developer: "Integrate with 1Password CLI" for `op`, and
 # "Integrate with MCP clients" for the server the plugin launches. Signing in is manual too.
+# Headless `op` comes from OP_SERVICE_ACCOUNT_TOKEN in .env (dotenv role), read-only on the
+# Automation vault; see ~/.agents/docs/1password.md.
 
 # The `1password` package's postinst rewrites this keyring and .sources file on every upgrade
 # (and comments out a `1password.list`), so the role writes the same bytes at the same paths

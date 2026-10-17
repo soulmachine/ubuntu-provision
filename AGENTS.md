@@ -34,8 +34,8 @@ ssh -o BatchMode=yes -o ConnectTimeout=15 <host> \
 
 ## Upstream
 
-Synced with `soulmachine/macbook-provision` at **230fc2a** (2026-10-13). To catch up again: run
-`git -C ../macbook-provision log --oneline 230fc2a..HEAD`, port each commit role by role (apt for
+Synced with `soulmachine/macbook-provision` at **64fdf3c** (2026-10-16). To catch up again: run
+`git -C ../macbook-provision log --oneline 64fdf3c..HEAD`, port each commit role by role (apt for
 brew, `~/.bashrc` for `~/.zshrc`, no always-on gate), then move this sha. `main.yml` keeps upstream's
 role order; `apt` stands where `homebrew` stands and `shell` + `omarchy` are the bash versions of
 upstream's zsh pair. Roles upstream has and this repo deliberately omits, with no stub: host-facts,
