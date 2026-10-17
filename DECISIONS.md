@@ -445,3 +445,13 @@
 **Outcome:** applied
 **Ref:** (this commit)
 **Supersedes:** Q43 — Herdr UI is not installed at all
+
+## Q45 — interactive/1password-token — deviation
+
+**Question:** Port upstream 08751d9, which documents OP_SERVICE_ACCOUNT_TOKEN in .env.example and the 1password role?
+**Options considered:** port it / skip it
+**Chosen:** Skipped. b71065e is reverted, and the token stays out of this repo's .env.example and 1password role.
+**Decided-by:** human (Frank, 2026-10-16: only the control-plane hosts need headless `op`)
+**Justification:** Only mac-mini-m6, mac-mini-m2 and macbook-air get a 1Password service account (~/.agents/docs/1password.md), and all three are Macs. No host this repo provisions gets one.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision 08751d9
