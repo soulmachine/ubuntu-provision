@@ -2,7 +2,7 @@
 
 使用 Ansible 自动化 **Ubuntu** 开发环境配置：系统软件通过 **apt** 安装，语言运行时交给 mise，其余工具沿用各自官方的 `curl | sh` 安装脚本与 `npm` / `bun` / `uv` 全局包。shell 是 Ubuntu 自带的 **bash**，配 starship、zoxide、fzf 与 Omarchy 的 shell 环境。
 
-本仓库是同目录 `macbook-provision`（macOS 版）的 Ubuntu 移植版，目标 **Ubuntu 26.04 LTS（amd64）**，服务于 supermicro 与 dev-server-frank 两台机器。与上游的对应关系（同步到的 commit、刻意省略的 role）记在 `AGENTS.md` 的 "Upstream" 一节，每一处有意的差异记在 `DECISIONS.md`。
+本仓库是同目录 `macbook-provision`（macOS 版）的 Ubuntu 移植版，目标 **Ubuntu 26.04 LTS（amd64）**，服务于 supermicro、dev-server-frank 与 grok-bot 三台机器。与上游的对应关系（同步到的 commit、刻意省略的 role）记在 `AGENTS.md` 的 "Upstream" 一节，每一处有意的差异记在 `DECISIONS.md`。
 
 ## 语言运行时
 
