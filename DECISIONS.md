@@ -434,3 +434,14 @@
 **Justification:** Herdr UI is a GUI client, and its package pulls in X11, Wayland and Vulkan libraries that a host without a display cannot use. Q42 settled the same case for the 1Password app the same way.
 **Outcome:** assumed
 **Ref:** (pending); macbook-provision herdr role (`penso/tap/herdr-gpui` cask)
+
+## Q44 — interactive/herdr-ui — deviation
+
+**Question:** Keep Herdr UI in the herdr role?
+**Options considered:** keep it / remove it
+**Chosen:** Removed, on every host. 39ea1d1 is reverted, here and in the other two repos.
+**Decided-by:** human (Frank, 2026-10-16: Herdr UI is not needed)
+**Justification:** Frank does not need the GUI client, so the headless question in Q43 is moot.
+**Outcome:** applied
+**Ref:** (this commit)
+**Supersedes:** Q43 — Herdr UI is not installed at all
