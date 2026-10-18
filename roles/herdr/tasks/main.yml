@@ -87,7 +87,7 @@
 # Multi-line, so blockinfile rather than the lineinfile used for one-line aliases
 # elsewhere. The named marker keeps this block from colliding with any other
 # role's managed block in the same .bashrc. bash has $HOSTNAME where zsh has $HOST.
-- name: Add the herdr terminal-title wrapper to .bashrc
+- name: Add the herdr shell wrappers (terminal title, claude-gw resume) to .bashrc
   ansible.builtin.blockinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK: herdr"
@@ -99,6 +99,15 @@
       herdr() {
         printf '\e]0;herdr %s\a' "${HOSTNAME%%.*}"
         command herdr "$@"
+      }
+      # herdr restores a claude pane by typing `claude --resume <id>`, which loses claude-gw's gateway
+      # and flags. claude-gw marks its sessions in ~/.local/state/claude-gw; resume those through it.
+      claude() {
+        if [[ -n ${HERDR_ENV:-} && $# -eq 2 && $1 == --resume && -f $HOME/.local/state/claude-gw/$2 ]]; then
+          claude-gw "$@"
+        else
+          command claude "$@"
+        fi
       }
 
 # Two tasks keep this both idempotent and fresh: `add` installs once (guarded by
