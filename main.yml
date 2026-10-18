@@ -46,6 +46,7 @@
     - hermes
     - browseros-neo
     - ponytail
+    - context-mode
     - role: paseo
       tags: [agent-multiplexer]
     - role: orca

@@ -1,0 +1,49 @@
+---
+# OpenCode loads npm plugins listed in the `plugin` array of
+# ~/.config/opencode/opencode.json, bun-installing them at startup into
+# ~/.cache/opencode/packages/<spec>. A bare package name resolves as `@latest`
+# (parsePluginSpecifier in opencode's src/plugin/shared.ts), so there is
+# nothing to refresh from here — OpenCode re-resolves it itself. The
+# oh-my-openagent installer (opencode role) rewrites this file on every run but
+# keeps entries it does not own (it preserved claude-mem's), so one append
+# survives.
+#
+# Read → append → write, gated on the entry being absent, so the file is not
+# rewritten on converged runs. `to_nice_json(indent=2)` matches the 2-space
+# layout oh-my-openagent writes; keys sort, but `$schema` sorts first anyway.
+#
+# The file carries API keys — jev-register-agents bakes them into its MCP env blocks and
+# chmods it 0600 — so the read, parse and write are no_log, and the write keeps 0600
+# rather than loosening it to 0644.
+- name: Ensure the OpenCode config directory exists
+  ansible.builtin.file:
+    path: "{{ context_mode_home }}/.config/opencode"
+    state: directory
+    mode: "0755"
+
+- name: Read the OpenCode config
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.config/opencode/opencode.json"
+  register: context_mode_opencode_raw
+  failed_when: false
+  no_log: true
+
+- name: Parse the OpenCode config
+  ansible.builtin.set_fact:
+    context_mode_opencode_settings: >-
+      {{ (context_mode_opencode_raw.content | b64decode | from_json)
+         if (context_mode_opencode_raw.content | default('') | b64decode | trim | length > 0)
+         else {} }}
+  no_log: true
+
+- name: Register the context-mode OpenCode plugin
+  ansible.builtin.copy:
+    dest: "{{ context_mode_home }}/.config/opencode/opencode.json"
+    content: "{{ context_mode_opencode_merged | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  no_log: true
+  vars:
+    context_mode_opencode_merged: >-
+      {{ context_mode_opencode_settings
+         | combine({'plugin': (context_mode_opencode_settings.plugin | default([])) + [context_mode_npm_package]}) }}
+  when: context_mode_npm_package not in (context_mode_opencode_settings.plugin | default([]))

@@ -465,3 +465,13 @@
 **Justification:** open-pstack is on every host, Linux ones included, and the user wants it gone everywhere. Delete the retire tasks once every host is clean.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q247
+
+## Q47 — interactive/context-mode — gate-resolution
+
+**Question:** Port the macOS context-mode role, and with which agents?
+**Options considered:** port it / skip it
+**Chosen:** Ported. The agents and installers are the same as on macOS: Claude Code, Codex, OpenCode, pi, oh-my-pi, Gemini CLI, Copilot CLI, kimi-code and OpenClaw. Hermes, Crush and Grok are skipped. The OpenClaw half has no always-on gate, because every Ubuntu host is always-on, but it still waits for OpenClaw's onboarding.
+**Decided-by:** human
+**Justification:** The user asked for context-mode in all three provision repos, each agent through its own installer. The reasons for the per-agent calls are in macbook-provision Q248–Q251.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q248–Q251

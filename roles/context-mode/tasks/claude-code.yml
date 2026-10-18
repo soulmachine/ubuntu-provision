@@ -1,0 +1,106 @@
+---
+# Claude Code: marketplace + plugin, the same `claude plugin` steps the
+# claude-code role runs for its own plugin list (see roles/claude-code/tasks/
+# main.yml for the reasoning behind each gate).
+#
+# The plugin's hooks (hooks/hooks.json in the repo) and its MCP server run
+# `node`; the nodejs role provides one, on the non-interactive PATH too. Its
+# optional `statusLine` (`context-mode statusline`) is a manual
+# ~/.claude/settings.json edit upstream, and this role leaves it out.
+- name: Check installed Claude Code plugins
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.claude/plugins/installed_plugins.json"
+  register: context_mode_claude_plugins_raw
+  failed_when: false
+
+- name: Decode installed Claude Code plugins
+  ansible.builtin.set_fact:
+    context_mode_claude_plugins_content: "{{ context_mode_claude_plugins_raw.content | default('') | b64decode }}"
+
+# Gated on the marketplace ledger, not on the command's wording — the old gate read
+# `'already' not in stdout`, the negated shape AGENTS.md rules out. Unlike the claude-code
+# role, which diffs the whole key set because it adds five whose names it cannot derive,
+# this adds exactly one whose name is known (`context-mode`, from the repo's
+# .claude-plugin/marketplace.json), so a presence check is enough and skips the call once
+# registered.
+- name: Read the known Claude Code marketplaces
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.claude/plugins/known_marketplaces.json"
+  register: context_mode_claude_mp_raw
+  failed_when: false
+
+- name: Add the context-mode Claude Code marketplace
+  ansible.builtin.command: claude plugin marketplace add {{ context_mode_repo }}
+  when: >-
+    context_mode_claude_plugin.split('@')[1] not in
+    (context_mode_claude_mp_raw.content | default('e30=') | b64decode | from_json)
+  changed_when: true
+
+- name: Install the context-mode Claude Code plugin
+  ansible.builtin.command: claude plugin install {{ context_mode_claude_plugin }}
+  when: context_mode_claude_plugin not in context_mode_claude_plugins_content
+  changed_when: true
+
+# Refresh. `claude plugin update` exits 0 on every path; the claude-code role
+# reads two stdout sentinels for its list, but installed_plugins.json records
+# the `gitCommitSha` each plugin was installed from, and that moves only when a
+# new upstream commit actually landed — so diff that instead. `e30=` is an
+# empty `{}`, for the fresh-host `--check` case where nothing is installed yet.
+- name: Read the context-mode Claude Code plugin record before updating
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.claude/plugins/installed_plugins.json"
+  register: context_mode_claude_before
+  failed_when: false
+
+- name: Update the context-mode Claude Code plugin
+  ansible.builtin.command: claude plugin update {{ context_mode_claude_plugin }}
+  changed_when: false
+
+- name: Read the context-mode Claude Code plugin record after updating
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.claude/plugins/installed_plugins.json"
+  register: context_mode_claude_after
+  failed_when: false
+
+- name: Check whether the context-mode Claude Code plugin was updated
+  ansible.builtin.debug:
+    msg: >-
+      context-mode Claude Code plugin
+      {{ 'updated' if context_mode_claude_updated else 'already up to date' }}
+  vars:
+    context_mode_claude_sha_before: >-
+      {{ ((context_mode_claude_before.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[context_mode_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    context_mode_claude_sha_after: >-
+      {{ ((context_mode_claude_after.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[context_mode_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    context_mode_claude_updated: "{{ context_mode_claude_sha_before != context_mode_claude_sha_after }}"
+  changed_when: context_mode_claude_updated
+
+# no_log on both: settings.json carries TYPESAFE_API_KEY in its `env` map (the typesafe
+# role writes it), and an ad-hoc `include_role` run prints every result in full.
+- name: Read Claude Code settings
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.claude/settings.json"
+  register: context_mode_claude_settings_raw
+  failed_when: false
+  no_log: true
+
+- name: Parse Claude Code settings
+  ansible.builtin.set_fact:
+    context_mode_claude_settings: >-
+      {{ (context_mode_claude_settings_raw.content | b64decode | from_json)
+         if (context_mode_claude_settings_raw.content | default('') | b64decode | trim | length > 0)
+         else {} }}
+  no_log: true
+
+# Only enabled plugins load. Older Claude Code builds did not add an install to
+# `enabledPlugins`; 2.1.276 does (measured 2026-09-18), so this is a safety net
+# for the older behaviour. Gate on key absence (not value) so a manual `/plugin`
+# disable is respected on re-runs — the same rule as the claude-code role.
+- name: Enable the context-mode Claude Code plugin
+  ansible.builtin.command: claude plugin enable {{ context_mode_claude_plugin }}
+  when: context_mode_claude_plugin not in (context_mode_claude_settings.enabledPlugins | default({}))
+  changed_when: true

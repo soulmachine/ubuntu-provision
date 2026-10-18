@@ -1,0 +1,48 @@
+---
+# context-mode — https://github.com/mksglu/context-mode — sandboxed `ctx_*`
+# tools plus routing hooks that keep bulky tool output out of an agent's
+# context window. This role installs it into every agent this repo provisions
+# that upstream has an adapter for, through that agent's own installer, one
+# task file per agent, in the shape of the ponytail role: an idempotent install
+# gate, then a refresh that diffs observable state around the agent's own
+# updater (AGENTS.md "Self-update tasks: diff state, don't grep output").
+# Hermes, Crush and Grok are absent: upstream has no adapter for them (README).
+#
+# The Gemini, Copilot and kimi hooks and MCP servers run the global
+# `context-mode` CLI, so it comes first. On Linux, Node >= 22.5 gives it the
+# built-in `node:sqlite`, so npm skipping its install scripts does no harm.
+- name: Install the context-mode CLI from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: "{{ context_mode_npm_package }}"
+    nodejs_npm_cmd: context-mode
+
+- name: Install context-mode into Claude Code
+  ansible.builtin.include_tasks: claude-code.yml
+
+- name: Install context-mode into Codex
+  ansible.builtin.include_tasks: codex.yml
+
+- name: Install context-mode into OpenCode
+  ansible.builtin.include_tasks: opencode.yml
+
+- name: Install context-mode into pi
+  ansible.builtin.include_tasks: pi.yml
+
+- name: Install context-mode into oh-my-pi
+  ansible.builtin.include_tasks: omp.yml
+
+- name: Install context-mode into Gemini CLI
+  ansible.builtin.include_tasks: gemini.yml
+
+- name: Install context-mode into Copilot CLI
+  ansible.builtin.include_tasks: copilot.yml
+
+- name: Install context-mode into kimi-code
+  ansible.builtin.include_tasks: kimi-code.yml
+
+# Every host here is always-on, so unlike macOS the OpenClaw half has no gate.
+- name: Install context-mode into OpenClaw
+  ansible.builtin.include_tasks: openclaw.yml

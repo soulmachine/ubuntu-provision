@@ -1,0 +1,120 @@
+---
+# Codex: `codex plugin marketplace add` snapshots the repo's marketplace
+# (.agents/plugins/marketplace.json, name `context-mode`) as a git checkout under
+# ~/.codex/.tmp/marketplaces/context-mode and records `[marketplaces.context-mode]` in
+# ~/.codex/config.toml; `codex plugin add` copies the plugin into
+# ~/.codex/plugins/cache and records `[plugins."context-mode@context-mode"]`. Both
+# sections are written for every marketplace and plugin (27 checked on this
+# host), so they are the idempotency markers — cheaper than
+# `codex plugin list`, which may go to the network.
+#
+# no_log on both: config.toml carries API keys in `[mcp_servers.*.env]`, and an ad-hoc
+# `include_role` run prints every result in full, base64 being no protection.
+- name: Read the Codex config
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.codex/config.toml"
+  register: context_mode_codex_config_raw
+  failed_when: false
+  no_log: true
+
+- name: Decode the Codex config
+  ansible.builtin.set_fact:
+    context_mode_codex_config: "{{ context_mode_codex_config_raw.content | default('') | b64decode }}"
+  no_log: true
+
+- name: Add the context-mode Codex marketplace
+  ansible.builtin.command: codex plugin marketplace add {{ context_mode_repo }}
+  timeout: 120
+  when: >-
+    '[marketplaces.' ~ context_mode_codex_marketplace ~ ']' not in context_mode_codex_config
+  register: context_mode_codex_mp_add
+  changed_when: true
+
+- name: Install the context-mode Codex plugin
+  ansible.builtin.command: codex plugin add {{ context_mode_codex_plugin }}
+  timeout: 120
+  when: >-
+    '[plugins."' ~ context_mode_codex_plugin ~ '"]' not in context_mode_codex_config
+  register: context_mode_codex_install
+  changed_when: true
+
+# Refresh. `codex plugin marketplace upgrade <name>` compares upstream HEAD
+# with the revision it recorded at install time in the snapshot's
+# .codex-marketplace-install.json, and when they differ stages a fresh checkout,
+# activates it in place of the snapshot and refreshes the installed plugin
+# cache under ~/.codex/plugins/cache/context-mode (the binary carries "failed to
+# create marketplace upgrade staging directory", "failed to activate upgraded
+# marketplace" and "failed to refresh installed plugin cache after marketplace
+# upgrade" for those steps); otherwise it prints "is already up to date." That
+# recorded `revision` is the state codex tracks, so it is what gets diffed —
+# not the checkout's HEAD: with the snapshot rewound one commit the upgrade
+# still answered "already up to date" and left the working tree alone, because
+# the record still matched upstream.
+#
+# Gated on the marketplace being registered, not on the record existing: on codex
+# 0.161.0 `marketplace add` writes no record — the first `upgrade` does (measured
+# 2026-10-07, Q193) — so a record gate never opened on a fresh host and the plugin
+# froze at its install commit. A missing record reads as an empty revision, so that
+# first upgrade reports `updated` once. Skipped under `--check` on a fresh host, where
+# the add above did not run.
+- name: Refresh the context-mode Codex plugin
+  when: >-
+    context_mode_codex_mp_add is changed
+    or '[marketplaces.' ~ context_mode_codex_marketplace ~ ']' in context_mode_codex_config
+  block:
+    - name: Read the context-mode Codex marketplace record before upgrading
+      ansible.builtin.slurp:
+        src: "{{ context_mode_codex_record }}"
+      register: context_mode_codex_record_before
+      failed_when: false
+
+    - name: Upgrade the context-mode Codex marketplace
+      ansible.builtin.command: codex plugin marketplace upgrade {{ context_mode_codex_marketplace }}
+      timeout: 120
+      changed_when: false
+
+    - name: Read the context-mode Codex marketplace record after upgrading
+      ansible.builtin.slurp:
+        src: "{{ context_mode_codex_record }}"
+      register: context_mode_codex_record_after
+
+    - name: Check whether the context-mode Codex plugin was updated
+      ansible.builtin.debug:
+        msg: >-
+          context-mode Codex plugin
+          {{ 'updated' if context_mode_codex_updated else 'already up to date' }}
+      vars:
+        context_mode_codex_rev_before: >-
+          {{ (context_mode_codex_record_before.content | default('e30=') | b64decode | from_json).revision
+             | default('') }}
+        context_mode_codex_rev_after: "{{ (context_mode_codex_record_after.content | b64decode | from_json).revision }}"
+        context_mode_codex_updated: "{{ context_mode_codex_rev_before != context_mode_codex_rev_after }}"
+      changed_when: context_mode_codex_updated
+
+# The plugin ships six hooks (.codex-plugin/hooks.json: PreToolUse,
+# PostToolUse, SessionStart, PreCompact, UserPromptSubmit, Stop). Codex runs
+# plugin hooks only after each one is reviewed and trusted. `[features] hooks`
+# is stable and on by default and `plugin_hooks` is removed (`codex features
+# list` on 0.161.0), so upstream's feature-flag step is moot here. Trust is per hook content: a
+# `trusted_hash` under `[hooks.state."<plugin>@<marketplace>:<hooks file>:
+# <event>:<group>:<handler>"]` in ~/.codex/config.toml, which the `/hooks`
+# screen writes through the app-server's `config/batchWrite`. `hooks/list`
+# over a stdio `codex app-server` reports each hook's `currentHash` and
+# `trustStatus`, so the review can be done headlessly (verified 2026-09-08);
+# the hash covers the unsubstituted command, so it is the same on every host
+# running the same context-mode version. The role still does not write it: an
+# unpinned write would trust whatever upstream ships next, which is what the
+# review exists to catch, and pinned hashes go stale on every context-mode
+# release. `bypass_hook_trust` is a policy-level blanket bypass, not a trust.
+# Without the trust the MCP tools still work; only the routing hooks stay
+# quiet.
+# noqa no-handler: a handler would print this at the end of a forty-role play,
+# far from the install it explains; a debug beside the task keeps them together.
+- name: Remind about the one-time Codex hook trust # noqa: no-handler
+  ansible.builtin.debug:
+    msg: >-
+      context-mode was just installed into Codex. Run `codex`, open `/hooks`,
+      review and trust context-mode's six hooks (PreToolUse, PostToolUse,
+      SessionStart, PreCompact, UserPromptSubmit, Stop), then start a new
+      thread.
+  when: context_mode_codex_install is changed

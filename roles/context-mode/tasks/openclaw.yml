@@ -1,0 +1,55 @@
+---
+# OpenClaw: its own installer, `openclaw plugins install context-mode` (the npm
+# package declares `openclaw.extensions`), rather than upstream's `npm run
+# install:openclaw` script, which writes runtime.json and signals the gateway
+# behind OpenClaw's back. An npm source sits outside ClawHub review, so the
+# install refuses without `--force`; that flag also overwrites an existing
+# plugin, which is why the install is gated on `openclaw plugins list`.
+#
+# OpenClaw has no model until `cliproxy-tier <host>` onboards it (the openclaw
+# role reports that), so a host without ~/.openclaw/openclaw.json is skipped.
+- name: Check whether OpenClaw is onboarded
+  ansible.builtin.stat:
+    path: "{{ context_mode_home }}/.openclaw/openclaw.json"
+  register: context_mode_openclaw_config
+
+- name: Report that the OpenClaw half was skipped
+  ansible.builtin.debug:
+    msg: >-
+      Skipping context-mode's OpenClaw half: OpenClaw is not onboarded yet.
+      Run `cliproxy-tier <host>` on mac-mini-m2, then re-run this role.
+  when: not context_mode_openclaw_config.stat.exists
+
+- name: Install context-mode into OpenClaw
+  when: context_mode_openclaw_config.stat.exists
+  block:
+    - name: List OpenClaw plugins
+      ansible.builtin.command: openclaw plugins list --json
+      register: context_mode_openclaw_before
+      changed_when: false
+      check_mode: false
+
+    - name: Install the context-mode OpenClaw plugin
+      ansible.builtin.command: openclaw plugins install {{ context_mode_npm_package }} --force
+      when: context_mode_openclaw_versions_before | length == 0
+      changed_when: true
+      vars:
+        context_mode_openclaw_versions_before: >-
+          {{ (context_mode_openclaw_before.stdout | from_json).plugins
+             | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list }}
+
+    # Refresh: `openclaw plugins update` exits 0 and prints "is up to date"
+    # when nothing moved, so diff the listed version instead.
+    - name: Update the context-mode OpenClaw plugin
+      ansible.builtin.command: openclaw plugins update context-mode
+      changed_when: false
+
+    - name: Check whether the context-mode OpenClaw plugin was updated
+      ansible.builtin.command: openclaw plugins list --json
+      register: context_mode_openclaw_after
+      check_mode: false
+      changed_when: >-
+        ((context_mode_openclaw_before.stdout | from_json).plugins
+         | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list)
+        != ((context_mode_openclaw_after.stdout | from_json).plugins
+            | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list)

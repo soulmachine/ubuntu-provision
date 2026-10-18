@@ -1,0 +1,47 @@
+---
+# Gemini CLI has no plugin installer that context-mode targets, so upstream's
+# path is ~/.gemini/settings.json: one `mcpServers` entry plus four hooks
+# (configs/gemini-cli/settings.json). The hooks run the global `context-mode`
+# CLI from main.yml.
+#
+# Other writers share this file: `cliproxy-tier <host>` read-modify-writes its
+# auth and model keys, and other tools keep their own BeforeTool/AfterTool
+# hooks here. So the merge APPENDS to each hook list (`append_rp`) rather than
+# replacing it, and runs only while no context-mode hook is present, which
+# keeps converged runs from rewriting the file.
+#
+# no_log and 0600: the file's `mcpServers` env blocks can carry API keys.
+- name: Read the Gemini CLI settings
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.gemini/settings.json"
+  register: context_mode_gemini_raw
+  failed_when: false
+  no_log: true
+
+- name: Parse the Gemini CLI settings
+  ansible.builtin.set_fact:
+    context_mode_gemini_current: >-
+      {{ (context_mode_gemini_raw.content | b64decode | from_json)
+         if (context_mode_gemini_raw.content | default('') | b64decode | trim | length > 0)
+         else {} }}
+  no_log: true
+
+- name: Ensure the Gemini CLI config directory exists
+  ansible.builtin.file:
+    path: "{{ context_mode_home }}/.gemini"
+    state: directory
+    mode: "0755"
+
+- name: Register context-mode with Gemini CLI
+  ansible.builtin.copy:
+    dest: "{{ context_mode_home }}/.gemini/settings.json"
+    content: "{{ context_mode_gemini_merged | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  no_log: true
+  vars:
+    context_mode_gemini_merged: >-
+      {{ context_mode_gemini_current
+         | combine(context_mode_gemini_settings, recursive=true, list_merge='append_rp') }}
+  when: >-
+    'context-mode' not in (context_mode_gemini_current.mcpServers | default({}))
+    or 'context-mode hook gemini-cli' not in (context_mode_gemini_current.hooks | default({}) | to_json)

@@ -1,0 +1,68 @@
+---
+# kimi-code has no plugin or MCP command, so upstream's path is two files:
+# the MCP server in ~/.kimi-code/mcp.json and six `[[hooks]]` tables in
+# ~/.kimi-code/config.toml (docs/adapters/kimi-code.md). Both run the global
+# `context-mode` CLI from main.yml.
+#
+# mcp.json: jev-register-agents writes the same `mcpServers` shape and keeps
+# entries it does not own. Read → add → write, gated on the key, at 0600 under
+# no_log because its env blocks hold API keys.
+- name: Read the kimi-code MCP config
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.kimi-code/mcp.json"
+  register: context_mode_kimi_mcp_raw
+  failed_when: false
+  no_log: true
+
+- name: Parse the kimi-code MCP config
+  ansible.builtin.set_fact:
+    context_mode_kimi_mcp: >-
+      {{ (context_mode_kimi_mcp_raw.content | b64decode | from_json)
+         if (context_mode_kimi_mcp_raw.content | default('') | b64decode | trim | length > 0)
+         else {} }}
+  no_log: true
+
+- name: Register the context-mode MCP server with kimi-code
+  ansible.builtin.copy:
+    dest: "{{ context_mode_home }}/.kimi-code/mcp.json"
+    content: "{{ context_mode_kimi_mcp_merged | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  no_log: true
+  vars:
+    context_mode_kimi_mcp_merged: >-
+      {{ context_mode_kimi_mcp
+         | combine({'mcpServers': {'context-mode': {'command': 'context-mode', 'args': []}}}, recursive=true) }}
+  when: "'context-mode' not in (context_mode_kimi_mcp.mcpServers | default({}))"
+
+# config.toml: an array-of-tables block at the end of the file stays valid
+# TOML whatever precedes it, and the other writer, `cliproxy-tier <host>`,
+# only prepends top-level keys and edits inside its own marked block. Other
+# tools' `[[hooks]]` tables stay; kimi runs every matching hook.
+- name: Add the context-mode hooks to kimi-code
+  ansible.builtin.blockinfile:
+    path: "{{ context_mode_home }}/.kimi-code/config.toml"
+    marker: "# {mark} context-mode hooks (managed by ubuntu-provision)"
+    insertafter: EOF
+    create: true
+    mode: "0600"
+    block: |
+      {% for event, matcher in context_mode_kimi_hooks %}
+      [[hooks]]
+      event = "{{ event }}"
+      {% if matcher %}
+      matcher = "{{ matcher }}"
+      {% endif %}
+      command = "context-mode hook kimi {{ event | lower }}"
+      timeout = 30
+      {% if not loop.last %}
+
+      {% endif %}
+      {% endfor %}
+  vars:
+    context_mode_kimi_hooks:
+      - [PreToolUse, "Bash|Shell|Read|Edit|Write|WebFetch|Agent|ctx_execute|ctx_execute_file|ctx_batch_execute|ctx_fetch_and_index|ctx_search|ctx_index|mcp__"]
+      - [PostToolUse, ""]
+      - [SessionStart, ""]
+      - [PreCompact, ""]
+      - [UserPromptSubmit, ""]
+      - [Stop, ""]

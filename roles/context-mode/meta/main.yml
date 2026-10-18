@@ -1,0 +1,15 @@
+---
+dependencies:
+  # The global `context-mode` CLI, which every hook runs, is an npm global.
+  - nodejs
+  # context-mode is installed *into* each of these, through that agent's own installer, so the
+  # agent must be provisioned first.
+  - claude-code
+  - codex
+  - opencode
+  - pi
+  - omp
+  - gemini
+  - copilot
+  - kimi-code
+  - openclaw

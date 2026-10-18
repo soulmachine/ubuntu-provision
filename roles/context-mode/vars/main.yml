@@ -1,0 +1,45 @@
+---
+context_mode_home: "{{ lookup('env', 'HOME') }}"
+# GitHub owner/repo, the form the Claude Code, Codex and Copilot installers accept.
+context_mode_repo: mksglu/context-mode
+# The npm package: the global CLI the hooks call, the OpenCode plugin, the pi and oh-my-pi
+# packages and the OpenClaw plugin, all in one.
+context_mode_npm_package: context-mode
+
+# Claude Code: plugin `context-mode` in the marketplace named `context-mode`
+# (.claude-plugin/marketplace.json in the repo).
+context_mode_claude_plugin: context-mode@context-mode
+
+# Codex: marketplace name from .agents/plugins/marketplace.json; git marketplaces are
+# snapshotted as a checkout under ~/.codex/.tmp/marketplaces.
+context_mode_codex_marketplace: context-mode
+context_mode_codex_plugin: context-mode@context-mode
+context_mode_codex_record: "{{ context_mode_home }}/.codex/.tmp/marketplaces/context-mode/.codex-marketplace-install.json"
+
+# pi: the source string exactly as pi records it in settings.json, and where pi installs it.
+context_mode_pi_source: "npm:context-mode"
+context_mode_pi_dir: "{{ context_mode_home }}/.pi/agent/npm/node_modules/context-mode"
+
+# Copilot CLI: upstream's bundle in a repo subdirectory, and where Copilot caches a direct install.
+context_mode_copilot_source: "{{ context_mode_repo }}:configs/copilot-cli"
+context_mode_copilot_dir: "{{ context_mode_home }}/.copilot/installed-plugins/_direct/mksglu--context-mode--configs-copilot-cli"
+
+# Gemini CLI: the MCP server and the four hooks from upstream's configs/gemini-cli/settings.json.
+context_mode_gemini_settings:
+  mcpServers:
+    context-mode:
+      command: context-mode
+  hooks:
+    BeforeTool:
+      - matcher: "run_shell_command|read_file|read_many_files|grep_search|search_file_content|web_fetch|activate_skill|\
+          mcp__plugin_context-mode|mcp__context-mode|mcp__(?!.*context-mode)"
+        hooks: [{type: command, command: context-mode hook gemini-cli beforetool}]
+    AfterTool:
+      - matcher: ""
+        hooks: [{type: command, command: context-mode hook gemini-cli aftertool}]
+    PreCompress:
+      - matcher: ""
+        hooks: [{type: command, command: context-mode hook gemini-cli precompress}]
+    SessionStart:
+      - matcher: ""
+        hooks: [{type: command, command: context-mode hook gemini-cli sessionstart}]

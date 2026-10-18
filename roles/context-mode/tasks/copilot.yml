@@ -1,0 +1,44 @@
+---
+# Copilot CLI: upstream's "Option A", `copilot plugin install
+# mksglu/context-mode:configs/copilot-cli`, registers the bundle's MCP server
+# (pinned to CONTEXT_MODE_PLATFORM=copilot-cli), hooks and skill in one step.
+# The MCP server and the hooks run the global `context-mode` CLI from main.yml.
+# Copilot caches a direct install under ~/.copilot/installed-plugins/_direct/
+# and lists it in ~/.copilot/config.json, which carries `//` comments and so is
+# not readable as JSON; the cache directory is the idempotency marker.
+#
+# Copilot 1.x prints "Direct plugin installs (repos, URLs, local paths) are
+# deprecated" here. Upstream ships no Copilot marketplace yet, and its Claude
+# marketplace serves the Claude bundle, so this is still the documented path.
+- name: Install the context-mode Copilot CLI plugin
+  ansible.builtin.command:
+    cmd: copilot plugin install {{ context_mode_copilot_source }}
+    creates: "{{ context_mode_copilot_dir }}"
+
+# Refresh. `copilot plugin update` re-installs and exits 0 even when it is
+# "already at latest", so diff the version in the cached plugin manifest.
+# Gated on the cache existing, which it does not under `--check` on a fresh host.
+- name: Check whether the context-mode Copilot CLI plugin is present
+  ansible.builtin.stat:
+    path: "{{ context_mode_copilot_dir }}/.github/plugin/plugin.json"
+  register: context_mode_copilot_stat
+
+- name: Refresh the context-mode Copilot CLI plugin
+  when: context_mode_copilot_stat.stat.exists
+  block:
+    - name: Read the context-mode Copilot CLI plugin before updating
+      ansible.builtin.slurp:
+        src: "{{ context_mode_copilot_dir }}/.github/plugin/plugin.json"
+      register: context_mode_copilot_before
+
+    - name: Update the context-mode Copilot CLI plugin
+      ansible.builtin.command: copilot plugin update context-mode
+      changed_when: false
+
+    - name: Read the context-mode Copilot CLI plugin after updating
+      ansible.builtin.slurp:
+        src: "{{ context_mode_copilot_dir }}/.github/plugin/plugin.json"
+      register: context_mode_copilot_after
+      changed_when: >-
+        (context_mode_copilot_before.content | b64decode | from_json).version
+        != (context_mode_copilot_after.content | b64decode | from_json).version
