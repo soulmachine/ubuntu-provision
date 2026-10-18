@@ -56,9 +56,3 @@ claude_code_marketplaces:
     source: veelenga/claude-mermaid
   - name: claude-community
     source: anthropics/claude-plugins-community
-
-# Uninstalled wherever still present (Q46). Drop an entry once every host is clean.
-claude_code_retired_plugins:
-  - pstack@open-pstack
-claude_code_retired_marketplaces:
-  - open-pstack
