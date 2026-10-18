@@ -455,3 +455,13 @@
 **Justification:** Only mac-mini-m6, mac-mini-m2 and macbook-air get a 1Password service account (~/.agents/docs/1password.md), and all three are Macs. No host this repo provisions gets one.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision 08751d9
+
+## Q46 — interactive/open-pstack-removal — deviation
+
+**Question:** Port macbook-provision Q247, which removes open-pstack from every host through retire tasks in the claude-code and codex roles?
+**Options considered:** port it / skip it
+**Chosen:** Ported unchanged: the claude-code role uninstalls `pstack@open-pstack` and removes the `open-pstack` marketplace where present; the codex role removes the plugin, the marketplace and its hook-trust entry. The install steps are gone.
+**Decided-by:** human
+**Justification:** open-pstack is on every host, Linux ones included, and the user wants it gone everywhere. Delete the retire tasks once every host is clean.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q247

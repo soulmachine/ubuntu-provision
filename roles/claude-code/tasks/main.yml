@@ -170,6 +170,23 @@
       {{ 'updated' if claude_code_shas_before != claude_code_shas_after else 'already up to date' }}
   changed_when: claude_code_shas_before != claude_code_shas_after
 
+# Retired plugins (Q46), gated on the same ledgers the install steps read. The
+# marketplace remove has no `--scope`, so it also drops the `extraKnownMarketplaces`
+# entry in settings.json, which the settings read below then sees.
+- name: Uninstall retired plugins
+  ansible.builtin.command: claude plugin uninstall {{ item }}
+  loop: "{{ claude_code_retired_plugins }}"
+  when: "item in claude_code_plugins_content"
+  changed_when: true
+
+- name: Remove retired plugin marketplaces
+  ansible.builtin.command: claude plugin marketplace remove {{ item }}
+  loop: "{{ claude_code_retired_marketplaces }}"
+  when: >-
+    item in
+    (claude_code_mp_after.content | default('e30=') | b64decode | from_json)
+  changed_when: true
+
 # Read the file right before writing it, below every `claude plugin` step. The
 # CLI writes this same file too — `enable` adds to `enabledPlugins`, and the
 # `extraKnownMarketplaces` map on this host carries CLI-appended entries — so a
