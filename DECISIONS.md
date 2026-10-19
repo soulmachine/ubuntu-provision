@@ -495,3 +495,13 @@
 **Justification:** The user asked for it. Same review, method and revert path as macbook-provision Q253; dev-server-frank's hashes matched mac-mini-m6's.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q253
+
+## Q50 — interactive/grokbot-box — scope-change
+
+**Question:** grokbot-box, the rebuilt grok-bot, runs Debian 13 (trixie), not Ubuntu. Provision it with this repo?
+**Options considered:** patch the Ubuntu-only apt URLs, then bootstrap / install only Claude Code and pstack / stop and rebuild on Ubuntu
+**Chosen:** Patch, then bootstrap. The Docker and Tailscale apt URLs take the distro from `ansible_facts['distribution'] | lower`, which is still `ubuntu` on supermicro and dev-server-frank. Other Debian gaps get fixed as the first run finds them.
+**Decided-by:** human
+**Justification:** Both vendors publish a `debian/trixie` repo (checked 2026-10-19, HTTP 200). With the Ubuntu URL, Docker's source would 404 and break every later `apt update` on the host.
+**Outcome:** applied
+**Ref:** (this commit)
