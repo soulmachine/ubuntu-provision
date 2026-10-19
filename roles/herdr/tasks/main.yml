@@ -87,7 +87,7 @@
 # Multi-line, so blockinfile rather than the lineinfile used for one-line aliases
 # elsewhere. The named marker keeps this block from colliding with any other
 # role's managed block in the same .bashrc. bash has $HOSTNAME where zsh has $HOST.
-- name: Add the herdr shell wrappers (terminal title, claude-gw resume) to .bashrc
+- name: Add the herdr shell wrappers (terminal title, claude-gw and codex-gw routing) to .bashrc
   ansible.builtin.blockinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
     marker: "# {mark} ANSIBLE MANAGED BLOCK: herdr"
@@ -102,11 +102,27 @@
       }
       # herdr restores a claude pane by typing `claude --resume <id>`, which loses claude-gw's gateway
       # and flags. claude-gw marks its sessions in ~/.local/state/claude-gw; resume those through it.
+      # herdr-projects starts its Coordinators by typing `claude …` in their chat folder: always gateway.
       claude() {
-        if [[ -n ${HERDR_ENV:-} && $# -eq 2 && $1 == --resume && -f $HOME/.local/state/claude-gw/$2 ]]; then
+        if [[ -n ${HERDR_ENV:-} && $# -eq 2 && $1 == --resume && -f $HOME/.local/state/claude-gw/$2 ]] ||
+           [[ -n ${HERDR_ENV:-} && $PWD == $HOME/.herdr-projects/data/coordinator/* ]]; then
           claude-gw "$@"
         else
           command claude "$@"
+        fi
+      }
+      # Codex records each session's provider in its file, so `codex resume <id>` of a gateway session goes back through
+      # codex-gw too, and so do Coordinators. codex-gw adds --yolo itself, and codex refuses that flag twice.
+      codex() {
+        if [[ -n ${HERDR_ENV:-} && $# -eq 2 && $1 == resume ]] &&
+           find "$HOME/.codex/sessions" -name "rollout-*-$2.jsonl" -exec head -1 {} + 2>/dev/null |
+             grep -q '"model_provider":"cliproxy"' ||
+           [[ -n ${HERDR_ENV:-} && $PWD == $HOME/.herdr-projects/data/coordinator/* ]]; then
+          local a; local -a args=()
+          for a in "$@"; do [[ $a == --dangerously-bypass-approvals-and-sandbox ]] || args+=("$a"); done
+          codex-gw "${args[@]}"
+        else
+          command codex "$@"
         fi
       }
 
