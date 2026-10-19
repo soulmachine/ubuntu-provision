@@ -485,3 +485,13 @@
 **Justification:** Same call as macbook-provision Q252. On this repo's hosts OpenClaw 2026.10.5 refused the install without `--accept-capabilities` (dev-server-frank, 2026-10-18).
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q252
+
+## Q49 — interactive/context-mode — irreversible-action
+
+**Question:** Trust context-mode's six Codex hooks on this repo's hosts?
+**Options considered:** leave it to the per-host `/hooks` step / trust them headlessly
+**Chosen:** Trusted headlessly on dev-server-frank (plugin installed), and ahead of time on supermicro. grok-bot did not answer ssh and was skipped.
+**Decided-by:** agent
+**Justification:** The user asked for it. Same review, method and revert path as macbook-provision Q253; dev-server-frank's hashes matched mac-mini-m6's.
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q253
