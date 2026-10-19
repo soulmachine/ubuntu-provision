@@ -40,6 +40,14 @@ sudo apt-get install -y --no-install-recommends \
   build-essential curl wget git file procps ca-certificates gnupg \
   python3 python3-apt
 
+# Debian images ship no en_US.UTF-8, yet ssh forwards LANG=en_US.UTF-8 and Ansible refuses an
+# unknown locale (grokbot-box, Q51). Ubuntu already has it, so this is a no-op there.
+if ! locale -a 2>/dev/null | grep -qx 'en_US.utf8'; then
+  sudo apt-get install -y --no-install-recommends locales
+  sudo sed -i 's/^# *\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+  sudo locale-gen
+fi
+
 # ----------------------------------------------------------------------------- Python
 # uv manages the Python that Ansible and the python role's tools run on. No `--default`:
 # that would put a `python3` shim in ~/.local/bin ahead of /usr/bin/python3, and Ubuntu's own

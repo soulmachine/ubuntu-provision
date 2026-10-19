@@ -505,3 +505,13 @@
 **Justification:** Both vendors publish a `debian/trixie` repo (checked 2026-10-19, HTTP 200). With the Ubuntu URL, Docker's source would 404 and break every later `apt update` on the host.
 **Outcome:** applied
 **Ref:** (this commit)
+
+## Q51 — interactive/grokbot-box — deviation
+
+**Question:** On Debian, Ansible stops with "could not initialize the preferred locale", because ssh forwards `LANG=en_US.UTF-8` and the image has no such locale. Where should the fix go?
+**Options considered:** generate en_US.UTF-8 in `bootstrap.sh` / force `LC_ALL=C.UTF-8` in each ssh command / stop forwarding LANG from the Macs
+**Chosen:** `bootstrap.sh` installs `locales` and generates en_US.UTF-8 when `locale -a` lacks it. It skips that step on Ubuntu, where the locale is already present.
+**Decided-by:** agent
+**Justification:** It fixes the host once, so the nightly sweep's ssh command stays the same for every host. Measured on grokbot-box 2026-10-19: `locale -a` listed only C, C.utf8 and POSIX.
+**Outcome:** applied
+**Ref:** (this commit)
