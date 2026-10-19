@@ -37,7 +37,10 @@ npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
   precedes it. Omarchy has no kimi-code, so its copy of this role has no kimi half.
 - **OpenClaw needs `--force` on install.** An npm source sits outside ClawHub review, so
   `openclaw plugins install` refuses without it. The flag also overwrites an existing plugin, so
-  the install is gated on the list. The role uses OpenClaw's own installer rather than upstream's
+  the install is gated on the list. OpenClaw 2026.10.5 also wants `--accept-capabilities` for a
+  plugin that declares capabilities. The install passes it, because installing is the consent. The
+  update does not: a release that widens the capabilities is reported with the command to review
+  and accept it, and the plugin stays at its version until then. The role uses OpenClaw's own installer rather than upstream's
   `npm run install:openclaw` script. It runs only once OpenClaw is onboarded (`~/.openclaw/openclaw.json`).
 - **Codex hook trust is a one-time, per-host step the role does not perform**, as for ponytail. The
   role prints a reminder when it installs the plugin: open `/hooks` in `codex` and trust the six

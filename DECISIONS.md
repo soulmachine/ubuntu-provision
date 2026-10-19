@@ -475,3 +475,13 @@
 **Justification:** The user asked for context-mode in all three provision repos, each agent through its own installer. The reasons for the per-agent calls are in macbook-provision Q248–Q251.
 **Outcome:** applied
 **Ref:** (this commit); macbook-provision Q248–Q251
+
+## Q48 — interactive/context-mode — tradeoff
+
+**Question:** Should OpenClaw's capability consent for context-mode be given on install and on update?
+**Options considered:** install and update / install only / neither
+**Chosen:** Install only. A consent refusal on update is tolerated and reported, and the plugin keeps its version.
+**Decided-by:** agent
+**Justification:** Same call as macbook-provision Q252. On this repo's hosts OpenClaw 2026.10.5 refused the install without `--accept-capabilities` (dev-server-frank, 2026-10-18).
+**Outcome:** applied
+**Ref:** (this commit); macbook-provision Q252
