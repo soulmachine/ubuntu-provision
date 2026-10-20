@@ -51,8 +51,10 @@
 #
 # This is a merge, not a sync: `copy` only writes the files shipped here, so
 # the sibling ~/.pi/agent/skills tree (populated by the `skills` role) and
-# pi's own runtime state are left alone. It does overwrite settings.json on
-# every run, so tweaks made in-app via `/settings` belong in files/ to survive.
+# pi's own runtime state are left alone. settings.json lives outside agent/ and
+# is written by the next two tasks: files/settings.json wins, except that a
+# cliproxy model picked in pi stays (docs/gateway-policy.md). Other tweaks made
+# in-app via `/settings` belong in files/settings.json to survive.
 #
 # That overwrite is also why settings.json's `packages` list carries the
 # `git:github.com/DietrichGebert/ponytail` entry: the `ponytail` role installs
@@ -68,6 +70,30 @@
     dest: "{{ lookup('env', 'HOME') }}/.pi/agent/"
     mode: "0644"
     directory_mode: "0755"
+
+- name: Read pi's current settings
+  ansible.builtin.slurp:
+    src: "{{ lookup('env', 'HOME') }}/.pi/agent/settings.json"
+  register: pi_settings_raw
+  failed_when: false
+  check_mode: false
+
+# Only the old defaults are replaced: a model named without a provider prefix
+# on the cliproxy provider, other than claude-opus-5-5, is the user's pick.
+- name: Install pi settings, keeping a gateway model picked in pi
+  ansible.builtin.copy:
+    content: "{{ lookup('file', 'settings.json') | from_json | combine(pi_keep) | to_nice_json(indent=2, sort_keys=false) }}\n"
+    dest: "{{ lookup('env', 'HOME') }}/.pi/agent/settings.json"
+    mode: "0644"
+  vars:
+    pi_old: "{{ (pi_settings_raw.content | b64decode | from_json) if pi_settings_raw.content is defined else {} }}"
+    pi_keep: >-
+      {{ {'defaultModel': pi_old.defaultModel}
+         if (pi_old.defaultProvider | default('') == 'cliproxy'
+             and pi_old.defaultModel | default('') | length > 0
+             and '/' not in pi_old.defaultModel
+             and pi_old.defaultModel != 'claude-opus-5-5')
+         else {} }}
 
 - name: Add pi-yolo alias to .bashrc
   ansible.builtin.lineinfile:
