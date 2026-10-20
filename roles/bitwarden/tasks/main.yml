@@ -24,14 +24,14 @@
         state: present
 
     - name: Build rbw with cargo
-      ansible.builtin.command: "{{ ansible_env.HOME }}/.cargo/bin/cargo install --locked rbw"
+      ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/cargo install --locked rbw"
       args:
-        creates: "{{ ansible_env.HOME }}/.cargo/bin/rbw"
+        creates: "{{ lookup('env', 'HOME') }}/.cargo/bin/rbw"
 
     - name: Link rbw onto the system PATH
       become: true
       ansible.builtin.file:
-        src: "{{ ansible_env.HOME }}/.cargo/bin/rbw"
+        src: "{{ lookup('env', 'HOME') }}/.cargo/bin/rbw"
         dest: /usr/local/bin/rbw
         state: link
 
