@@ -10,6 +10,30 @@
   ansible.builtin.apt:
     name: rbw
     state: present
+  when: ansible_distribution != 'Debian'
+
+# Debian 13 ships no rbw package (grokbot-box), so build it with cargo and link it onto the
+# system PATH for the config tasks; pinentry-curses keeps `rbw unlock` working over ssh.
+- name: Install rbw on Debian
+  when: ansible_distribution == 'Debian'
+  block:
+    - name: Install pinentry-curses
+      become: true
+      ansible.builtin.apt:
+        name: pinentry-curses
+        state: present
+
+    - name: Build rbw with cargo
+      ansible.builtin.command: "{{ ansible_env.HOME }}/.cargo/bin/cargo install --locked rbw"
+      args:
+        creates: "{{ ansible_env.HOME }}/.cargo/bin/rbw"
+
+    - name: Link rbw onto the system PATH
+      become: true
+      ansible.builtin.file:
+        src: "{{ ansible_env.HOME }}/.cargo/bin/rbw"
+        dest: /usr/local/bin/rbw
+        state: link
 
 - name: Install the Bitwarden CLI from npm
   ansible.builtin.include_role:
