@@ -120,8 +120,8 @@ pre-commit run --all-files
 | pi | pi coding agent：bun 全局 `@earendil-works/pi-coding-agent`，并下发 `~/.pi/agent/` 下的 settings、models 与扩展（依赖 bun） |
 | copilot | GitHub Copilot CLI（npm `@github/copilot`）；只经 CLIProxyAPI 使用：`copilot-gw` 由 mac-mini-m2 上的 `cliproxy-tier` 写入（依赖 nodejs） |
 | crush | Crush（Charm，npm `@charmland/crush`）；`~/.config/crush/crushrc` 里的网关 provider 由 `cliproxy-tier` 写入（依赖 nodejs） |
-| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini-gw` 与（没有 Google 登录时）`~/.gemini/settings.json` 由 `cliproxy-tier` 写入（依赖 nodejs） |
-| grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`~/.grok/config.toml` 的网关模型由 `cliproxy-tier` 写入（依赖 nodejs） |
+| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini-gw` 及其网关配置（`~/.gemini-gw`）由 `cliproxy-tier` 写入，`gemini` 本身保持原生（依赖 nodejs） |
+| grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`grok-gw` 及其网关配置（`~/.grok-gw`）由 `cliproxy-tier` 写入，`grok` 本身保持原生（依赖 nodejs） |
 | openclaw | OpenClaw（npm `openclaw`）；onboarding、网关 provider 与常驻 daemon 由 mac-mini-m2 上的 `cliproxy-tier` 负责（依赖 nodejs） |
 | agent-sync | 把 `~/.agents/` 同步到每个已安装 agent 的技能目录与指令文件；从 GitHub release 下载 linux-x64/arm64 tar 包到 `~/.local/bin`，按最新 release 版本号更新，SHA256SUMS.txt 校验 |
 | skills | 用 `npx skills@latest add` 安装所有技能源到 `~/.agents/skills`（每次运行都刷新，以 store 指纹判断 changed），部分源按名单安装；用 `agent-sync adopt` 收编 `~/github.com/soulmachine/skills` 与 OpenSWE 仓库中的自写技能，`agent-sync sync` 扇出，并检查各 agent 的指令接线；孤儿目录只报告不删除（依赖 claude-code、codex、agent-sync） |
@@ -200,7 +200,7 @@ pre-commit run --all-files
 
 - **Codex 的 hook 信任**是一次性的、每台机器各做一次：跑 `codex`、打开 `/hooks`，审核并信任 ponytail 的三个生命周期 hook，然后开一个新 thread。
 - **opencode 的 provider 认证**没有做：安装器带的是 `--skip-auth`。
-- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** `copilot-gw`、`gemini-gw`（主机有自己的 Google 登录时 Gemini 保持原生）、grok、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
+- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** `copilot-gw`、`gemini-gw`、`grok-gw`、`kimi-gw`、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
 - **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。
