@@ -118,7 +118,7 @@
         {
           "id": "deepseek-v4.1-flash",
           "name": "DeepSeek V4.1 Flash",
-          "reasoning": false,
+          "reasoning": true,
           "input": [
             "text"
           ],
