@@ -178,8 +178,9 @@ if ssh-keygen -F github.com &>/dev/null; then
     echo "github.com already in known_hosts — skipping."
 else
     echo "Adding github.com to known_hosts…"
-    ssh-keyscan github.com >> "$HOME/.ssh/known_hosts"
-    CHANGED=true
+    # A host whose outbound port 22 is blocked (grokbot-box) still registers its key over the API.
+    if ssh-keyscan -T 10 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null; then CHANGED=true
+    else echo "github.com unreachable on port 22 — skipping known_hosts; use git over https (gh auth setup-git)."; fi
 fi
 
 KEY_BODY=$(awk '{print $1, $2}' "$PUBLIC_KEY_FILE")
