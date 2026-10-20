@@ -535,3 +535,13 @@
 **Justification:** cargo is already on the host from the rust role, and the build needs no new trust root. The rest of the role stays the same on both distros.
 **Outcome:** applied
 **Ref:** 101b246
+
+## Q54 — interactive/grokbot-box — deviation
+
+**Question:** On grokbot-box, Playwright's `install-deps` failed in 2 of 4 full runs because deb.debian.org returned HTTP 500 to its `apt-get update`. Twelve test requests a few minutes later all returned 200. How should the play handle a mirror error that comes and goes?
+**Options considered:** retry the task / switch the host to another mirror / rerun the play by hand
+**Chosen:** The task retries up to 3 times, 30 s apart.
+**Decided-by:** agent
+**Justification:** The error is on the mirror's side and short, so a retry fixes it on every host without changing any host's apt sources. A mirror change touches the host's config and needs Frank.
+**Outcome:** applied
+**Ref:** (this commit)

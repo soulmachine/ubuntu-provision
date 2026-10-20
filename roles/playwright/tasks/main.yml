@@ -42,6 +42,11 @@
     # dir as the playwright binary) ahead of the standard system paths.
     PATH: "{{ playwright_bin.stdout | dirname }}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
   changed_when: false
+  # It runs its own `apt-get update`, and deb.debian.org returns a passing HTTP 500 (Q54).
+  register: playwright_deps
+  retries: 3
+  delay: 30
+  until: playwright_deps.rc == 0
 
 # `playwright install` locks the shared browser cache (__dirlock in
 # ~/.cache/ms-playwright) at the top of its install(), *before* it checks whether
