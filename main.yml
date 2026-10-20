@@ -47,15 +47,20 @@
     - browseros-neo
     - ponytail
     - context-mode
+    # paseo, orca and tailscale run systemd daemons, so a container whose PID 1 is not
+    # systemd (grokbot-box, tini) skips them; its tailscaled runs outside Ansible (Q52).
     - role: paseo
       tags: [agent-multiplexer]
+      when: ansible_facts['service_mgr'] == 'systemd'
     - role: orca
       tags: [agent-multiplexer]
+      when: ansible_facts['service_mgr'] == 'systemd'
     - cloudflare
     - multica-cli
     - purelymail
     - email
-    - tailscale
+    - role: tailscale
+      when: ansible_facts['service_mgr'] == 'systemd'
     - role: zellij
       tags: [terminal-multiplexer]
     - role: tmux

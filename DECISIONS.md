@@ -515,3 +515,23 @@
 **Justification:** It fixes the host once, so the nightly sweep's ssh command stays the same for every host. Measured on grokbot-box 2026-10-19: `locale -a` listed only C, C.utf8 and POSIX.
 **Outcome:** applied
 **Ref:** (this commit)
+
+## Q52 — interactive/grokbot-box — deviation
+
+**Question:** grokbot-box is a container whose PID 1 is `tini`, not systemd, so the paseo role stopped at `loginctl enable-linger`. orca and tailscale need systemd too. How should the play handle it?
+**Options considered:** skip the three roles when `service_mgr` is not systemd / guard each systemd task inside the roles / run the daemons another way (supervisor, a bashrc launcher)
+**Chosen:** `main.yml` skips paseo, orca and tailscale when `ansible_facts['service_mgr'] != 'systemd'`. Every systemd host still runs them unchanged.
+**Decided-by:** agent
+**Justification:** All three roles exist to run a systemd daemon, so guarding task by task would leave half-configured roles. tailscaled already runs on the box in userspace mode, started outside Ansible (checked 2026-10-19). Paseo and Orca servers there are not needed for the gateway work; run them another way only if Frank wants them.
+**Outcome:** applied
+**Ref:** (this commit)
+
+## Q53 — interactive/grokbot-box — deviation
+
+**Question:** Debian 13 has no `rbw` package, so the bitwarden role failed. How should it get `rbw`?
+**Options considered:** build it with cargo on Debian / skip bitwarden on Debian / download a release binary
+**Chosen:** On Debian, install `pinentry-curses`, `cargo install rbw`, and link it to `/usr/local/bin/rbw`, where the config tasks expect it. Ubuntu keeps the apt package.
+**Decided-by:** agent
+**Justification:** cargo is already on the host from the rust role, and the build needs no new trust root. The rest of the role stays the same on both distros.
+**Outcome:** applied
+**Ref:** 101b246
