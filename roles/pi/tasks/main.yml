@@ -118,12 +118,13 @@
 - name: Add pi-yolo alias to .bashrc
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
-    line: 'alias pi-yolo="pi --thinking high --approve"'
+    line: 'alias pi-yolo="pi --thinking max --approve"'
     regexp: '^alias pi-yolo='
     state: present
 
-- name: Remove pi-yolo-kimi alias from .bashrc (k3 is no pi model; Q270)
+- name: Add pi-yolo-kimi alias to .bashrc
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    line: 'alias pi-yolo-kimi="pi --thinking max --approve --model k3"'
     regexp: '^alias pi-yolo-kimi='
-    state: absent
+    state: present
