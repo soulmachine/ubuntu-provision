@@ -1,8 +1,8 @@
 ---
 browseros_neo_home: "{{ lookup('env', 'HOME') }}"
 
-# neo is a desktop browser. supermicro has a desktop (GNOME Flashback on seat0); dev-server-frank
-# is a headless Nickel host and stays without it (DECISIONS Q34).
+# neo is a desktop browser. supermicro has a desktop (GNOME Flashback on seat0); the
+# other hosts stay without it (DECISIONS Q34).
 browseros_neo_hosts:
   - supermicro
 

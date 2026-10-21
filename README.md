@@ -2,7 +2,7 @@
 
 使用 Ansible 自动化 **Ubuntu** 开发环境配置：系统软件通过 **apt** 安装，语言运行时交给 mise，其余工具沿用各自官方的 `curl | sh` 安装脚本与 `npm` / `bun` / `uv` 全局包。shell 是 Ubuntu 自带的 **bash**，配 starship、zoxide、fzf 与 Omarchy 的 shell 环境。
 
-本仓库是同目录 `macbook-provision`（macOS 版）的 Ubuntu 移植版，目标 **Ubuntu 26.04 LTS（amd64）**，服务于 supermicro、dev-server-frank 与 grok-bot 三台机器。与上游的对应关系（同步到的 commit、刻意省略的 role）记在 `AGENTS.md` 的 "Upstream" 一节，每一处有意的差异记在 `DECISIONS.md`。
+本仓库是同目录 `macbook-provision`（macOS 版）的 Ubuntu 移植版，目标 **Ubuntu 26.04 LTS（amd64）**，服务于 supermicro 与 grok-bot 两台机器。与上游的对应关系（同步到的 commit、刻意省略的 role）记在 `AGENTS.md` 的 "Upstream" 一节，每一处有意的差异记在 `DECISIONS.md`。
 
 ## 语言运行时
 
@@ -111,8 +111,8 @@ pre-commit run --all-files
 | claude-code | Claude Code CLI 及插件；`~/.claude/settings.json` 的合并与 `claude-yolo` 别名（依赖 nodejs） |
 | claude-extras | Claude Code 周边工具：npm `@inulute/cux`、uv 工具 `claude-swap`（依赖 nodejs、uv、claude-code） |
 | typesafe | TypeSafe Jev 模型相关的一切：官方 `typesafe-ai` skill（不需要 key），以及两个 Claude Code 插件 fast-jev-compaction 与 claude-jev；把 `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` 与 `TYPESAFE_API_KEY` 写入 `~/.claude/settings.json` 的 `env`；`.env` 无 `TYPESAFE_API_KEY` 时只跳过插件部分（依赖 claude-code、nodejs） |
-| 1password | 1Password 桌面 App 与官方 CLI `op`，都来自 1Password 的 apt 仓库，由 apt role 升级；仓库的 keyring 与 `/etc/apt/sources.list.d/1password.sources` 和 `1password` 包的 postinst 写的逐字节相同，两边互不覆盖；没有桌面会话的主机（dev-server-frank）只装 CLI；再装官方 Claude Code 插件 [`1password@1password`](https://github.com/1Password/1password-claude-plugin)；App 的 Settings → Developer 中「Integrate with 1Password CLI」与「Integrate with MCP clients」两个开关和登录需手动（依赖 claude-code） |
-| bitwarden | Bitwarden 客户端（用于自建的 Vaultwarden）：apt `rbw`（依赖 `pinentry-curses`，ssh 下可用）、npm 全局 `@bitwarden/cli`（命令 `bw`）；有桌面会话（`/usr/share/xsessions` 或 `/usr/share/wayland-sessions` 下有 `.desktop`）的主机再装官方 Electron 桌面 App：跟随 `vault.bitwarden.com` 下载链接的重定向得到最新 `.deb` 的版本，与 `dpkg-query` 不同才下载安装（supermicro 装，dev-server-frank 无桌面跳过）；再把 `bw` 的 server 与 `rbw` 的 `base_url`/`email` 设为 `https://vaultwarden.soulmachine.me` 与 `soulmachine@gmail.com`（先读、不同才写）；桌面 App 的服务器与所有登录仍需手动（依赖 nodejs） |
+| 1password | 1Password 桌面 App 与官方 CLI `op`，都来自 1Password 的 apt 仓库，由 apt role 升级；仓库的 keyring 与 `/etc/apt/sources.list.d/1password.sources` 和 `1password` 包的 postinst 写的逐字节相同，两边互不覆盖；没有桌面会话的主机只装 CLI；再装官方 Claude Code 插件 [`1password@1password`](https://github.com/1Password/1password-claude-plugin)；App 的 Settings → Developer 中「Integrate with 1Password CLI」与「Integrate with MCP clients」两个开关和登录需手动（依赖 claude-code） |
+| bitwarden | Bitwarden 客户端（用于自建的 Vaultwarden）：apt `rbw`（依赖 `pinentry-curses`，ssh 下可用）、npm 全局 `@bitwarden/cli`（命令 `bw`）；有桌面会话（`/usr/share/xsessions` 或 `/usr/share/wayland-sessions` 下有 `.desktop`）的主机再装官方 Electron 桌面 App：跟随 `vault.bitwarden.com` 下载链接的重定向得到最新 `.deb` 的版本，与 `dpkg-query` 不同才下载安装（supermicro 装，无桌面的主机跳过）；再把 `bw` 的 server 与 `rbw` 的 `base_url`/`email` 设为 `https://vaultwarden.soulmachine.me` 与 `soulmachine@gmail.com`（先读、不同才写）；桌面 App 的服务器与所有登录仍需手动（依赖 nodejs） |
 | codex | OpenAI Codex CLI（npm `@openai/codex`）（依赖 nodejs） |
 | opencode | OpenCode CLI（npm `opencode-ai`）；并用 `npx oh-my-openagent` 写入 `~/.config/opencode/opencode.json`，由版本戳门控，避免每次 play 重装（依赖 nodejs） |
 | kimi-code | Kimi Code CLI（通过官方 code.kimi.com 脚本安装）；`kimi upgrade` 报告有新版时重跑安装脚本 |
@@ -131,7 +131,7 @@ pre-commit run --all-files
 | playwright-cli | Playwright CLI：npm 全局 `@playwright/cli@latest`，每次先删除再全局安装其 skill，按校验和判定变更（依赖 playwright） |
 | claude-mem | Claude 记忆插件；`npx -y claude-mem install` 为 claude-code / codex-cli / opencode 三者接线，observer 走 fleet gateway（依赖 nodejs、bun、uv、claude-code、codex、opencode） |
 | hermes | Hermes 个人 agent（Nous Research），并把 `~/.hermes/SOUL.md` 链接到 `~/.agents/AGENTS.md`；Linux 主机常驻开机，无条件安装 |
-| browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`；dev-server-frank 无桌面）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
+| browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
 | ponytail | 给所有 agent 安装 [ponytail](https://github.com/DietrichGebert/ponytail) 插件：Claude Code / Codex / OpenCode / pi / oh-my-pi / Hermes 各用其原生安装方式（依赖 nodejs、claude-code、codex、opencode、pi、omp、hermes） |
 | context-mode | 给所有 agent 安装 [context-mode](https://github.com/mksglu/context-mode)：Claude Code / Codex / OpenCode / pi / oh-my-pi / Gemini CLI / Copilot CLI / kimi-code / OpenClaw 各用其原生安装方式；Hermes、Crush、Grok 上游没有适配，不装（依赖 nodejs 和上述各 agent 的 role） |
 | paseo | agent 多路复用：npm 全局 `@getpaseo/cli`（CLI + daemon），daemon 以 systemd user unit 运行（`bash -lc`，开启 linger），启用 relay（配对仍需手动 `paseo daemon pair`）与插件并安装 `npm:@oliexe/paseo-bots`；daemon 未运行时记录下来、在 play 末尾才报错；tag `agent-multiplexer`（依赖 nodejs、claude-code、codex） |

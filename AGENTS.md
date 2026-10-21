@@ -1,4 +1,4 @@
-Ansible playbook that provisions Frank's Ubuntu hosts (supermicro, dev-server-frank, grok-bot) with apt,
+Ansible playbook that provisions Frank's Ubuntu hosts (supermicro, grok-bot) with apt,
 mise, npm and agent installers. Every host runs it on itself. It is the Ubuntu port of the sibling
 `macbook-provision` repo; see "Upstream" below for how the two stay in step.
 

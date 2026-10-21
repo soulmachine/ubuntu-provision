@@ -43,7 +43,7 @@
     nodejs_npm_package: "@bitwarden/cli"
     nodejs_npm_cmd: bw
 
-# Headless means no X11 or Wayland session file (DECISIONS Q36): dev-server-frank has none,
+# Headless means no X11 or Wayland session file (DECISIONS Q36): a headless server has none,
 # supermicro's GNOME Flashback has one.
 - name: Look for a desktop session
   ansible.builtin.find:
