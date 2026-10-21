@@ -1,0 +1,94 @@
+---
+# DeepSeek Harness (`dsh`) and the plugins in vars/main.yml. `dsh plugin --profile <p> …` runs
+# pnpm in ~/.dsh/profiles/<p>/ and finds `pnpm` through PATH, so pnpm is installed first.
+- name: Install pnpm from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: pnpm
+    nodejs_npm_cmd: pnpm
+
+- name: Install DeepSeek Harness from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: "@deepseek-ai/dsh"
+    nodejs_npm_cmd: dsh
+
+# A profile that does not exist yet has no package.json; `dsh plugin` creates it on first use.
+- name: Read the dsh profile manifests
+  ansible.builtin.slurp:
+    src: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/package.json"
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+  register: dsh_manifests
+  failed_when: false
+  check_mode: false
+
+- name: Collect the plugins each dsh profile already has
+  ansible.builtin.set_fact:
+    dsh_installed: "{{ dsh_installed | default({}) | combine({item.item: (item.content | b64decode | from_json).dependencies | default({})}) }}"
+  loop: "{{ dsh_manifests.results | selectattr('content', 'defined') }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# dsh rejects a plugin whose declared requirements the running dsh does not meet (dsh-find-plugin
+# 0.4.0 on dsh 0.2.1-rc.2, 2026-10-21) and installs nothing. Warn and go on, so the plugin lands on
+# the first run after a compatible release; the exemption (`allow-version`) is Frank's call.
+- name: Add the missing dsh plugins
+  ansible.builtin.command: dsh plugin --profile {{ item.profile }} add {{ item.args | default('') }} {{ item.spec }}
+  loop: "{{ dsh_plugins }}"
+  loop_control:
+    label: "{{ item.profile }}: {{ item.spec }}"
+  when: item.name | default(item.spec) not in (dsh_installed | default({})).get(item.profile, {})
+  register: dsh_add
+  changed_when: dsh_add.rc == 0
+  failed_when: false
+
+- name: Warn that dsh could not add a plugin
+  ansible.builtin.debug:
+    msg:
+      - "`{{ item.cmd | join(' ') }}` exited {{ item.rc }}:"
+      - "{{ item.stderr | default('') | trim }}"
+  loop: "{{ dsh_add.results | rejectattr('skipped', 'defined') | rejectattr('rc', 'eq', 0) }}"
+  loop_control:
+    label: "{{ item.item.profile }}: {{ item.item.spec }}"
+
+# `update --latest` moves each plugin to its npm `latest` tag, the two --save-exact pins too
+# (pnpm keeps them exact). Plain `update` holds a 0.x caret such as ^0.16.1 to patch releases.
+# pnpm's default minimumReleaseAge holds back a release younger than a day; the next run takes it.
+# The lockfile records every resolved version and git commit, so its checksum is the diff.
+- name: Record the dsh plugin lockfiles before updating
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/pnpm-lock.yaml"
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+  register: dsh_lock_before
+
+# failed_when: false, as in the omp role: a registry or GitHub hiccup leaves the installed
+# plugins working, so it should not stop the roles after this one. The warning says what to rerun.
+- name: Update the dsh plugins
+  ansible.builtin.command: dsh plugin --profile {{ item }} update --latest
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+  register: dsh_update
+  changed_when: false
+  failed_when: false
+
+- name: Check whether the dsh plugins were updated
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/pnpm-lock.yaml"
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+  loop_control:
+    index_var: dsh_i
+  register: dsh_lock_after
+  # Inside a loop, the registered name holds this item's result.
+  changed_when: dsh_lock_after.stat.checksum | default('') != dsh_lock_before.results[dsh_i].stat.checksum | default('')
+
+- name: Warn that dsh could not update a profile's plugins
+  ansible.builtin.debug:
+    msg:
+      - "`dsh plugin --profile {{ item.item }} update --latest` exited {{ item.rc }}: {{ item.stderr | default('') | trim }}"
+      - "The installed plugins keep working, but they may be behind. Rerun that command by hand."
+  loop: "{{ dsh_update.results | rejectattr('skipped', 'defined') | rejectattr('rc', 'eq', 0) }}"
+  loop_control:
+    label: "{{ item.item }}"

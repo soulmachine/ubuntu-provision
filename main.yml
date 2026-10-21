@@ -37,6 +37,7 @@
     - gemini
     - grok
     - openclaw
+    - dsh
     - agent-sync
     - skills
     - agent-reach

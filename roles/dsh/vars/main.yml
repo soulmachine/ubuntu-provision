@@ -1,0 +1,16 @@
+---
+# Plugins per dsh profile. `spec` is what `pnpm add` takes; `name` is the key it writes under
+# `dependencies` in ~/.dsh/profiles/<profile>/package.json, given only where it differs from `spec`.
+dsh_plugins:
+  - { profile: tui, spec: "@deepseek-harness-tui/dsh-tui" }
+  - { profile: web, spec: dshmarket }
+  - { profile: web, spec: dsh-find-plugin }
+  - { profile: web, spec: dsh-pocket, args: -w }
+  - { profile: web, spec: "@nanmicoder/dsh-agent-teams", args: --save-exact }
+  - { profile: tui, spec: "@nanmicoder/dsh-agent-teams", args: --save-exact }
+  - { profile: web, spec: "@vectorize-io/hindsight-coding-agents" }
+  - { profile: tui, spec: "@vectorize-io/hindsight-coding-agents" }
+  # Not on npm; Frank's pick of the GitHub repo.
+  - { profile: web, spec: "github:mmparko/dsh-purge", name: dsh-purge }
+  - { profile: tui, spec: "github:mmparko/dsh-purge", name: dsh-purge }
+  - { profile: web, spec: dsh-context }
