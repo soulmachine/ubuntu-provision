@@ -63,7 +63,7 @@
 # would stop loading a checkout still on disk (roles/ponytail/tasks/pi.yml).
 # The payload carries the cliproxy provider + defaultModel: this copy used to overwrite
 # the hand-installed gateway config every night (the "pi rewrites its config" mystery
-# behind cliproxy-assert-pi). pi is gateway-only by policy; see DECISIONS.md Q81.
+# fixed in macbook-provision Q77). pi is gateway-only by policy; see DECISIONS.md Q81.
 - name: Install pi agent configuration
   ansible.builtin.copy:
     src: agent/
