@@ -53,7 +53,7 @@
 # the sibling ~/.pi/agent/skills tree (populated by the `skills` role) and
 # pi's own runtime state are left alone. settings.json lives outside agent/ and
 # is written by the next two tasks: files/settings.json wins, except that a
-# cliproxy model picked in pi stays (docs/gateway-policy.md). Other tweaks made
+# cliproxy model picked in pi stays (~/coding-agent/devops/cliproxyapi/gateway-policy.md). Other tweaks made
 # in-app via `/settings` belong in files/settings.json to survive.
 #
 # That overwrite is also why settings.json's `packages` list carries the
