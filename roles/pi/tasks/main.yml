@@ -61,15 +61,35 @@
 # that package with `pi install`, which appends exactly this string, and
 # without it here every run of this copy would strip the entry again and pi
 # would stop loading a checkout still on disk (roles/ponytail/tasks/pi.yml).
-# The payload carries the cliproxy provider + defaultModel: this copy used to overwrite
-# the hand-installed gateway config every night (the "pi rewrites its config" mystery
-# fixed in macbook-provision Q77). pi is gateway-only by policy; see DECISIONS.md Q81.
+# models.json lives outside agent/ too: cliproxy-tier writes its cliproxy provider
+# from GW_MODELS, and the next tasks keep it (macbook-provision Q273). Before Q77 this copy
+# dropped the gateway config every night. pi is gateway-only by policy; see DECISIONS.md Q81.
 - name: Install pi agent configuration
   ansible.builtin.copy:
     src: agent/
     dest: "{{ lookup('env', 'HOME') }}/.pi/agent/"
     mode: "0644"
     directory_mode: "0755"
+
+- name: Read pi's current models
+  ansible.builtin.slurp:
+    src: "{{ lookup('env', 'HOME') }}/.pi/agent/models.json"
+  register: pi_models_raw
+  failed_when: false
+  check_mode: false
+
+# files/models.json wins, except the cliproxy provider. A new host has none until
+# its first `cliproxy-tier` run, which it needs for the gateway key anyway.
+- name: Install pi models, keeping the cliproxy provider cliproxy-tier wrote
+  ansible.builtin.copy:
+    content: "{{ lookup('file', 'models.json') | from_json | combine(pi_gw, recursive=True) | to_nice_json(indent=2, sort_keys=false) }}\n"
+    dest: "{{ lookup('env', 'HOME') }}/.pi/agent/models.json"
+    mode: "0644"
+  vars:
+    pi_cur: "{{ (pi_models_raw.content | b64decode | from_json) if pi_models_raw.content is defined else {} }}"
+    pi_gw: >-
+      {{ {'providers': {'cliproxy': pi_cur.providers.cliproxy}}
+         if 'cliproxy' in pi_cur.get('providers', {}) else {} }}
 
 - name: Read pi's current settings
   ansible.builtin.slurp:
