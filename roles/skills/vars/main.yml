@@ -71,7 +71,7 @@ skills_selfauthored_repos:
 #     were deleted fleet-wide on 2026-09-15 (Q88), so a line here would *install* those
 #     four rather than adopt anything. Claude's `plannotator-annotate`/`-last`/`-review`
 #     variants and the plannotator program were removed from the fleet on 2026-10-09
-#     (coding-agent Q329-Q331), with backups in `~/backups/` on m2 and macbook-air.
+#     (coding-agent Q329-Q331), with backups in `~/backups/` on m2 and macbook-pro-m3.
 skills_sources:
   - jimliu/baoyu-skills
   - mattpocock/skills
