@@ -9,6 +9,7 @@ python_cli_tools:
   - ruff
   - pre-commit
   - httpie
+  - pgcli
 
 # Extra packages to install *into* a tool's own uv environment, as
 # `<tool>: <package>`. uv gives each tool an isolated environment, and
@@ -19,6 +20,9 @@ python_cli_tools:
 # ansible-core.
 python_cli_tool_extras:
   ansible-lint: ansible
+  # pgcli depends on pure-Python psycopg, which needs a system libpq that no role
+  # installs; psycopg-binary bundles one.
+  pgcli: psycopg-binary
 
 # arm64 only, as upstream, where both pull native wheels that no longer build
 # for macOS x86_64. The gate is kept on Linux so the two repos stay in step.

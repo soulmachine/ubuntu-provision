@@ -101,7 +101,7 @@ pre-commit run --all-files
 | direnv | 目录级环境变量管理（apt），并在 `~/.bashrc` 挂载 hook |
 | dotenv | 不装任何软件；把 `.env` 以托管块写入 `~/.bashrc` 的非交互守卫之上，让非交互式 shell（`ssh host 'cmd'`、git hook、systemd）也能读到其中的变量 |
 | uv | Python 包与工具管理器（通过官方 astral.sh 脚本安装）；每次 `uv self update`，按版本差异判定变更，并写入 bash 补全 |
-| python | 用 `uv tool install <tool>@latest` 安装 Python 命令行工具：yamllint、ansible-lint、ruff、pre-commit、httpie；arm64/aarch64 另加 openai-whisper、whisper-ctranslate2（依赖 uv） |
+| python | 用 `uv tool install <tool>@latest` 安装 Python 命令行工具：yamllint、ansible-lint、ruff、pre-commit、httpie、pgcli；arm64/aarch64 另加 openai-whisper、whisper-ctranslate2（依赖 uv） |
 | mise | 运行时版本管理器（由 bootstrap.sh 独立安装）；本 role 用 `mise self-update` 保持其最新，并维护 `~/.bashrc` 里的三行（`~/.local/bin` 与 shims 的 PATH 在守卫之上，`mise activate bash` 在末尾）；go、nodejs、jdk 都建立在它之上 |
 | go | Go 语言（通过 mise 安装），按 `mise ls --json` 前后差异判定变更 |
 | nodejs | Node.js LTS（通过 mise 安装）并 `mise upgrade node` 到最新 LTS 补丁版 |
