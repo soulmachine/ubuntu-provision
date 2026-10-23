@@ -129,7 +129,7 @@ pre-commit run --all-files
 | agent-reach | 多渠道触达工具；上游只提供面向 AI agent 的安装文档，故由 `claude-gw -p` 按文档驱动安装；不装 OpenCLI（依赖 claude-code、python、nodejs、github） |
 | playwright | 浏览器自动化：npm 全局 `playwright@latest`，`install-deps` 安装系统依赖，按 `--dry-run` 判断是否需要下载 Chromium，锁冲突时重试（依赖 nodejs） |
 | playwright-cli | Playwright CLI：npm 全局 `@playwright/cli@latest`，每次先删除再全局安装其 skill，按校验和判定变更（依赖 playwright） |
-| claude-mem | Claude 记忆插件；`npx -y claude-mem install` 为 claude-code / codex-cli / opencode 三者接线，observer 走 fleet gateway（依赖 nodejs、bun、uv、claude-code、codex、opencode） |
+| claude-mem | 移除用 role（2026-10-23 起）：跑 `npx -y claude-mem uninstall`，清掉它留在 Gemini、Codex、opencode 里的接线，删除 `~/.claude-mem`；所有主机跑过后删掉本 role（依赖 nodejs） |
 | hermes | Hermes 个人 agent（Nous Research），并把 `~/.hermes/SOUL.md` 链接到 `~/.agents/AGENTS.md`；Linux 主机常驻开机，无条件安装 |
 | browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
 | ponytail | 给所有 agent 安装 [ponytail](https://github.com/DietrichGebert/ponytail) 插件：Claude Code / Codex / OpenCode / pi / oh-my-pi / Hermes 各用其原生安装方式（依赖 nodejs、claude-code、codex、opencode、pi、omp、hermes） |
@@ -151,7 +151,7 @@ pre-commit run --all-files
 - **没有 host-facts。** 上游按机型判断是否常驻开机；这里 Linux 主机一律常驻，hermes、ponytail、paseo 无条件安装。
 - **没有 GUI。** 上游的桌面应用、编辑器、cc-switch、ghostty、obsidian 等一概不装，也不留空 role。例外只有三个：browseros-neo 只装在 supermicro，bitwarden 与 1password 的桌面 App 只装在有桌面会话的主机。
 - **apt 会升级。** `apt` role 每次 `full-upgrade`，对应上游的 `brew upgrade`；内核升级后需要手工重启。
-- **gateway 是前提。** claude-mem 的 observer、agent-reach 与 pi 的默认模型都走 mac-mini-m2 上的 CLIProxyAPI（`CLIPROXY_API_KEY` / `CLIPROXY_BASE_URL` 与 `claude-gw` 包装脚本由 `cliproxy-tier` 写到每台机器）。没有这些的机器上，这几个 role 会直接失败，这是有意的。
+- **gateway 是前提。** agent-reach 与 pi 的默认模型都走 mac-mini-m2 上的 CLIProxyAPI（`CLIPROXY_API_KEY` / `CLIPROXY_BASE_URL` 与 `claude-gw` 包装脚本由 `cliproxy-tier` 写到每台机器）。没有这些的机器上，这几个 role 会直接失败，这是有意的。
 
 ### Agent CLI 与技能
 
@@ -173,7 +173,6 @@ pre-commit run --all-files
 | grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；经网关用 `grok-gw` |
 | openclaw | npm 全局 `openclaw` | 命令 `openclaw`；常驻 daemon 由 `cliproxy-tier` 的 onboarding 安装 |
 | dsh | npm 全局 `@deepseek-ai/dsh`（加 `pnpm`） | 命令 `dsh`；插件在 `~/.dsh/profiles/<profile>/` |
-| claude-mem | `npx -y claude-mem install` | 不是独立命令，而是 Claude Code 插件，同时接线 codex-cli 和 opencode |
 | agent-reach | **没有包管理器**，见下 | 由 `claude-gw -p` 按上游文档安装 |
 
 这六个 agent（copilot、crush、gemini、grok、openclaw、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
@@ -207,4 +206,3 @@ pre-commit run --all-files
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。
 - **orca 的配对**：服务不打印配对链接；先停服务，在终端跑 `orca-ide serve --port 6768 --pairing-address <tailscale-ip>`，把链接贴进客户端的 **Add Server**。
-- **`claude-mem` 的模型 id 要手工升级。** `roles/claude-mem/vars/main.yml` 里的模型 id 一旦下架就是一个硬错误，**会让 play 失败**。

@@ -43,6 +43,7 @@
     - agent-reach
     - playwright
     - playwright-cli
+    # REMOVAL role since 2026-10-23
     - claude-mem
     - hermes
     - browseros-neo

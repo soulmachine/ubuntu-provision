@@ -1,62 +1,25 @@
 ---
-# Install parameters shared by every `claude-mem install` invocation.
-#
-# NOTE on the model: `claude-mem install` checks `--model` against a short
-# allowlist (v13.31.0: claude-haiku-4-5-20251001, claude-sonnet-5,
-# claude-opus-4-8) and fails the play with `Unknown Claude model` on anything
-# else — but only when the auth method is not `gateway`. Under `gateway` it
-# saves any id as given. The role writes `CLAUDE_MEM_CLAUDE_AUTH_METHOD: gateway`
-# (claude_mem_settings below) *before* the install, which is what lets an id the
-# allowlist has not caught up with, like this one, through — and is why the
-# method stays `gateway` though the key sits in .env as ANTHROPIC_API_KEY
-# (`api-key` would enforce the allowlist again). The gateway must
-# serve the id: `curl $CLIPROXY_BASE_URL/v1/messages` with it before bumping.
-claude_mem_provider: claude
-claude_mem_model: claude-sonnet-5-5
-claude_mem_runtime: worker
+# Paths for the removal role (see tasks/main.yml).
+claude_mem_home: "{{ lookup('env', 'HOME') }}"
+claude_mem_dir: "{{ claude_mem_home }}/.claude-mem"
+claude_mem_marketplace: "{{ claude_mem_home }}/.claude/plugins/marketplaces/thedotmack"
 
-claude_mem_dir: "{{ lookup('env', 'HOME') }}/.claude-mem"
+claude_mem_leftovers:
+  - "{{ claude_mem_dir }}"
+  - "{{ claude_mem_marketplace }}"
+  - "{{ claude_mem_home }}/.claude/plugins/cache/thedotmack"
+  - "{{ claude_mem_home }}/.claude/plugins/data/claude-mem-thedotmack"
+  - "{{ claude_mem_home }}/.claude/plugins/data/claude-mem-inline"
+  - "{{ claude_mem_home }}/.codex/plugins/cache/claude-mem-local"
+  - "{{ claude_mem_home }}/.config/opencode/plugins/claude-mem.js"
+  - "{{ claude_mem_home }}/.openclaw/extensions/claude-mem"
 
-# The settings this role owns in ~/.claude-mem/settings.json; every other key
-# passes through. Tier routing is off so every observer call uses
-# claude_mem_model — with it on, "simple" and "fast" work went to haiku.
-claude_mem_settings:
-  CLAUDE_MEM_PROVIDER: "{{ claude_mem_provider }}"
-  CLAUDE_MEM_CLAUDE_AUTH_METHOD: gateway
-  CLAUDE_MEM_MODEL: "{{ claude_mem_model }}"
-  CLAUDE_MEM_TIER_ROUTING_ENABLED: "false"
-
-# claude-mem is a Claude Code plugin (installed under the `thedotmack`
-# marketplace), not a global npm binary. Claude Code's own plugin ledger records
-# what the installer actually landed, and we diff that against the latest
-# published npm version to decide whether a re-install (upgrade) is needed.
-#
-# Read the LEDGER, not the marketplace checkout's manifest. The obvious-looking
-# `~/.claude/plugins/marketplaces/thedotmack/.claude-plugin/plugin.json` is a
-# tracked file in a git clone of the upstream repo that Claude Code `git pull`s
-# on its own (several times a day), so its version is upstream's
-# *in-development* version, ahead of the npm `latest` dist-tag — measured
-# 2026-09-09:
-# manifest 13.24.5 vs npm 13.24.1, a version never published to npm at all. The
-# two only agree in the window between a publish and the next version bump
-# upstream, so diffing them fired every IDE install on every converged run. The
-# ledger is stamped by the installer itself and speaks the same npm channel
-# `npx -y claude-mem install` installs from.
-claude_mem_installed_plugins: "{{ lookup('env', 'HOME') }}/.claude/plugins/installed_plugins.json"
-
-# One `claude-mem install --ide <name>` per IDE. `marker` is a file whose
-# presence-of-the-string "claude-mem" proves that IDE is already wired up, so we
-# only run the (heavy) installer for IDEs that aren't configured yet.
-#
-# Only IDEs claude-mem still supports may be listed — an unknown name is a hard
-# `Unknown IDE` failure, not a skip. v13.15.2 supports: claude-code, opencode,
-# openclaw, windsurf, codex-cli, cursor, copilot-cli, antigravity, goose,
-# roo-code, warp. `gemini-cli` was supported once and has since been dropped
-# upstream, so it is deliberately absent; re-add it only if it comes back.
-claude_mem_ides:
-  - name: claude-code
-    marker: "{{ lookup('env', 'HOME') }}/.claude/settings.json"
-  - name: codex-cli
-    marker: "{{ lookup('env', 'HOME') }}/.codex/config.toml"
-  - name: opencode
-    marker: "{{ lookup('env', 'HOME') }}/.config/opencode/plugins/claude-mem.js"
+# Files that must not mention claude-mem once the role has run.
+claude_mem_config_files:
+  - "{{ claude_mem_home }}/.claude/settings.json"
+  - "{{ claude_mem_home }}/.claude/plugins/installed_plugins.json"
+  - "{{ claude_mem_home }}/.claude/plugins/known_marketplaces.json"
+  - "{{ claude_mem_home }}/.codex/config.toml"
+  - "{{ claude_mem_home }}/.codex/cliproxy.config.toml"
+  - "{{ claude_mem_home }}/.gemini/settings.json"
+  - "{{ claude_mem_home }}/.config/opencode/opencode.json"

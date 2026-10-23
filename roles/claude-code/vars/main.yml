@@ -10,7 +10,6 @@
 claude_code_plugins:
   - frontend-design@claude-plugins-official
   - feature-dev@claude-plugins-official
-  - claude-mem@thedotmack
   - swe-workflow@swe-workflow
   - claude-mermaid@claude-mermaid
   - html-plan@claude-community
@@ -26,8 +25,7 @@ claude_code_plugin_ledger: "{{ lookup('env', 'HOME') }}/.claude/plugins/installe
 # from the path above rather than spelled out again, so the ledger directory is named once.
 #
 # Its keys are marketplace NAMES, which are not derivable from the `owner/repo` the CLI is
-# given: `thedotmack/claude-mem` registers as `thedotmack` while `veelenga/claude-mermaid`
-# registers as `claude-mermaid` — the name comes from the marketplace's own manifest. That is
+# given: `veelenga/claude-mermaid` registers as `claude-mermaid`, not `veelenga` — the name comes from the marketplace's own manifest. That is
 # why `claude_code_marketplaces` below carries the name beside the source: the add loop gates
 # on it, and the key set is still diffed around the loop to decide `changed`.
 claude_code_marketplace_ledger: "{{ claude_code_plugin_ledger | dirname }}/known_marketplaces.json"
@@ -49,8 +47,6 @@ claude_code_marketplace_ledger: "{{ claude_code_plugin_ledger | dirname }}/known
 claude_code_marketplaces:
   - name: claude-plugins-official # https://claude.com/plugins
     source: anthropics/claude-plugins-official
-  - name: thedotmack
-    source: thedotmack/claude-mem
   - name: swe-workflow
     source: OpenSWE/swe-workflow # transferred out of swe-workflow/ on 2026-09-18
   - name: claude-mermaid

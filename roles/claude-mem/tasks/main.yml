@@ -1,141 +1,57 @@
 ---
-# claude-mem is run via `npx -y claude-mem` — there is no `claude-mem` binary on
-# PATH. Its `install` subcommand always does a full reinstall (copies plugin
-# files, runs bun/npm install) and always exits 0 printing "installed
-# successfully", so it can't self-report whether anything changed. We therefore
-# gate each IDE install on two things: (a) the installed plugin version vs the
-# latest published version, and (b) whether the IDE's config already references
-# claude-mem — running the heavy installer only when an upgrade is available or
-# an IDE isn't wired yet. See vars/main.yml for the model-flag caveat.
+# REMOVAL role. claude-mem was removed from the whole fleet on 2026-10-23, data included, at
+# Frank's request (coding-agent DECISIONS Q599): the nightly dreamer and the Agent Memory Repos
+# already do its job. This role now ensures claude-mem is ABSENT, so a host that missed the
+# sweep converges on its next play. Delete this role once every host has run it.
 
-- name: Get latest published claude-mem version
-  ansible.builtin.command: npm view claude-mem version
-  register: claude_mem_latest
-  changed_when: false
-  check_mode: false
-
-- name: Read Claude Code plugin ledger
-  ansible.builtin.slurp:
-    path: "{{ claude_mem_installed_plugins }}"
-  register: claude_mem_ledger_raw
-  failed_when: false
-  check_mode: false
-
-- name: Determine installed claude-mem version
-  # Every step defaults: the ledger is absent on a fresh host, and carries no
-  # claude-mem entry until the first install lands.
-  ansible.builtin.set_fact:
-    claude_mem_installed_version: >-
-      {{ ((claude_mem_ledger_raw.content | b64decode | from_json)
-           .get('plugins', {}).get('claude-mem@thedotmack', [])
-           | map(attribute='version') | first | default('absent', true))
-         if claude_mem_ledger_raw.content is defined else 'absent' }}
-
-- name: Check which IDEs already reference claude-mem
-  # -q quiet, -s silent on a missing/unreadable file → rc 0 = wired, non-0 = not.
-  ansible.builtin.command: "grep -qs claude-mem {{ item.marker }}"
-  register: claude_mem_ide_wired
-  loop: "{{ claude_mem_ides }}"
-  loop_control:
-    label: "{{ item.name }}"
-  changed_when: false
-  failed_when: false
-  check_mode: false
-
-# The observer reaches models through the fleet gateway (CLIProxyAPI), not the
-# Claude Code keychain login. The worker runs outside any interactive session, so
-# that login read as signed out and the observer silently saved nothing (measured
-# on mac-mini-m6, 2026-10-05). claude-mem reads ANTHROPIC_BASE_URL and the key
-# from its own ~/.claude-mem/.env and hands them only to the observer subprocess —
-# the scoped form ~/.agents/AGENTS.md asks for, since exporting either globally
-# breaks pi. Both values are this host's own, exported from ~/.bashrc above its
-# non-interactive guard (cliproxy-tier writes them there), which every provisioning run reads.
-#
-# The key goes in as ANTHROPIC_API_KEY, not ANTHROPIC_AUTH_TOKEN, though the
-# gateway takes either. claude-mem's quota guard aborts the observer once the
-# serving account passes 92-95% of a limit, and it stands down only for an "API
-# key" credential. Through the gateway that guard would gap memory near every
-# limit of the first account in the host's order (DECISIONS Q181).
-- name: Require the fleet gateway credentials
-  ansible.builtin.assert:
-    that:
-      - lookup('env', 'CLIPROXY_API_KEY') | length > 0
-      - lookup('env', 'CLIPROXY_BASE_URL') | length > 0
-    fail_msg: >-
-      CLIPROXY_API_KEY or CLIPROXY_BASE_URL is unset; the claude-mem observer has no
-      way to reach a model. Run `cliproxy-tier <host>` on mac-mini-m2, then re-run.
-    quiet: true
-
-- name: Ensure ~/.claude-mem exists
-  ansible.builtin.file:
-    path: "{{ claude_mem_dir }}"
-    state: directory
-    mode: u+rwx
-
-- name: Point the claude-mem observer at the gateway
-  ansible.builtin.lineinfile:
-    path: "{{ claude_mem_dir }}/.env"
-    regexp: "^{{ item.key }}="
-    line: "{{ item.key }}={{ item.value }}"
-    create: true
-    mode: "0600"
+- name: Look for claude-mem's marketplace clone and data
+  ansible.builtin.stat:
+    path: "{{ item }}"
   loop:
-    - { key: ANTHROPIC_BASE_URL, value: "{{ lookup('env', 'CLIPROXY_BASE_URL') }}" }
-    - { key: ANTHROPIC_API_KEY, value: "{{ lookup('env', 'CLIPROXY_API_KEY') }}" }
-  loop_control:
-    label: "{{ item.key }}"
-  no_log: true
+    - "{{ claude_mem_marketplace }}"
+    - "{{ claude_mem_dir }}"
+  register: claude_mem_present
 
-- name: Drop the guarded token form of the gateway key
-  ansible.builtin.lineinfile:
-    path: "{{ claude_mem_dir }}/.env"
-    regexp: "^ANTHROPIC_AUTH_TOKEN="
-    state: absent
-
-# Before the install, not after: an explicit `subscription` in this file makes
-# `claude-mem install` reject claude_mem_model (see vars/main.yml). Same
-# read-merge-write as the claude-code role; the slurp tolerates a fresh host.
-- name: Read existing claude-mem settings
-  ansible.builtin.slurp:
-    src: "{{ claude_mem_dir }}/settings.json"
-  register: claude_mem_settings_raw
-  failed_when: false
-  # The same provider keys the write below hides; an ad-hoc run prints a read in full.
-  no_log: true
-
-- name: Merge the managed claude-mem settings
-  ansible.builtin.set_fact:
-    claude_mem_settings_current: >-
-      {{ (claude_mem_settings_raw.content | b64decode | from_json)
-         if (claude_mem_settings_raw.content | default('') | b64decode | trim | length > 0)
-         else {} }}
-  no_log: true
-
-- name: Apply the managed claude-mem settings
-  ansible.builtin.copy:
-    dest: "{{ claude_mem_dir }}/settings.json"
-    content: "{{ claude_mem_settings_current | combine(claude_mem_settings) | to_nice_json }}\n"
-    mode: "0600"
-  when: claude_mem_settings_current | combine(claude_mem_settings) != claude_mem_settings_current
-  # The file can carry provider API keys (Gemini, OpenRouter) on some hosts.
-  no_log: true
-
-# No `--provider`: given explicitly, `--provider claude` resets claude-mem to the
-# local Anthropic plan — auth back to `subscription`, ANTHROPIC_* blanked in
-# .env, cloud sync cleared — and then rejects claude_mem_model, so the play fails
-# with the gateway already undone (measured on mac-mini-m6 with v13.31.0,
-# 2026-10-05). Left out, a non-interactive install keeps the provider the
-# settings write above saved and touches neither file.
-- name: Install and wire claude-mem for each IDE
-  ansible.builtin.command: >-
-    npx -y claude-mem install
-    --model {{ claude_mem_model }}
-    --runtime {{ claude_mem_runtime }}
-    --ide {{ item.item.name }}
-  loop: "{{ claude_mem_ide_wired.results }}"
-  loop_control:
-    label: "{{ item.item.name }}"
-  when: >-
-    claude_mem_installed_version != claude_mem_latest.stdout
-    or item.rc != 0
+# Its own uninstaller stops the worker and removes the plugin, the marketplace, the plugin
+# cache and ledger entries, and its Codex, opencode, OpenClaw, Hermes, Pi and OMP wiring. With
+# stdin not a TTY it skips its confirm prompt. It keeps ~/.claude-mem and never touches Gemini;
+# the steps below cover both.
+- name: Run claude-mem's own uninstaller
+  ansible.builtin.shell: npx -y claude-mem uninstall < /dev/null
+  when: claude_mem_present.results | selectattr('stat.exists') | list | length > 0
   changed_when: true
+
+# The worker can outlive the uninstaller's shutdown request, and chroma-mcp is its child.
+- name: Stop any claude-mem worker that is left
+  ansible.builtin.command: pkill -f 'claude-mem/[^ ]*/worker-service|\.claude-mem/chroma'
+  register: claude_mem_pkill
+  changed_when: claude_mem_pkill.rc == 0
+  failed_when: claude_mem_pkill.rc > 1
+
+- name: Strip the claude-mem wiring the uninstaller leaves
+  ansible.builtin.command:
+    cmd: python3 {{ role_path }}/files/strip-claude-mem.py
+  register: claude_mem_strip
+  changed_when: claude_mem_strip.stdout != "[]"
+  when: not ansible_check_mode
+
+- name: Delete claude-mem's data and leftover folders
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ claude_mem_leftovers }}"
+
+- name: Look for anything claude-mem left behind
+  ansible.builtin.shell: |
+    grep -ls claude-mem {{ claude_mem_config_files | join(' ') }}
+    for p in {{ claude_mem_leftovers | join(' ') }}; do [ -e "$p" ] && echo "$p"; done
+    pgrep -fl 'claude-mem/[^ ]*/worker-service'
+    true
+  register: claude_mem_left
+  changed_when: false
+  check_mode: false
+
+- name: Fail if claude-mem is not fully gone
+  ansible.builtin.fail:
+    msg: "claude-mem is still present: {{ claude_mem_left.stdout_lines }}"
+  when: claude_mem_left.stdout | length > 0 and not ansible_check_mode
