@@ -203,7 +203,7 @@ skills_agents:
 # — and, worse, they exit 0 from `agent-sync status`, so nothing else on this machine reports
 # them. They are the reason this check exists; neither belongs here.
 #
-# `foreign` does occur on this fleet, but only under `mcp` (xapi, serena, node_repl,
+# `foreign` does occur on this fleet, but only under `mcp` (xapi, node_repl,
 # computer-use — "not in the Commons — left alone"), never under `instructions`. The survey task
 # reads the `instructions` array alone, which is what keeps those out of it. Measured 2026-09-18:
 # all seven hosts report 8 instruction items, every one `linked` or `imported`.

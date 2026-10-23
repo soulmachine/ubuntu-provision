@@ -5,7 +5,6 @@
 # Codex's interactive `/import` writes a byte-identical duplicate of the TRACKED
 # .claude/skills/ansible-idempotency-check/SKILL.md, which is the canonical copy.
 .agents/
-.serena/
 __pycache__/
 
 # Fork worktrees Claude Code creates while agents work in parallel.
