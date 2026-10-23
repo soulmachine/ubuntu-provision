@@ -264,6 +264,8 @@ if [[ -f "$ALLOWED_SIGNERS" ]] && grep -qF "$KEY_BODY" "$ALLOWED_SIGNERS"; then
     echo "Entry already in $ALLOWED_SIGNERS — skipping."
 else
     echo "$ENTRY" >> "$ALLOWED_SIGNERS"
+    # Appending may create the file; a umask of 0002 would leave it group-writable.
+    chmod 644 "$ALLOWED_SIGNERS"
     echo "Added entry to $ALLOWED_SIGNERS"
     CHANGED=true
 fi
