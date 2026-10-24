@@ -39,7 +39,7 @@ Synced with `soulmachine/macbook-provision` at **17ef5c6** (2026-10-16). To catc
 brew, `~/.bashrc` for `~/.zshrc`, no always-on gate), then move this sha. `main.yml` keeps upstream's
 role order; `apt` stands where `homebrew` stands and `shell` + `omarchy` are the bash versions of
 upstream's zsh pair. Roles upstream has and this repo deliberately omits, with no stub: host-facts,
-homebrew, cua, cc-switch, ghostty, cmux, intellij-idea, obsidian, apple-container, moshi, lcu (needs the ChatGPT desktop app and
+homebrew, cua, cc-switch, ghostty, cmux, obsidian, apple-container, moshi, lcu (needs the ChatGPT desktop app and
 an X11 desktop, which neither host has; Q32), removemacai (macOS settings, upstream Q229; Q33), macos-connectors (Apple app CLIs, upstream
 Q236; Q38), ego-browser (Ego Lite ships no Linux build, upstream Q239; Q39).
 `DECISIONS.md` records every other difference.
