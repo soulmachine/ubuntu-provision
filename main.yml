@@ -45,6 +45,7 @@
     - playwright-cli
     - hermes
     - browseros-neo
+    - hindsight
     - ponytail
     - context-mode
     # paseo, orca and tailscale run systemd daemons, so a container whose PID 1 is not

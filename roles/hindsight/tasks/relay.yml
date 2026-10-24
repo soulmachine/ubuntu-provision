@@ -1,0 +1,69 @@
+---
+# hindsight-relay listens on 127.0.0.1:8888 and joins each connection to m2 over Tailscale, or to
+# m2's reverse SSH tunnel on 127.0.0.1:18888 when Tailscale does not answer (files/hindsight-relay,
+# whose --self-test checks the failover). Stdlib only, so the system python3 runs it.
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ hindsight_home }}/.local/bin"
+    state: directory
+    mode: "0755"
+
+- name: Install hindsight-relay
+  ansible.builtin.copy:
+    src: hindsight-relay
+    dest: "{{ hindsight_home }}/.local/bin/hindsight-relay"
+    mode: "0755"
+  register: _hindsight_relay_bin
+
+# --- macOS: a LaunchAgent ----------------------------------------------------------
+- name: Install the hindsight-relay LaunchAgent
+  ansible.builtin.template:
+    src: me.soulmachine.hindsight-relay.plist.j2
+    dest: "{{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.hindsight-relay.plist"
+    mode: "0644"
+  register: _hindsight_relay_plist
+  when: ansible_facts['system'] == 'Darwin'
+
+- name: Check whether the hindsight-relay LaunchAgent is loaded
+  ansible.builtin.command: launchctl print gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.hindsight-relay
+  register: _hindsight_relay_loaded
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_facts['system'] == 'Darwin'
+
+# A changed plist is only re-read on a fresh bootstrap, so it is booted out first.
+- name: Start or restart the hindsight-relay LaunchAgent
+  ansible.builtin.shell: >-
+    {% if _hindsight_relay_loaded.rc == 0 %}launchctl bootout gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.hindsight-relay;{% endif %}
+    launchctl bootstrap gui/{{ ansible_facts['user_uid'] }}
+    {{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.hindsight-relay.plist
+  when:
+    - ansible_facts['system'] == 'Darwin'
+    - _hindsight_relay_loaded.rc != 0 or _hindsight_relay_bin.changed or _hindsight_relay_plist.changed
+  changed_when: true
+
+# --- Linux: a systemd user unit (the user lingers, so it runs without a login) -------
+- name: Ensure the systemd user unit folder exists
+  ansible.builtin.file:
+    path: "{{ hindsight_home }}/.config/systemd/user"
+    state: directory
+    mode: "0755"
+  when: ansible_facts['system'] == 'Linux'
+
+- name: Install the hindsight-relay systemd user unit
+  ansible.builtin.template:
+    src: hindsight-relay.service.j2
+    dest: "{{ hindsight_home }}/.config/systemd/user/hindsight-relay.service"
+    mode: "0644"
+  register: _hindsight_relay_unit
+  when: ansible_facts['system'] == 'Linux'
+
+- name: Enable and start hindsight-relay
+  ansible.builtin.systemd_service:
+    name: hindsight-relay
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if (_hindsight_relay_bin.changed or _hindsight_relay_unit.changed) else 'started' }}"
+    daemon_reload: "{{ _hindsight_relay_unit.changed }}"
+  when: ansible_facts['system'] == 'Linux'

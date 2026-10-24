@@ -1,0 +1,68 @@
+---
+# The fleet's Hindsight memory server runs on mac-mini-m2 (~/coding-agent/devops/hindsight-server,
+# coding-agent Q605–Q611). This role wires every agent CLI on a host to it. Same file in
+# macbook-provision, ubuntu-provision and omarchy-provision.
+hindsight_home: "{{ lookup('env', 'HOME') }}"
+hindsight_package: "@vectorize-io/hindsight-coding-agents"
+hindsight_dir: "{{ hindsight_home }}/.hindsight"
+hindsight_mcp_server: "{{ hindsight_dir }}/coding-agents/dist/mcp-server.js"
+
+# Keyed by ansible_hostname (`hostname -s`). A host not listed is not wired.
+#  - m2 itself: loopback.
+#  - same LAN as m2: m2's LAN IP. dev-server-frank-lume cannot resolve Franks-Mac-mini-M2.local.
+#  - remote: the local hindsight-relay below, which tries Tailscale, then m2's reverse SSH tunnel.
+hindsight_lan_url: http://192.168.31.20:8888
+hindsight_relay_url: http://127.0.0.1:8888
+hindsight_url_by_host:
+  Franks-Mac-mini-M2: http://127.0.0.1:8888
+  mac-mini-m6: "{{ hindsight_lan_url }}"
+  mac-mini-2018-omarchy: "{{ hindsight_lan_url }}"
+  Franks-Mac-Studio: "{{ hindsight_lan_url }}"
+  dev-server-frank-lume: "{{ hindsight_lan_url }}"
+  macbook-pro-m3: "{{ hindsight_relay_url }}"
+  Franks-MBP: "{{ hindsight_relay_url }}"  # macbook-pro-nickel
+  archs-mac-mini: "{{ hindsight_relay_url }}"
+  supermicro: "{{ hindsight_relay_url }}"
+
+# Relay: Tailscale MagicDNS name first, then the tunnel m2 keeps on each remote host
+# (me.soulmachine.hindsight-tunnel.<host> on m2).
+hindsight_relay_upstreams: [franks-mac-mini-m2:8888, 127.0.0.1:18888]
+
+# Agents the installer wires itself (`install all`). Each line is a config file the install writes
+# its path into. A file that does not exist means the agent is not installed here, so it is skipped.
+hindsight_installer_markers:
+  - .claude/settings.json
+  - .codex/config.toml
+  - .config/opencode/opencode.json
+  - .kimi-code/config.toml
+  - .copilot/mcp-config.json
+  - .grok/config.toml
+  - .pi/agent/settings.json
+
+# Agents the installer does not cover get the installer's own stdio MCP server. It reads the URL
+# and token from ~/.hindsight/coding-agent.json and picks the repo's bank from the working
+# directory, so no token goes into these configs. HINDSIGHT_MCP_HARNESS names the caller.
+# openclaw is left out: cliproxy-tier owns its config, and it is not a coding agent.
+hindsight_cli_agents:
+  - exe: gemini
+    config: .gemini/settings.json
+    remove: gemini mcp remove --scope user hindsight
+    add: >-
+      gemini mcp add --scope user -e HINDSIGHT_MCP_HARNESS=gemini hindsight node {{ hindsight_mcp_server }}
+  # hermes asks "Enable all N tools?"; the stdin answers yes.
+  - exe: hermes
+    config: .hermes/config.yaml
+    remove: hermes mcp remove hindsight
+    add: >-
+      hermes mcp add hindsight --command node --env HINDSIGHT_MCP_HARNESS=hermes
+      --connect-timeout 20 --args {{ hindsight_mcp_server }}
+    stdin: "y"
+hindsight_json_agents:
+  - dir: .omp/agent
+    file: mcp.json
+    key: mcpServers
+    entry: {type: stdio, command: node, args: ["{{ hindsight_mcp_server }}"], env: {HINDSIGHT_MCP_HARNESS: omp}}
+  - dir: .config/crush
+    file: crush.json
+    key: mcp
+    entry: {type: stdio, command: node, args: ["{{ hindsight_mcp_server }}"], env: {HINDSIGHT_MCP_HARNESS: crush}}

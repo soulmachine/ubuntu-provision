@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>me.soulmachine.hindsight-relay</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/python3</string>
+		<string>{{ hindsight_home }}/.local/bin/hindsight-relay</string>
+		<string>8888</string>
+{% for upstream in hindsight_relay_upstreams %}
+		<string>{{ upstream }}</string>
+{% endfor %}
+	</array>
+	<key>RunAtLoad</key><true/>
+	<key>KeepAlive</key><true/>
+	<key>ThrottleInterval</key><integer>10</integer>
+	<key>StandardOutPath</key><string>{{ hindsight_home }}/Library/Logs/hindsight-relay.log</string>
+	<key>StandardErrorPath</key><string>{{ hindsight_home }}/Library/Logs/hindsight-relay.log</string>
+</dict>
+</plist>

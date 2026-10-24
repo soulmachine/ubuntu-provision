@@ -1,0 +1,4 @@
+---
+dependencies:
+  # npx runs the installer, and node runs its hooks and MCP server.
+  - nodejs

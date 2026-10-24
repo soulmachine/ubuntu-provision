@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Local TCP relay to the fleet's Hindsight server, with failover.
+
+Listens on 127.0.0.1:8888 and joins each client to the first upstream that accepts a connection:
+Tailscale to mac-mini-m2 first, then the reverse SSH tunnel that m2 keeps on 127.0.0.1:18888.
+After the primary fails, it is skipped for SKIP_SECONDS, so a host that never reaches m2 over
+Tailscale (another tailnet) pays the connect timeout once a minute, not on every request.
+Stdlib only, so the system python3 runs it (3.9 on macOS).
+
+    hindsight-relay [LISTEN_PORT PRIMARY_HOST:PORT FALLBACK_HOST:PORT]
+    hindsight-relay --self-test
+"""
+import asyncio
+import sys
+import time
+
+CONNECT_TIMEOUT = 2.0
+SKIP_SECONDS = 60.0
+DEFAULTS = ["8888", "franks-mac-mini-m2:8888", "127.0.0.1:18888"]
+
+
+def parse(hostport):
+    host, port = hostport.rsplit(":", 1)
+    return host, int(port)
+
+
+class Relay:
+    def __init__(self, upstreams):
+        self.upstreams = upstreams
+        self.skip_until = {}  # upstream index -> monotonic time
+
+    async def connect(self):
+        now = time.monotonic()
+        order = [i for i in range(len(self.upstreams)) if self.skip_until.get(i, 0) <= now]
+        # Everything is in its skip window: try them all anyway, rather than refuse the client.
+        for i in order or range(len(self.upstreams)):
+            try:
+                streams = await asyncio.wait_for(
+                    asyncio.open_connection(*self.upstreams[i]), CONNECT_TIMEOUT)
+                self.skip_until.pop(i, None)
+                return i, streams
+            except (OSError, asyncio.TimeoutError):
+                if i < len(self.upstreams) - 1:  # the last resort is never skipped
+                    self.skip_until[i] = time.monotonic() + SKIP_SECONDS
+        raise ConnectionError("no upstream reachable")
+
+    async def handle(self, reader, writer):
+        try:
+            _, (up_reader, up_writer) = await self.connect()
+        except ConnectionError:
+            writer.close()
+            return
+        await asyncio.gather(pipe(reader, up_writer), pipe(up_reader, writer))
+
+    async def serve(self, port):
+        server = await asyncio.start_server(self.handle, "127.0.0.1", port)
+        async with server:
+            await server.serve_forever()
+
+
+async def pipe(reader, writer):
+    try:
+        while True:
+            data = await reader.read(65536)
+            if not data:
+                break
+            writer.write(data)
+            await writer.drain()
+    except (OSError, asyncio.IncompleteReadError):
+        pass
+    finally:
+        try:
+            writer.close()
+        except OSError:
+            pass
+
+
+async def self_test():
+    async def echo(reader, writer):
+        writer.write(b"fallback:" + await reader.read(100))
+        await writer.drain()
+        writer.close()
+
+    backend = await asyncio.start_server(echo, "127.0.0.1", 0)
+    backend_port = backend.sockets[0].getsockname()[1]
+    # Primary: a closed port on loopback, so the connect fails at once.
+    dead = await asyncio.start_server(echo, "127.0.0.1", 0)
+    dead_port = dead.sockets[0].getsockname()[1]
+    dead.close()
+    await dead.wait_closed()
+    relay = Relay([("127.0.0.1", dead_port), ("127.0.0.1", backend_port)])
+    front = await asyncio.start_server(relay.handle, "127.0.0.1", 0)
+    front_port = front.sockets[0].getsockname()[1]
+
+    for attempt in range(2):
+        reader, writer = await asyncio.open_connection("127.0.0.1", front_port)
+        writer.write(b"ping")
+        await writer.drain()
+        got = await asyncio.wait_for(reader.read(100), 5)
+        assert got == b"fallback:ping", got
+        writer.close()
+        if attempt == 0:
+            assert 0 in relay.skip_until, "the failed primary must be skipped"
+    assert 1 not in relay.skip_until, "the last resort is never skipped"
+    print("self-test ok")
+
+
+def main():
+    if sys.argv[1:] == ["--self-test"]:
+        asyncio.run(self_test())
+        return
+    port, primary, fallback = sys.argv[1:4] if len(sys.argv) == 4 else DEFAULTS
+    asyncio.run(Relay([parse(primary), parse(fallback)]).serve(int(port)))
+
+
+if __name__ == "__main__":
+    main()

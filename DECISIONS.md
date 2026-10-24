@@ -565,3 +565,13 @@
 **Justification:** Pi's `dist/core/model-resolver.js` (step 2, "saved default") uses the saved default only when both `defaultProvider` and `defaultModel` are set, and it looks the model up by bare id. A `pi -p --mode json` run afterwards answered from `cliproxy`/`deepseek-v4.1-flash`, with a thinking block. So the earlier `cliproxy/claude-opus-5-5` value probably never took effect either. `cliproxy-assert-pi` and `cliproxy-tier-host.py` still write and check the combined form, so the hourly re-assert would set an id Pi cannot resolve.
 **Outcome:** applied
 **Ref:** (pending)
+
+## Q57 — interactive/hindsight-role — tradeoff
+
+**Question:** Port macbook-provision's `hindsight` role (agent CLIs wired to the fleet Hindsight server on mac-mini-m2) and its pi-role change here?
+**Options considered:** same role, same files / a Linux-specific variant
+**Chosen:** The same files. The role branches only for the relay (a LaunchAgent on macOS, a systemd user unit on Linux), so one copy serves all three repos. The pi role keeps the Hindsight `extensions` entry, as in macbook-provision.
+**Decided-by:** agent
+**Justification:** Fleet rule: a change in one provisioning repo is synced to the other two. The reasoning is in macbook-provision Q284 and coding-agent Q605–Q610.
+**Outcome:** applied
+**Ref:** macbook-provision 631f64a

@@ -1,0 +1,15 @@
+---
+# Wires this host's agent CLIs to the fleet's Hindsight memory server on mac-mini-m2
+# (~/coding-agent/devops/hindsight-server/README.md). A host not in hindsight_url_by_host is left
+# alone. The token is pushed to each host by m2's push-token.sh, the way cliproxy-tier pushes the
+# gateway key: most hosts have no 1Password service account to read it with.
+
+# The URL map is keyed by ansible_hostname; a single-role run gathers no facts.
+- name: Ensure the hostname fact is gathered
+  ansible.builtin.setup:
+    gather_subset: [min]
+  when: ansible_facts['hostname'] is not defined
+
+- name: Wire the agents to Hindsight
+  ansible.builtin.include_tasks: client.yml
+  when: ansible_facts['hostname'] in hindsight_url_by_host

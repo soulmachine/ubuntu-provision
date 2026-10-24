@@ -1,0 +1,146 @@
+---
+- name: Set this host's Hindsight URL
+  ansible.builtin.set_fact:
+    _hindsight_url: "{{ hindsight_url_by_host[ansible_facts['hostname']] }}"
+
+# --- ~/.hindsight/coding-agent.json: URL and token ---------------------------------
+# The file holds the API token, so the read and the write are no_log and the write is 0600.
+- name: Read the Hindsight client config
+  ansible.builtin.slurp:
+    src: "{{ hindsight_dir }}/coding-agent.json"
+  register: _hindsight_cfg_raw
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Parse the Hindsight client config
+  ansible.builtin.set_fact:
+    _hindsight_cfg: >-
+      {{ (_hindsight_cfg_raw.content | b64decode | from_json) if _hindsight_cfg_raw.content is defined else {} }}
+  no_log: true
+
+- name: Require the Hindsight API token
+  ansible.builtin.assert:
+    that: _hindsight_cfg.apiToken | default('') | length > 0
+    fail_msg: >-
+      ~/.hindsight/coding-agent.json has no apiToken. On mac-mini-m2 run
+      ~/coding-agent/devops/hindsight-server/push-token.sh <this host's ssh alias>, then re-run.
+    quiet: true
+
+- name: Point the Hindsight client at the server
+  ansible.builtin.copy:
+    dest: "{{ hindsight_dir }}/coding-agent.json"
+    content: "{{ _hindsight_cfg | combine(_hindsight_managed) | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  vars:
+    _hindsight_managed: {apiUrl: "{{ _hindsight_url }}", serverMode: self-hosted}
+  when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
+  no_log: true
+
+# --- the agents the installer wires ------------------------------------------------
+# `install` exits 0 and prints the same summary whether or not it changed anything, so it runs
+# only when the installed runtime is behind npm, or an installed agent's config lacks it (the pi
+# and opencode roles rewrite their files). The runtime's own package.json follows npm, as the
+# `latest` it is compared with does. Between plays it updates itself daily (autoUpdate).
+- name: Get the latest published Hindsight coding-agents version
+  ansible.builtin.command: npm view {{ hindsight_package }} version
+  register: _hindsight_latest
+  changed_when: false
+  check_mode: false
+
+- name: Read the installed Hindsight coding-agents runtime
+  ansible.builtin.slurp:
+    src: "{{ hindsight_dir }}/coding-agents/package.json"
+  register: _hindsight_pkg_raw
+  failed_when: false
+  check_mode: false
+
+# rc 0 = the agent's config is missing (not installed here) or already holds the runtime path.
+- name: Check which installed agents are not wired to Hindsight
+  ansible.builtin.shell: >-
+    [ ! -e '{{ hindsight_home }}/{{ item }}' ] ||
+    grep -qF .hindsight/coding-agents '{{ hindsight_home }}/{{ item }}'
+  loop: "{{ hindsight_installer_markers }}"
+  register: _hindsight_wired
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# stdin is closed, so the installer's one optional prompt (Trae's workspace MCP) answers no.
+- name: Install the Hindsight runtime and wire every detected agent
+  ansible.builtin.shell: >-
+    npx -y {{ hindsight_package }}@{{ _hindsight_latest.stdout }} install all
+    --server self-hosted --api-url {{ _hindsight_url }} </dev/null
+  when: >-
+    _hindsight_installed != _hindsight_latest.stdout
+    or _hindsight_wired.results | rejectattr('rc', 'eq', 0) | list | length > 0
+  vars:
+    _hindsight_installed: >-
+      {{ (_hindsight_pkg_raw.content | b64decode | from_json).version
+         if _hindsight_pkg_raw.content is defined else 'absent' }}
+  changed_when: true
+
+# --- the agents it does not cover: the runtime's stdio MCP server ---------------------
+# rc 0 = the agent is installed and its config does not name the MCP server yet.
+- name: Check which other agents still need the Hindsight MCP server
+  ansible.builtin.shell: >-
+    command -v {{ item.exe }} >/dev/null &&
+    ! grep -qF '{{ hindsight_mcp_server }}' '{{ hindsight_home }}/{{ item.config }}' 2>/dev/null
+  loop: "{{ hindsight_cli_agents }}"
+  loop_control:
+    label: "{{ item.exe }}"
+  register: _hindsight_cli_probe
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Register the Hindsight MCP server in the other CLI agents
+  ansible.builtin.shell:
+    cmd: "{{ item.item.remove }} </dev/null >/dev/null 2>&1; {{ item.item.add }}"
+    stdin: "{{ item.item.stdin | default(omit) }}"
+  loop: "{{ _hindsight_cli_probe.results }}"
+  loop_control:
+    label: "{{ item.item.exe }}"
+  when: item.rc == 0
+  changed_when: true
+
+# The files can carry API keys in other servers' env blocks, so no_log and 0600.
+- name: Read the JSON-configured agents' MCP files
+  ansible.builtin.slurp:
+    src: "{{ hindsight_home }}/{{ item.dir }}/{{ item.file }}"
+  loop: "{{ hindsight_json_agents }}"
+  loop_control:
+    label: "{{ item.dir }}/{{ item.file }}"
+  register: _hindsight_json_raw
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Find which JSON-configured agents are installed
+  ansible.builtin.stat:
+    path: "{{ hindsight_home }}/{{ item.dir }}"
+  loop: "{{ hindsight_json_agents }}"
+  loop_control:
+    label: "{{ item.dir }}"
+  register: _hindsight_json_dirs
+
+# `e30=` is base64 `{}`, for an agent that is installed but has no MCP file yet.
+- name: Register the Hindsight MCP server in the JSON-configured agents
+  ansible.builtin.copy:
+    dest: "{{ hindsight_home }}/{{ item.0.item.dir }}/{{ item.0.item.file }}"
+    content: "{{ _config | combine({item.0.item.key: {'hindsight': item.0.item.entry}}, recursive=true) | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  vars:
+    _config: "{{ (item.0.content | default('e30=') | b64decode | trim or '{}') | from_json }}"
+  loop: "{{ _hindsight_json_raw.results | zip(_hindsight_json_dirs.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item.dir }}/{{ item.0.item.file }}"
+  when:
+    - item.1.stat.exists
+    - (_config[item.0.item.key] | default({}))['hindsight'] | default(none) != item.0.item.entry
+  no_log: true
+
+# --- remote hosts: the failover relay on 127.0.0.1:8888 ----------------------------
+- name: Install the Hindsight relay
+  ansible.builtin.include_tasks: relay.yml
+  when: _hindsight_url == hindsight_relay_url

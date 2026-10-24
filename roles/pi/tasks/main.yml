@@ -100,9 +100,11 @@
 
 # Only the old defaults are replaced: a model named without a provider prefix
 # on the cliproxy provider, other than claude-opus-5-5, is the user's pick.
+# The Hindsight extension (roles/hindsight's installer adds it) is kept, or the
+# hindsight role would re-run its installer on every play.
 - name: Install pi settings, keeping a gateway model picked in pi
   ansible.builtin.copy:
-    content: "{{ lookup('file', 'settings.json') | from_json | combine(pi_keep) | to_nice_json(indent=2, sort_keys=false) }}\n"
+    content: "{{ lookup('file', 'settings.json') | from_json | combine(pi_keep, pi_hindsight) | to_nice_json(indent=2, sort_keys=false) }}\n"
     dest: "{{ lookup('env', 'HOME') }}/.pi/agent/settings.json"
     mode: "0644"
   vars:
@@ -114,6 +116,8 @@
              and '/' not in pi_old.defaultModel
              and pi_old.defaultModel != 'claude-opus-5-5')
          else {} }}
+    pi_hindsight_ext: "{{ pi_old.extensions | default([]) | select('search', '/\\.hindsight/coding-agents/') | list }}"
+    pi_hindsight: "{{ {'extensions': pi_hindsight_ext} if pi_hindsight_ext else {} }}"
 
 - name: Add pi-yolo alias to .bashrc
   ansible.builtin.lineinfile:
