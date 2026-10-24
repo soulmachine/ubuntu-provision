@@ -19,13 +19,19 @@
       {{ (_hindsight_cfg_raw.content | b64decode | from_json) if _hindsight_cfg_raw.content is defined else {} }}
   no_log: true
 
-- name: Require the Hindsight API token
-  ansible.builtin.assert:
-    that: _hindsight_cfg.apiToken | default('') | length > 0
-    fail_msg: >-
-      ~/.hindsight/coding-agent.json has no apiToken. On mac-mini-m2 run
-      ~/coding-agent/devops/hindsight-server/push-token.sh <this host's ssh alias>, then re-run.
-    quiet: true
+# A host the token has not reached yet (asleep when push-token.sh ran) is skipped, not failed:
+# a failure here would stop every role after this one in the nightly play.
+- name: Report a missing Hindsight API token
+  ansible.builtin.debug:
+    msg: >-
+      ~/.hindsight/coding-agent.json has no apiToken, so Hindsight is not wired here. On
+      mac-mini-m2 run ~/coding-agent/devops/hindsight-server/push-token.sh <this host's ssh alias>,
+      then re-run.
+  when: _hindsight_cfg.apiToken | default('') | length == 0
+
+- name: Skip the rest of the role without a token
+  ansible.builtin.meta: end_role
+  when: _hindsight_cfg.apiToken | default('') | length == 0
 
 - name: Point the Hindsight client at the server
   ansible.builtin.copy:
