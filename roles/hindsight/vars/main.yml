@@ -9,12 +9,12 @@ hindsight_mcp_server: "{{ hindsight_dir }}/coding-agents/dist/mcp-server.js"
 
 # Keyed by ansible_hostname (`hostname -s`). A host not listed is not wired.
 #  - m2 itself: loopback.
-#  - same LAN as m2: m2's LAN IP. dev-server-frank-lume cannot resolve Franks-Mac-mini-M2.local.
+#  - same LAN as m2: m2's LAN IP. dev-server-frank-lume cannot resolve mac-mini-m2.local.
 #  - remote: the local hindsight-relay below, which tries Tailscale, then m2's reverse SSH tunnel.
 hindsight_lan_url: http://192.168.31.20:8888
 hindsight_relay_url: http://127.0.0.1:8888
 hindsight_url_by_host:
-  Franks-Mac-mini-M2: http://127.0.0.1:8888
+  mac-mini-m2: http://127.0.0.1:8888
   mac-mini-m6: "{{ hindsight_lan_url }}"
   mac-mini-2018-omarchy: "{{ hindsight_lan_url }}"
   Franks-Mac-Studio: "{{ hindsight_lan_url }}"
@@ -26,7 +26,7 @@ hindsight_url_by_host:
 
 # Relay: Tailscale MagicDNS name first, then the tunnel m2 keeps on each remote host
 # (me.soulmachine.hindsight-tunnel.<host> on m2).
-hindsight_relay_upstreams: [franks-mac-mini-m2:8888, 127.0.0.1:18888]
+hindsight_relay_upstreams: [mac-mini-m2:8888, 127.0.0.1:18888]
 
 # Agents the installer wires itself (`install all`). Each line is a config file the install writes
 # its path into. A file that does not exist means the agent is not installed here, so it is skipped.

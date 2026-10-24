@@ -16,7 +16,7 @@ import time
 
 CONNECT_TIMEOUT = 2.0
 SKIP_SECONDS = 60.0
-DEFAULTS = ["8888", "franks-mac-mini-m2:8888", "127.0.0.1:18888"]
+DEFAULTS = ["8888", "mac-mini-m2:8888", "127.0.0.1:18888"]
 
 
 def parse(hostport):

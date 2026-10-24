@@ -149,4 +149,6 @@
 # --- remote hosts: the failover relay on 127.0.0.1:8888 ----------------------------
 - name: Install the Hindsight relay
   ansible.builtin.include_tasks: relay.yml
-  when: _hindsight_url == hindsight_relay_url
+  when:
+    - _hindsight_url == hindsight_relay_url
+    - ansible_facts['hostname'] != 'mac-mini-m2'
