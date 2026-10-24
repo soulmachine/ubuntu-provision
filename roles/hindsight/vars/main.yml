@@ -20,7 +20,7 @@ hindsight_url_by_host:
   Franks-Mac-Studio: "{{ hindsight_lan_url }}"
   dev-server-frank-lume: "{{ hindsight_lan_url }}"
   macbook-pro-m3: "{{ hindsight_relay_url }}"
-  Franks-MBP: "{{ hindsight_relay_url }}"  # macbook-pro-nickel
+  Mac: "{{ hindsight_relay_url }}"  # macbook-pro-nickel: its HostName is unset, so macOS reports "Mac"
   archs-mac-mini: "{{ hindsight_relay_url }}"
   supermicro: "{{ hindsight_relay_url }}"
 
