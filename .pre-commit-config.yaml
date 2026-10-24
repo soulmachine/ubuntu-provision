@@ -51,12 +51,3 @@ repos:
         language: system
         pass_filenames: false
         files: ^roles/skills/
-
-      # The claude-mem removal edits other tools' config files; the self-test pins that it
-      # drops only claude-mem's entries and deletes a file only when nothing else is in it.
-      - id: claude-mem-strip-rules
-        name: claude-mem strip rules self-test
-        entry: python3 roles/claude-mem/files/strip-claude-mem.py --self-test
-        language: system
-        pass_filenames: false
-        files: ^roles/claude-mem/

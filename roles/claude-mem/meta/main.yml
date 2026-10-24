@@ -1,4 +1,0 @@
----
-dependencies:
-  # npx runs claude-mem's own uninstaller.
-  - nodejs
