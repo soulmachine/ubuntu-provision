@@ -17,7 +17,34 @@
     nodejs_npm_package: "@deepseek-ai/dsh"
     nodejs_npm_cmd: dsh
 
-# A profile that does not exist yet has no package.json; `dsh plugin` creates it on first use.
+# `dsh plugin` creates a profile on first use; `ls` does it without touching a plugin, so the
+# pnpm settings below have a file to merge into.
+- name: Create the dsh profiles
+  ansible.builtin.command: dsh plugin --profile {{ item }} ls --depth=0
+  args:
+    creates: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/pnpm-workspace.yaml"
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+
+- name: Read the dsh profile pnpm settings
+  ansible.builtin.slurp:
+    src: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/pnpm-workspace.yaml"
+  loop: "{{ dsh_plugins | map(attribute='profile') | unique }}"
+  register: dsh_workspaces
+  failed_when: false
+  check_mode: false
+
+# pnpm fails a git plugin's add (ERR_PNPM_IGNORED_BUILDS) until allowBuilds settles its install
+# scripts. A YAML merge, not lineinfile, because dsh writes allowBuilds too when it records a
+# pending build.
+- name: Settle the dsh plugins' install scripts
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item.item }}/pnpm-workspace.yaml"
+    content: "{{ item.content | b64decode | from_yaml | combine({'allowBuilds': dsh_allow_builds}, recursive=True) | to_nice_yaml(indent=2) }}"
+    mode: "0644"
+  loop: "{{ dsh_workspaces.results | selectattr('content', 'defined') }}"
+  loop_control:
+    label: "{{ item.item }}"
+
 - name: Read the dsh profile manifests
   ansible.builtin.slurp:
     src: "{{ lookup('env', 'HOME') }}/.dsh/profiles/{{ item }}/package.json"
@@ -45,17 +72,18 @@
 # (INSTALL_COMMANDS in dsh-plugin-manager), so a too-new release is refused and the old one stays.
 # A plain re-`add <spec>` keeps the saved version, hence @latest; --save-exact still writes it
 # exact. A git spec has no tag, re-`add` keeps its locked commit, and only `update <name>` moves it
-# to the branch head (tested 2026-10-23). dsh vets a git plugin on neither path (macbook-provision Q282).
+# to the branch head (tested 2026-10-23); a saved spec that differs, as when the source moves, gets
+# a fresh `add`. dsh vets a git plugin on neither path (macbook-provision Q282).
 # failed_when: false: a rejected plugin (dsh-find-plugin 0.4.0 on dsh 0.2.1-rc.2, 2026-10-21) or
 # a registry hiccup should not stop the roles after this one; the warning below names the command.
 - name: Install or upgrade the dsh plugins
   ansible.builtin.command: >-
     dsh plugin --profile {{ item.profile }}
-    {{ 'update ' ~ item.name if dsh_git and dsh_has
+    {{ 'update ' ~ item.name if dsh_git and dsh_current
        else 'add ' ~ item.args | default('') ~ ' ' ~ item.spec ~ ('' if dsh_git else '@latest') }}
   vars:
     dsh_git: "{{ item.spec is match('github:') }}"
-    dsh_has: "{{ item.name | default(item.spec) in (dsh_installed | default({})).get(item.profile, {}) }}"
+    dsh_current: "{{ (dsh_installed | default({})).get(item.profile, {}).get(item.name | default(item.spec)) == item.spec }}"
   loop: "{{ dsh_plugins }}"
   loop_control:
     label: "{{ item.profile }}: {{ item.spec }}"

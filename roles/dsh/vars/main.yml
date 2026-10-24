@@ -10,7 +10,14 @@ dsh_plugins:
   - { profile: tui, spec: "@nanmicoder/dsh-agent-teams", args: --save-exact }
   - { profile: web, spec: "@vectorize-io/hindsight-coding-agents" }
   - { profile: tui, spec: "@vectorize-io/hindsight-coding-agents" }
-  # Not on npm; Frank's pick of the GitHub repo.
-  - { profile: web, spec: "github:mmparko/dsh-purge", name: dsh-purge }
-  - { profile: tui, spec: "github:mmparko/dsh-purge", name: dsh-purge }
+  # Not on npm. The upstream repo: the mmparko mirror stopped at 1.1.71, whose {{cwd}} prompt
+  # variable fails every turn on dsh 0.2.1-rc.2 (macbook-provision Q283).
+  - { profile: web, spec: "github:YuJunZhiXue/dsh-purge", name: dsh-purge }
+  - { profile: tui, spec: "github:YuJunZhiXue/dsh-purge", name: dsh-purge }
   - { profile: web, spec: dsh-context }
+
+# pnpm-workspace.yaml `allowBuilds` for the git plugins, keyed by name so it holds across commits
+# (the key pnpm prints carries the commit hash). dsh-purge's one script, postinstall, appends it to
+# dsh.profile.bundles, which `dsh plugin add` already does, so it need not run.
+dsh_allow_builds:
+  dsh-purge: false
