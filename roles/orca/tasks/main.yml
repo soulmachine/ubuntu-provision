@@ -46,6 +46,20 @@
     dest: "{{ lookup('env', 'HOME') }}/.local/bin/orca-ide"
     state: link
 
+# The app and the service cannot share ~/.config/orca: the service's server holds it, and the
+# app refuses to start (Q61). Frank chose the server alone, so a user entry hides the package's
+# launcher. The package stays, because the CLI and `orca serve` run its Electron binary.
+- name: Hide the Orca desktop launcher
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.local/share/applications/orca-ide.desktop"
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Orca
+      Hidden=true
+      NoDisplay=true
+    mode: "0644"
+
 # Orca's skill for driving its CLI, the copy this Orca build ships. `skills install` writes it to
 # ~/.agents/skills/orca-cli and links it into each agent it detects, and later replaces a copy
 # Orca wrote with a newer build's. It is an updater, so `changed` comes from the files before and

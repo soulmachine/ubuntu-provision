@@ -18,6 +18,13 @@ The role also registers the CLI as the app's Settings → General → Orca CLI d
 Linux. If a file that is not a link already sits there, the task fails rather than replace it, as
 the app does.
 
+The app itself is hidden. Its server and the `orca-serve` service cannot share `~/.config/orca`:
+while the service runs, the app refuses to start ("Another orcad … already owns the data root").
+Frank chose the server alone on Linux (DECISIONS Q61), so the role writes a user entry
+`~/.local/share/applications/orca-ide.desktop` with `Hidden=true`, and the launcher no longer lists Orca.
+The package stays, because the CLI and `orca serve` run its Electron binary, and Orca ships no
+CLI-only build.
+
 ## The server
 
 The role does not write its own unit. It runs upstream's `orca-ide serve service install --port

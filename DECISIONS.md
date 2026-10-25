@@ -605,3 +605,13 @@
 **Justification:** Fleet rule: a change in one provisioning repo is synced to the other two. The reasoning is in macbook-provision Q290.
 **Outcome:** applied
 **Ref:** c8b5244, macbook-provision f1b98d1
+
+## Q61 — interactive/orca-server-only — deviation
+
+**Question:** On mac-mini-2018-omarchy the desktop app failed with "Another orcad … already owns the data root /home/frank/.config/orca", because the `orca-serve` service holds the profile. How should Linux hosts run Orca?
+**Options considered:** the app as a client of the local server, on its own profile / the app as the server, with no service / the server alone, and the launcher hidden / the server alone, with the package swapped for an extracted AppImage
+**Chosen:** The server alone. The package stays, and the role writes `~/.local/share/applications/orca-ide.desktop` with `Hidden=true` and `NoDisplay=true`, so the launcher no longer lists Orca. The service, the CLI link and the `orca-cli` skill are unchanged.
+**Decided-by:** human
+**Justification:** Frank asked for the CLI alone on Linux, with `orca serve` as the remote server and no desktop app. Orca ships no CLI-only build: `resources/bin/orca-ide` is a script that runs the app's Electron binary, and `orca serve` needs the same files, so Frank chose to keep the package and hide its launcher rather than replace it. A user entry with the same name overrides the system one and survives package upgrades. macOS is unchanged: there the desktop app and the service share the profile, and the supervisor waits while the app serves.
+**Outcome:** applied
+**Ref:** (pending)
