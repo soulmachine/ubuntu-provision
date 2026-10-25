@@ -31,6 +31,13 @@
   changed_when: false
   failed_when: false
 
+- name: List the npm globals under the current Node.js
+  ansible.builtin.command: npm ls -g --depth=0 --json
+  register: nodejs_globals_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: Configure Node.js LTS via mise
   ansible.builtin.command: mise use --global node@lts
   changed_when: false
@@ -43,3 +50,17 @@
   ansible.builtin.command: mise ls --current node --json
   register: nodejs_after
   changed_when: nodejs_after.stdout != nodejs_before.stdout
+
+# `mise upgrade` deletes the old Node and every npm global under it. The roles that install a CLI
+# put theirs back later in the run, but a run cut short in between (grokbot-box, often off) or a
+# global no role owns stays gone, its shim failing "No version is set" (grokbot-box openclaw,
+# 2026-10-24). So reinstall them all here, at the versions they had; later roles still update them.
+- name: Reinstall the npm globals the old Node.js took with it
+  ansible.builtin.command:
+    argv: "{{ ['npm', 'install', '-g'] + nodejs_globals }}"
+  vars:
+    nodejs_deps: "{{ (nodejs_globals_before.stdout | default('{}', true) | from_json).get('dependencies', {})
+                     | dict2items | rejectattr('key', 'in', ['npm', 'corepack']) | selectattr('value.version', 'defined') | list }}"
+    nodejs_globals: "{{ nodejs_deps | map(attribute='key') | zip(nodejs_deps | map(attribute='value.version'))
+                        | map('join', '@') | list }}"
+  when: nodejs_after is changed and nodejs_globals | length > 0
