@@ -17,7 +17,7 @@ hindsight_url_by_host:
   mac-mini-m2: http://127.0.0.1:8888
   mac-mini-m6: "{{ hindsight_lan_url }}"
   mac-mini-2018-omarchy: "{{ hindsight_lan_url }}"
-  Franks-Mac-Studio: "{{ hindsight_lan_url }}"
+  mac-studio-m3: "{{ hindsight_lan_url }}"
   dev-server-frank-lume: "{{ hindsight_lan_url }}"
   macbook-pro-m3: "{{ hindsight_relay_url }}"
   franks-macbook-pro: "{{ hindsight_relay_url }}"  # macbook-pro-nickel
