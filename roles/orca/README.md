@@ -52,6 +52,12 @@ supervisor that gave up.
   4. Ctrl+C the server, then `orca-ide serve service install --port 6768 --pairing-address
      <tailscale-ip>`.
 
-  The link is a secret: do not paste it into a file or a chat.
-- **Agent accounts and skills:** `orca-ide account add --agent claude|codex` and
-  `orca-ide skills install`.
+  The link is a secret: do not paste it into a file or a chat. Each client gets its own grant, and
+  a new link replaces the last unused one. If the client shows the server as Disconnected, click
+  **Connect**.
+- **Agent accounts and skills** must be set up in the server's own shell, because a paired client
+  disables Add account, and remote sessions use the server's PATH, home and logins:
+  `orca-ide account add --agent claude|codex`, `orca-ide skills install --skill orca-cli --skill
+  orchestration`, and later `orca-ide skills update --all`.
+
+Source for the steps: <https://www.onorca.dev/docs/remote-servers>.
