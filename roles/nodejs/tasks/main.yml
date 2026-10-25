@@ -63,4 +63,5 @@
                      | dict2items | rejectattr('key', 'in', ['npm', 'corepack']) | selectattr('value.version', 'defined') | list }}"
     nodejs_globals: "{{ nodejs_deps | map(attribute='key') | zip(nodejs_deps | map(attribute='value.version'))
                         | map('join', '@') | list }}"
+  changed_when: true  # it runs only when the Node upgrade deleted them
   when: nodejs_after is changed and nodejs_globals | length > 0
