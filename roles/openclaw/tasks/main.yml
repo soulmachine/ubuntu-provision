@@ -31,18 +31,36 @@
   failed_when: false
   check_mode: false
 
-- name: Decide whether the OpenClaw daemon runs an old Node or OpenClaw
+# The service's Node is not always its first argument: on macOS the daemon can start
+# `/bin/sh <env wrapper> <env file> <node> ...` (macbook-provision, 2026-10-25).
+- name: Find the OpenClaw daemon's Node
   ansible.builtin.set_fact:
-    openclaw_daemon_stale: >-
-      {{ (openclaw_svc.command.programArguments | default([])) | length > 0
-         and (('/mise/installs/' in openclaw_svc.command.programArguments[0]
-               and openclaw_svc.command.programArguments[0] != openclaw_node.stdout | trim)
-              or openclaw_svc.layout.packageVersion | default('') != openclaw_state.cli.version | default('')) }}
+    openclaw_svc_args: "{{ openclaw_svc.command.programArguments | default([]) }}"
+    openclaw_svc_node: >-
+      {{ (openclaw_svc.command.programArguments | default([]) | select('match', '.*/node$') | list
+          + openclaw_svc.command.programArguments | default([]) + [''])[0] }}
+    openclaw_svc_version: "{{ openclaw_svc.layout.packageVersion | default('') }}"
+    openclaw_cli_version: "{{ openclaw_state.cli.version | default('') }}"
   vars:
     openclaw_state: >-
       {{ openclaw_status.stdout | from_json
          if openclaw_status.rc == 0 and (openclaw_status.stdout | trim)[:1] == '{' else {} }}
     openclaw_svc: "{{ openclaw_state.service | default({}) }}"
+
+# A Node that is gone is stale wherever it lived, such as one mise has pruned.
+- name: Check that the OpenClaw daemon's Node exists
+  ansible.builtin.stat:
+    path: "{{ openclaw_svc_node }}"
+  register: openclaw_svc_node_stat
+  when: openclaw_svc_node | length > 0
+
+- name: Decide whether the OpenClaw daemon runs an old Node or OpenClaw
+  ansible.builtin.set_fact:
+    openclaw_daemon_stale: >-
+      {{ openclaw_svc_args | length > 0
+         and (('/mise/installs/' in openclaw_svc_node and openclaw_svc_node != openclaw_node.stdout | trim)
+              or not (openclaw_svc_node_stat.stat.exists | default(false))
+              or openclaw_svc_version != openclaw_cli_version) }}
 
 - name: Rewrite the OpenClaw daemon for the current Node and OpenClaw
   ansible.builtin.command: openclaw gateway install --force

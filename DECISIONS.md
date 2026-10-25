@@ -625,3 +625,13 @@
 **Justification:** The same tasks, templates and binary already exist in all three provision repos; a list is the smallest change, and a second copy of the relay script would drift. The remote hosts are exactly the hosts the role already gives a relay. Same change in macbook-, ubuntu- and omarchy-provision.
 **Outcome:** applied
 **Ref:** (pending)
+
+## Q63 — interactive/openclaw-missing-node — gate-resolution
+
+**Question:** macbook-provision Q292 removes Homebrew's `node`, and its `openclaw` role now rewrites the daemon when the daemon's Node is gone, wherever that Node sits in the service's arguments. This repo has the same stale-daemon check. Port it?
+**Options considered:** port the check / leave it, since this host family keeps its system or mise Node
+**Chosen:** Ported: the check finds the first argument ending in `/node` (falling back to the first argument), and a daemon whose Node no longer exists counts as stale, as does a mise Node that differs from the current one or a version mismatch.
+**Decided-by:** agent
+**Justification:** The provisioning repos stay in sync (`~/.agents/AGENTS.md`), and a Node pruned by mise or a package upgrade leaves the daemon with nothing to run here too. Same change in macbook-, ubuntu- and omarchy-provision.
+**Outcome:** applied
+**Ref:** macbook-provision Q292
