@@ -13,6 +13,11 @@ installs the app's `.deb` from the GitHub release. Its post-install script links
 installs `orca-ide_<tag>_<amd64|arm64>.deb` when `dpkg-query` reports a different version. The
 `.deb` pulls in Electron's GTK and NSS libraries, even on a headless host.
 
+The role also registers the CLI as the app's Settings → General → Orca CLI does: it links
+`~/.local/bin/orca-ide` to `/opt/Orca/resources/bin/orca-ide`. The app checks only that link on
+Linux. If a file that is not a link already sits there, the task fails rather than replace it, as
+the app does.
+
 ## The server
 
 The role does not write its own unit. It runs upstream's `orca-ide serve service install --port

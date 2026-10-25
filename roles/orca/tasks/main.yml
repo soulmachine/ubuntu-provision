@@ -37,6 +37,15 @@
     deb: https://github.com/stablyai/orca/releases/download/v{{ orca_latest }}/orca-ide_{{ orca_latest }}_{{ orca_arch }}.deb
   when: (orca_installed.stdout | default('')) != orca_latest
 
+# Settings → General → Orca CLI counts the CLI as registered when ~/.local/bin/orca-ide links
+# to the app's launcher, which the .deb puts in /opt/Orca. No `force`: like the app, refuse to
+# replace a file there that is not ours.
+- name: Register the Orca CLI
+  ansible.builtin.file:
+    src: /opt/Orca/resources/bin/orca-ide
+    dest: "{{ lookup('env', 'HOME') }}/.local/bin/orca-ide"
+    state: link
+
 # Without lingering, systemd stops the user manager at logout, taking the server with it.
 # Same tasks as roles/paseo. `show-user` fails for a user with no session and no linger,
 # which reads as "no".
