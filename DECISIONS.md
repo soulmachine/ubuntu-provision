@@ -575,3 +575,13 @@
 **Justification:** Fleet rule: a change in one provisioning repo is synced to the other two. The reasoning is in macbook-provision Q284 and coding-agent Q605–Q610.
 **Outcome:** applied
 **Ref:** macbook-provision 631f64a
+
+## Q58 — interactive/orca-remote-servers — tradeoff
+
+**Question:** Port macbook-provision Q289 (the Orca service advertises the host's Tailscale IPv4) here?
+**Options considered:** same change / skip
+**Chosen:** The same change: the install task adds `--pairing-address <tailscale ip -4>` when it reads a `100.x.y.z` address, and the README lists the manual pairing steps. macbook-provision's `/usr/local/bin/orca` fix does not apply, because Linux has no such link.
+**Decided-by:** agent
+**Justification:** Fleet rule: a change in one provisioning repo is synced to the other two. The reasoning is in macbook-provision Q289.
+**Outcome:** applied
+**Ref:** (pending)

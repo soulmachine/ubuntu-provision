@@ -90,8 +90,20 @@
     - name: Install and check the Orca server service
       when: orca_status.error.code | default('') != 'invalid_argument'
       block:
+        # The address that pairing offers advertise to clients. An IP, not a MagicDNS name,
+        # because one fleet host answers *.ts.net from a fake-IP resolver. No Tailscale, no flag.
+        - name: Read this host's Tailscale address
+          ansible.builtin.command: bash -lc 'tailscale ip -4 2>/dev/null | head -1'
+          register: orca_tailscale
+          changed_when: false
+          failed_when: false
+          check_mode: false
+
         - name: Install the Orca server service
-          ansible.builtin.command: bash -lc 'orca-ide serve service install --port 6768 --json'
+          ansible.builtin.command: >-
+            bash -lc 'orca-ide serve service install --port 6768
+            {%- if orca_tailscale.stdout | default('') is match('^100\.\d+\.\d+\.\d+$') %}
+            --pairing-address {{ orca_tailscale.stdout }}{% endif %} --json'
           changed_when: true
           when: orca_status.result.verdict | default('') != 'live'
 
@@ -116,8 +128,8 @@
               The Orca server is not live after 60s of waiting
               ({{ (orca_service_after.stdout | default('{}', true) | from_json).result | default('no status') }}).
               `orca-ide serve service status` says why, and `journalctl --user -u orca-serve`
-              holds its log. `orca-ide serve service install --port 6768` clears a supervisor
-              that gave up.
+              holds its log. `orca-ide serve service install --port 6768 --pairing-address
+              <tailscale-ip>` clears a supervisor that gave up.
           when: (orca_service_after.stdout | default('{}', true) | from_json).result.verdict | default('') != 'live'
 
         # post_tasks only run in a full play; a single-role run reports it here.

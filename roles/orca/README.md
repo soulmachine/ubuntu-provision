@@ -23,9 +23,13 @@ failures in 15 minutes it gives up. `orca-ide serve service install` is also wha
 supervisor that gave up.
 
 - **It installs only when `orca-ide serve service status --json` is not `live`.** A reinstall
-  restarts the server and kills its sessions. A change of flags (port, PATH) needs a manual
-  `orca-ide serve service install --port 6768`.
+  restarts the server and kills its sessions. A change of flags (port, address, PATH) needs a manual
+  `orca-ide serve service install --port 6768 --pairing-address <tailscale-ip>`.
 - **Port 6768 is fixed,** so paired clients keep their address across restarts.
+- **It advertises the host's Tailscale IPv4** (`tailscale ip -4`) with `--pairing-address`, so a
+  pairing offer names an address that macbook-pro-m3 reaches. It is an IP, not a MagicDNS name,
+  because one fleet host answers `*.ts.net` from a fake-IP resolver. Without Tailscale, the role
+  leaves the flag out.
 - **It runs through `bash -lc`.** The unit pins the PATH it was installed with, and the agent CLIs
   the server spawns live on mise's shims.
 - **`systemctl --user` needs the user manager's bus.** The tasks set `XDG_RUNTIME_DIR`, and the role
@@ -39,8 +43,15 @@ supervisor that gave up.
 
 ## By hand
 
-- **Pairing.** The service never prints a pairing link. Stop the service and run
-  `orca-ide serve --port 6768 --pairing-address <tailscale-ip>` in a terminal, then paste the link
-  into **Add Server** on the client.
+- **Pairing.** The service never prints a pairing link. On the server:
+  1. `orca-ide serve service uninstall`, which frees the profile.
+  2. `orca-ide serve --port 6768 --pairing-address <tailscale-ip>` in a terminal. It prints a
+     pairing link.
+  3. On the client, paste the link into **Add Server**, or run
+     `orca environment add --name <host> --pairing-code '<link>'`.
+  4. Ctrl+C the server, then `orca-ide serve service install --port 6768 --pairing-address
+     <tailscale-ip>`.
+
+  The link is a secret: do not paste it into a file or a chat.
 - **Agent accounts and skills:** `orca-ide account add --agent claude|codex` and
   `orca-ide skills install`.
