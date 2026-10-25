@@ -594,4 +594,4 @@
 **Decided-by:** agent
 **Justification:** In Orca 1.4.239's CLI installer (app.asar), Linux counts the CLI as registered when `~/.local/bin/orca-ide` resolves to the app's `resources/bin/orca-ide`, and the app checks nothing else. Without `force`, a file there that is not a link fails the task, as the app also refuses to replace a non-Orca command. supermicro already had that link, made by hand on 2026-10-17, so the role now keeps it and gives it to new hosts. On macOS the cask's link already counts: Frank saw Registered on macbook-pro-m3, so macbook-provision changed only its README.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** 92c7c3a
