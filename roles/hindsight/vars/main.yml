@@ -24,9 +24,13 @@ hindsight_url_by_host:
   archs-mac-mini: "{{ hindsight_relay_url }}"
   supermicro: "{{ hindsight_relay_url }}"
 
-# Relay: Tailscale MagicDNS name first, then the tunnel m2 keeps on each remote host
-# (me.soulmachine.hindsight-tunnel.<host> on m2).
-hindsight_relay_upstreams: [mac-mini-m2:8888, 127.0.0.1:18888]
+# Relays on the remote hosts, one per service on m2 (fleet rule: coding-agent
+# devops/service-access.md). Each listens on 127.0.0.1:<port> and tries the Tailscale MagicDNS name
+# first, then the reverse tunnel m2 keeps on that host (me.soulmachine.hindsight-tunnel.<host>,
+# com.cliproxy.tunnel.<host>). The binary is generic; its name is historical.
+hindsight_relays:
+  - {name: hindsight, port: 8888, upstreams: [mac-mini-m2:8888, 127.0.0.1:18888]}
+  - {name: cliproxy, port: 8317, upstreams: [mac-mini-m2:8317, 127.0.0.1:18317]}
 
 # Agents the installer wires itself (`install all`). Each line is a config file the install writes
 # its path into. A file that does not exist means the agent is not installed here, so it is skipped.

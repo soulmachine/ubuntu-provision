@@ -1,31 +1,21 @@
 ---
-# hindsight-relay listens on 127.0.0.1:8888 and joins each connection to m2 over Tailscale, or to
-# m2's reverse SSH tunnel on 127.0.0.1:18888 when Tailscale does not answer (files/hindsight-relay,
-# whose --self-test checks the failover). Stdlib only, so the system python3 runs it.
-- name: Ensure ~/.local/bin exists
-  ansible.builtin.file:
-    path: "{{ hindsight_home }}/.local/bin"
-    state: directory
-    mode: "0755"
-
-- name: Install hindsight-relay
-  ansible.builtin.copy:
-    src: hindsight-relay
-    dest: "{{ hindsight_home }}/.local/bin/hindsight-relay"
-    mode: "0755"
-  register: _hindsight_relay_bin
+# One relay instance, `relay` from hindsight_relays: it listens on 127.0.0.1:<port> and joins each
+# connection to m2 over Tailscale, or to m2's reverse SSH tunnel when Tailscale does not answer
+# (files/hindsight-relay, whose --self-test checks the failover). The binary is generic; its name is
+# historical. Fleet rule: ~/coding-agent/devops/service-access.md. Looped from client.yml, after the
+# binary install there.
 
 # --- macOS: a LaunchAgent ----------------------------------------------------------
-- name: Install the hindsight-relay LaunchAgent
+- name: Install the LaunchAgent for relay {{ relay.name }}
   ansible.builtin.template:
-    src: me.soulmachine.hindsight-relay.plist.j2
-    dest: "{{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.hindsight-relay.plist"
+    src: relay.plist.j2
+    dest: "{{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.{{ relay.name }}-relay.plist"
     mode: "0644"
   register: _hindsight_relay_plist
   when: ansible_facts['system'] == 'Darwin'
 
-- name: Check whether the hindsight-relay LaunchAgent is loaded
-  ansible.builtin.command: launchctl print gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.hindsight-relay
+- name: Check whether the LaunchAgent is loaded for relay {{ relay.name }}
+  ansible.builtin.command: launchctl print gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.{{ relay.name }}-relay
   register: _hindsight_relay_loaded
   changed_when: false
   failed_when: false
@@ -33,11 +23,11 @@
   when: ansible_facts['system'] == 'Darwin'
 
 # A changed plist is only re-read on a fresh bootstrap, so it is booted out first.
-- name: Start or restart the hindsight-relay LaunchAgent
+- name: Start or restart the LaunchAgent for relay {{ relay.name }}
   ansible.builtin.shell: >-
-    {% if _hindsight_relay_loaded.rc == 0 %}launchctl bootout gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.hindsight-relay;{% endif %}
+    {% if _hindsight_relay_loaded.rc == 0 %}launchctl bootout gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.{{ relay.name }}-relay;{% endif %}
     launchctl bootstrap gui/{{ ansible_facts['user_uid'] }}
-    {{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.hindsight-relay.plist
+    {{ hindsight_home }}/Library/LaunchAgents/me.soulmachine.{{ relay.name }}-relay.plist
   when:
     - ansible_facts['system'] == 'Darwin'
     - _hindsight_relay_loaded.rc != 0 or _hindsight_relay_bin.changed or _hindsight_relay_plist.changed
@@ -51,17 +41,17 @@
     mode: "0755"
   when: ansible_facts['system'] == 'Linux'
 
-- name: Install the hindsight-relay systemd user unit
+- name: Install the systemd user unit for relay {{ relay.name }}
   ansible.builtin.template:
-    src: hindsight-relay.service.j2
-    dest: "{{ hindsight_home }}/.config/systemd/user/hindsight-relay.service"
+    src: relay.service.j2
+    dest: "{{ hindsight_home }}/.config/systemd/user/{{ relay.name }}-relay.service"
     mode: "0644"
   register: _hindsight_relay_unit
   when: ansible_facts['system'] == 'Linux'
 
-- name: Enable and start hindsight-relay
+- name: Enable and start relay {{ relay.name }}
   ansible.builtin.systemd_service:
-    name: hindsight-relay
+    name: "{{ relay.name }}-relay"
     scope: user
     enabled: true
     state: "{{ 'restarted' if (_hindsight_relay_bin.changed or _hindsight_relay_unit.changed) else 'started' }}"

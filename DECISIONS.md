@@ -615,3 +615,13 @@
 **Justification:** Frank asked for the CLI alone on Linux, with `orca serve` as the remote server and no desktop app. Orca ships no CLI-only build: `resources/bin/orca-ide` is a script that runs the app's Electron binary, and `orca serve` needs the same files, so Frank chose to keep the package and hide its launcher rather than replace it. A user entry with the same name overrides the system one and survives package upgrades. macOS is unchanged: there the desktop app and the service share the profile, and the supervisor waits while the app serves.
 **Outcome:** applied
 **Ref:** ec3791c
+
+## Q62 — interactive/cliproxy-relay — deviation
+
+**Question:** The remote hosts now reach the CLIProxyAPI gateway by the fleet rule (LAN > Tailscale > reverse SSH tunnel, coding-agent `devops/service-access.md`, Q632 there). Where does the gateway's local relay come from?
+**Options considered:** a new role with its own relay copy / the hindsight role's relay tasks looped over a per-service list
+**Chosen:** The hindsight role's relay tasks loop over `hindsight_relays` (hindsight 8888 → 18888, cliproxy 8317 → 18317). One binary, `~/.local/bin/hindsight-relay`, installed once in `client.yml`; `relay.yml` and the two templates take the service from the loop var `relay`. Unit names `me.soulmachine.<name>-relay` / `<name>-relay.service`, so the Hindsight units keep their labels.
+**Decided-by:** agent
+**Justification:** The same tasks, templates and binary already exist in all three provision repos; a list is the smallest change, and a second copy of the relay script would drift. The remote hosts are exactly the hosts the role already gives a relay. Same change in macbook-, ubuntu- and omarchy-provision.
+**Outcome:** applied
+**Ref:** (pending)

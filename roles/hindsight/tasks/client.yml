@@ -146,9 +146,28 @@
     - (_config[item.0.item.key] | default({}))['hindsight'] | default(none) != item.0.item.entry
   no_log: true
 
-# --- remote hosts: the failover relay on 127.0.0.1:8888 ----------------------------
-- name: Install the Hindsight relay
+# --- remote hosts: the failover relays, one per m2 service (hindsight_relays) ----------
+- name: Ensure ~/.local/bin exists
+  ansible.builtin.file:
+    path: "{{ hindsight_home }}/.local/bin"
+    state: directory
+    mode: "0755"
+  when: _hindsight_url == hindsight_relay_url
+
+- name: Install hindsight-relay
+  ansible.builtin.copy:
+    src: hindsight-relay
+    dest: "{{ hindsight_home }}/.local/bin/hindsight-relay"
+    mode: "0755"
+  register: _hindsight_relay_bin
+  when: _hindsight_url == hindsight_relay_url
+
+- name: Install the relays
   ansible.builtin.include_tasks: relay.yml
+  loop: "{{ hindsight_relays }}"
+  loop_control:
+    loop_var: relay
+    label: "{{ relay.name }}"
   when:
     - _hindsight_url == hindsight_relay_url
     - ansible_facts['hostname'] != 'mac-mini-m2'
