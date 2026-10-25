@@ -62,7 +62,8 @@ supervisor that gave up.
   **Connect**.
 - **Agent accounts and skills** must be set up in the server's own shell, because a paired client
   disables Add account, and remote sessions use the server's PATH, home and logins:
-  `orca-ide account add --agent claude|codex`, `orca-ide skills install --skill orca-cli --skill
-  orchestration`, and later `orca-ide skills update --all`.
+  `orca-ide account add --agent claude|codex`. The role installs the `orca-cli` skill on every run
+  (`orca-ide skills install --skill orca-cli`), which also updates it when Orca ships a newer copy. Add
+  others by hand, such as `orca-ide skills install --skill orchestration`.
 
 Source for the steps: <https://www.onorca.dev/docs/remote-servers>.

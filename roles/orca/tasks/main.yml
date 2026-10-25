@@ -46,6 +46,44 @@
     dest: "{{ lookup('env', 'HOME') }}/.local/bin/orca-ide"
     state: link
 
+# Orca's skill for driving its CLI, the copy this Orca build ships. `skills install` writes it to
+# ~/.agents/skills/orca-cli and links it into each agent it detects, and later replaces a copy
+# Orca wrote with a newer build's. It is an updater, so `changed` comes from the files before and
+# after, not from its output. Only the files: agent-sync adds its own links to the same skill.
+# A login shell, so it detects the agent CLIs on mise's shims.
+- name: Read the orca-cli skill before installing
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail; find "$HOME/.agents/skills/orca-cli" -type f -exec cksum {} + 2>/dev/null
+      | sort | cksum
+    executable: /bin/bash
+  register: orca_skill_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install the orca-cli skill
+  ansible.builtin.command: bash -lc 'orca-ide skills install --skill orca-cli'
+  changed_when: false
+
+- name: Read the orca-cli skill after installing
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail; find "$HOME/.agents/skills/orca-cli" -type f -exec cksum {} + 2>/dev/null
+      | sort | cksum
+    executable: /bin/bash
+  register: orca_skill_after
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Report the orca-cli skill
+  ansible.builtin.debug:
+    msg: "orca-cli skill {{ 'installed or updated' if orca_skill_changed else 'already current' }}"
+  vars:
+    orca_skill_changed: "{{ orca_skill_before.stdout | default('') != orca_skill_after.stdout | default('') }}"
+  changed_when: orca_skill_changed
+
 # Without lingering, systemd stops the user manager at logout, taking the server with it.
 # Same tasks as roles/paseo. `show-user` fails for a user with no session and no linger,
 # which reads as "no".
