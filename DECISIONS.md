@@ -614,4 +614,4 @@
 **Decided-by:** human
 **Justification:** Frank asked for the CLI alone on Linux, with `orca serve` as the remote server and no desktop app. Orca ships no CLI-only build: `resources/bin/orca-ide` is a script that runs the app's Electron binary, and `orca serve` needs the same files, so Frank chose to keep the package and hide its launcher rather than replace it. A user entry with the same name overrides the system one and survives package upgrades. macOS is unchanged: there the desktop app and the service share the profile, and the supervisor waits while the app serves.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** ec3791c
