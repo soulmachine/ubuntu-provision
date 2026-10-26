@@ -138,6 +138,23 @@
       ansible.builtin.set_fact:
         orca_status: "{{ orca_service.stdout | default('{}', true) | from_json }}"
 
+    # A host can hand serving to the desktop app, as mac-mini-m6 did (coding-agent Q638). Install
+    # re-enables a disabled unit, so the way to keep it off is `systemctl --user mask orca-serve`.
+    - name: Read whether the Orca server unit is masked
+      ansible.builtin.systemd_service:
+        name: orca-serve.service
+        scope: user
+      register: orca_enabled
+      failed_when: false
+      check_mode: false
+
+    - name: Report that the Orca server is masked on this host
+      ansible.builtin.debug:
+        msg: >-
+          Skipping the Orca server: orca-serve.service is masked, so the desktop app serves
+          instead. `systemctl --user unmask orca-serve.service` undoes it.
+      when: orca_enabled.status.UnitFileState | default('') == 'masked'
+
     # Orca 1.4.224 (2026-10-10) predates `serve service` (upstream Q243): it answers
     # `invalid_argument`. Skip until a release ships it; the .deb step above picks it up.
     - name: Report that this Orca cannot install its server yet
@@ -149,7 +166,9 @@
       when: orca_status.error.code | default('') == 'invalid_argument'
 
     - name: Install and check the Orca server service
-      when: orca_status.error.code | default('') != 'invalid_argument'
+      when:
+        - orca_status.error.code | default('') != 'invalid_argument'
+        - not (orca_enabled.status.UnitFileState | default('') == 'masked')
       block:
         # The address that pairing offers advertise to clients. An IP, not a MagicDNS name,
         # because one fleet host answers *.ts.net from a fake-IP resolver. No Tailscale, no flag.
