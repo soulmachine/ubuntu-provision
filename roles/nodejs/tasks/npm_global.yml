@@ -16,8 +16,9 @@
   failed_when: false
   check_mode: false
 
+# Prints the path PATH finds, then where it really points, so the checks below can see both.
 - name: Look for another channel's copy of {{ nodejs_npm_cmd }}
-  ansible.builtin.command: which {{ nodejs_npm_cmd }}
+  ansible.builtin.shell: p=$(command -v {{ nodejs_npm_cmd }}) && echo "$p" && realpath "$p"
   register: nodejs_npm_other
   changed_when: false
   failed_when: false
@@ -29,9 +30,16 @@
 # the current Node. That is a shim left from an older Node after `mise use --global node@lts` moved
 # on (dev-server-frank, 2026-10-12: openclaw and gemini sat under node 24.17.0, the shim answered
 # `which`, and this skipped the install while `openclaw` itself failed with "No version is set").
+#
+# A command that resolves into corepack is not another channel either: corepack fetches a package
+# manager on first use and keeps no copy current. Debian's nodejs links /usr/bin/pnpm to its bundled
+# corepack 0.36, which cannot start pnpm 12 (grokbot-box, 2026-10-25: this skipped the install while
+# `pnpm` failed with "Cannot find module .../pnpm/12.15.0/bin/pnpm.cjs").
 - name: Decide whether another channel really owns {{ nodejs_npm_cmd }}
   ansible.builtin.set_fact:
-    nodejs_npm_foreign: "{{ nodejs_npm_owned.rc != 0 and nodejs_npm_other.rc == 0 and '/mise/shims/' not in nodejs_npm_other.stdout }}"
+    nodejs_npm_foreign: >-
+      {{ nodejs_npm_owned.rc != 0 and nodejs_npm_other.rc == 0
+         and '/mise/shims/' not in nodejs_npm_other.stdout and '/corepack/' not in nodejs_npm_other.stdout }}
 
 - name: Install from npm {{ nodejs_npm_package }}
   community.general.npm:
@@ -43,6 +51,6 @@
 - name: Report another channel's copy of {{ nodejs_npm_cmd }}
   ansible.builtin.debug:
     msg: >-
-      {{ nodejs_npm_cmd }} is already installed at {{ nodejs_npm_other.stdout }} by another channel, so npm
+      {{ nodejs_npm_cmd }} is already installed at {{ nodejs_npm_other.stdout_lines[0] }} by another channel, so npm
       leaves it alone; that channel keeps it current.
   when: nodejs_npm_foreign

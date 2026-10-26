@@ -10,6 +10,21 @@
   args:
     creates: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup"
 
+# The install above is skipped once rustup exists, but a home restored without ~/.rustup's
+# toolchains keeps the binary and has no default (grokbot-box, 2026-10-25), so every
+# `rustup component add` below failed with "no default toolchain is configured".
+- name: Read rustup's default toolchain
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup default"
+  register: rust_default
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install the stable toolchain as the default
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup default stable"
+  when: rust_default.rc != 0
+  changed_when: true
+
 # Additional recommended components on top of the default profile:
 # rust-src (std source, required for rust-analyzer to resolve std symbols)
 # and rust-analyzer (the official language server).
