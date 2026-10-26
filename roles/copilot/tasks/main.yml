@@ -1,7 +1,7 @@
 ---
 # GitHub Copilot CLI from npm, unless another channel already provides it. It reaches models only
-# through CLIProxyAPI: `copilot-gw`, written by `cliproxy-tier <host>` on mac-mini-m2, sets its
-# BYOK variables for that one process (coding-agent Q401).
+# through CLIProxyAPI: the `~/.local/bin/copilot` shim, written by `cliproxy-tier <host>` on mac-mini-m2,
+# sets its BYOK variables for that one process (coding-agent Q401, Q666). `copilot-origin` uses the GitHub login.
 - name: Install GitHub Copilot CLI from npm
   ansible.builtin.include_role:
     name: nodejs

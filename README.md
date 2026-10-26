@@ -118,15 +118,15 @@ pre-commit run --all-files
 | kimi-code | Kimi Code CLI（通过官方 code.kimi.com 脚本安装）；`kimi upgrade` 报告有新版时重跑安装脚本 |
 | omp | oh-my-pi：bun 全局 `@oh-my-pi/pi-coding-agent`，bash 补全与 `omp-yolo` 别名（依赖 bun） |
 | pi | pi coding agent：bun 全局 `@earendil-works/pi-coding-agent`，并下发 `~/.pi/agent/` 下的 settings、models 与扩展（依赖 bun） |
-| copilot | GitHub Copilot CLI（npm `@github/copilot`）；`copilot` 本身保持原生，经 CLIProxyAPI 用的 `copilot-gw` 由 mac-mini-m2 上的 `cliproxy-tier` 写入（依赖 nodejs） |
+| copilot | GitHub Copilot CLI（npm `@github/copilot`）；`copilot` 本身经 CLIProxyAPI（mac-mini-m2 上的 `cliproxy-tier` 写入 `~/.local/bin/copilot` shim），用 GitHub 登录时用 `copilot-origin`（依赖 nodejs） |
 | crush | Crush（Charm，npm `@charmland/crush`）；`~/.config/crush/crushrc` 里的网关 provider 由 `cliproxy-tier` 写入（依赖 nodejs） |
-| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini-gw` 及其网关配置（`~/.gemini-gw`）由 `cliproxy-tier` 写入，`gemini` 本身保持原生（依赖 nodejs） |
-| grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`grok-gw` 及其网关配置（`~/.grok-gw`）由 `cliproxy-tier` 写入，`grok` 本身保持原生（依赖 nodejs） |
+| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini` 本身经网关（`cliproxy-tier` 写入 `~/.local/bin/gemini` shim 和 `~/.gemini` 里的网关配置），用 Google 登录时用 `gemini-origin`（`~/.gemini-origin`）（依赖 nodejs） |
+| grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`grok` 本身经网关（`cliproxy-tier` 把网关配置写入 `~/.grok`），用 xAI 登录时用 `grok-origin`（`~/.grok-origin`）（依赖 nodejs） |
 | openclaw | OpenClaw（npm `openclaw`）；onboarding、网关 provider 与常驻 daemon 由 mac-mini-m2 上的 `cliproxy-tier` 负责（依赖 nodejs） |
 | dsh | DeepSeek Harness（npm `@deepseek-ai/dsh`，另装 npm 全局 `pnpm`，因为 `dsh plugin` 靠 PATH 上的 pnpm 装插件）；按 `roles/dsh/vars/main.yml` 每次对 `web`、`tui` 两个 profile 的每个 npm 插件跑 `dsh plugin --profile <p> add <spec>@latest`：缺的就装，旧的就升级，且都经过 dsh 的兼容性检查（`update` 不检查）；git 插件 `dsh-purge`（上游 `github:YuJunZhiXue/dsh-purge`；`mmparko` 镜像停在 1.1.71，其 `{{cwd}}` 在 dsh 0.2.1-rc.2 上让每轮对话失败）装好后改用 `update dsh-purge` 拉到分支最新提交，其 postinstall 由 profile 的 `pnpm-workspace.yaml` 里 `allowBuilds: {dsh-purge: false}` 跳过（`dsh plugin add` 自己会把它加进 bundles）。按 `pnpm-lock.yaml` 前后校验和判断变更（不到一天的新版本被 pnpm 的 minimumReleaseAge 挡住，下次再装）。dsh 拒绝的插件（如与当前 dsh 不兼容的 `dsh-find-plugin`，或要求更新 dsh 的插件新版本）只打印警告并保留已装版本，等兼容版本发布后自动装上（依赖 nodejs） |
 | agent-sync | 把 `~/.agents/` 同步到每个已安装 agent 的技能目录与指令文件；从 GitHub release 下载 linux-x64/arm64 tar 包到 `~/.local/bin`，按最新 release 版本号更新，SHA256SUMS.txt 校验 |
 | skills | 用 `npx skills@latest add` 安装所有技能源到 `~/.agents/skills`（每次运行都刷新，以 store 指纹判断 changed），部分源按名单安装；用 `agent-sync adopt` 收编 `~/github.com/soulmachine/skills` 与 OpenSWE 仓库中的自写技能，`agent-sync sync` 扇出，并检查各 agent 的指令接线；孤儿目录只报告不删除（依赖 claude-code、codex、agent-sync） |
-| agent-reach | 多渠道触达工具；上游只提供面向 AI agent 的安装文档，故由 `claude-gw -p` 按文档驱动安装；不装 OpenCLI（依赖 claude-code、python、nodejs、github） |
+| agent-reach | 多渠道触达工具；上游只提供面向 AI agent 的安装文档，故由 `claude -p` 按文档驱动安装；不装 OpenCLI（依赖 claude-code、python、nodejs、github） |
 | playwright | 浏览器自动化：npm 全局 `playwright@latest`，`install-deps` 安装系统依赖，按 `--dry-run` 判断是否需要下载 Chromium，锁冲突时重试（依赖 nodejs） |
 | playwright-cli | Playwright CLI：npm 全局 `@playwright/cli@latest`，每次先删除再全局安装其 skill，按校验和判定变更（依赖 playwright） |
 | hermes | Hermes 个人 agent（Nous Research），并把 `~/.hermes/SOUL.md` 链接到 `~/.agents/AGENTS.md`；Linux 主机常驻开机，无条件安装 |
@@ -151,7 +151,7 @@ pre-commit run --all-files
 - **没有 host-facts。** 上游按机型判断是否常驻开机；这里 Linux 主机一律常驻，hermes、ponytail、paseo 无条件安装。
 - **没有 GUI。** 上游的桌面应用、编辑器、cc-switch、ghostty、obsidian 等一概不装，也不留空 role。例外只有三个：browseros-neo 只装在 supermicro，bitwarden 与 1password 的桌面 App 只装在有桌面会话的主机。
 - **apt 会升级。** `apt` role 每次 `full-upgrade`，对应上游的 `brew upgrade`；内核升级后需要手工重启。
-- **gateway 是前提。** agent-reach 与 pi 的默认模型都走 mac-mini-m2 上的 CLIProxyAPI（`CLIPROXY_API_KEY` / `CLIPROXY_BASE_URL` 与 `claude-gw` 包装脚本由 `cliproxy-tier` 写到每台机器）。没有这些的机器上，这几个 role 会直接失败，这是有意的。
+- **gateway 是前提。** agent-reach 与 pi 的默认模型都走 mac-mini-m2 上的 CLIProxyAPI（`CLIPROXY_API_KEY` / `CLIPROXY_BASE_URL` 与 claude 的网关配置由 `cliproxy-tier` 写到每台机器）。没有这些的机器上，这几个 role 会直接失败，这是有意的。
 
 ### Agent CLI 与技能
 
@@ -164,16 +164,16 @@ pre-commit run --all-files
 | claude-code | 官方 `install.sh` | `~/.local/bin/claude` |
 | codex | npm 全局 `@openai/codex` | 命令 `codex` |
 | opencode | npm 全局 `opencode-ai` | 命令 `opencode` |
-| kimi-code | 官方 `install.sh`（curl \| bash） | `~/.kimi-code/bin/kimi`，命令是 **`kimi`** 而不是 `kimi-code`；经网关用 `kimi-gw` |
+| kimi-code | 官方 `install.sh`（curl \| bash） | `~/.kimi-code/bin/kimi`，命令是 **`kimi`** 而不是 `kimi-code`，默认经网关；用 kimi.com 登录时用 `kimi-origin` |
 | omp | bun 全局 `@oh-my-pi/pi-coding-agent` | `~/.bun/bin/omp`，命令是 **`omp`** |
 | pi | bun 全局 `@earendil-works/pi-coding-agent` | `~/.bun/bin/pi` |
-| copilot | npm 全局 `@github/copilot` | 命令 `copilot`；经网关用 `copilot-gw` |
+| copilot | npm 全局 `@github/copilot` | 命令 `copilot`，默认经网关；用 GitHub 登录时用 `copilot-origin` |
 | crush | npm 全局 `@charmland/crush` | 命令 `crush` |
-| gemini | npm 全局 `@google/gemini-cli` | 命令 `gemini`；经网关用 `gemini-gw` |
-| grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；经网关用 `grok-gw` |
+| gemini | npm 全局 `@google/gemini-cli` | 命令 `gemini`，默认经网关；用 Google 登录时用 `gemini-origin` |
+| grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；默认经网关，用 xAI 登录时用 `grok-origin` |
 | openclaw | npm 全局 `openclaw` | 命令 `openclaw`；常驻 daemon 由 `cliproxy-tier` 的 onboarding 安装 |
 | dsh | npm 全局 `@deepseek-ai/dsh`（加 `pnpm`） | 命令 `dsh`；插件在 `~/.dsh/profiles/<profile>/` |
-| agent-reach | **没有包管理器**，见下 | 由 `claude-gw -p` 按上游文档安装 |
+| agent-reach | **没有包管理器**，见下 | 由 `claude -p` 按上游文档安装 |
 
 这六个 agent（copilot、crush、gemini、grok、openclaw、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
 
@@ -199,7 +199,7 @@ pre-commit run --all-files
 
 - **Codex 的 hook 信任**是一次性的、每台机器各做一次：跑 `codex`、打开 `/hooks`，审核并信任 ponytail 的三个生命周期 hook，然后开一个新 thread。
 - **opencode 的 provider 认证**没有做：安装器带的是 `--skip-auth`。
-- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** `copilot-gw`、`gemini-gw`、`grok-gw`、`kimi-gw`、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
+- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** claude、codex、kimi、gemini、copilot、grok（含 `*-origin` 包装器）、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
 - **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。

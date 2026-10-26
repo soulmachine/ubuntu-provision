@@ -3,9 +3,10 @@
 - **An agent installs it, not a script.** Upstream ships `docs/install.md` and `docs/update.md` as
   prompts addressed "For AI Agents". They branch on environment detection, `agent-reach doctor`
   output, and which upstream CLIs exist, so there is no idempotent one-liner. The role runs
-  `claude-gw -p "<instruction> <doc URL>"` and lets the sub-agent execute the doc. It uses `claude-gw`
-  because the nightly sweep runs over non-interactive ssh, where native `claude` cannot unlock the
-  login keychain. Both calls `chdir` to `$HOME`: `install.md` forbids writing inside the working
+  `claude -p "<instruction> <doc URL>"` and lets the sub-agent execute the doc. Plain `claude` reaches
+  the gateway with the key in `~/.claude/settings.json` (coding-agent Q665), so it works over the
+  nightly sweep's non-interactive ssh, where a claude.ai login cannot unlock the keychain.
+  Both calls `chdir` to `$HOME`: `install.md` forbids writing inside the working
   directory, and `$HOME` keeps this repo's `AGENTS.md` out of the sub-agent's context.
 - **Idempotency hinges on `agent-reach check-update`'s stdout, not its exit code.** The command
   always exits 0. Install runs only when `command -v agent-reach` fails. Update runs only when

@@ -1,7 +1,7 @@
 ---
 # Grok CLI (xAI) from npm. The package is a launcher: the first `grok` call downloads the native
-# binary into ~/.grok/bin. Plain `grok` stays native. `grok-gw` and its gateway home ~/.grok-gw
-# come from `cliproxy-tier <host>` on mac-mini-m2 (~/coding-agent/devops/cliproxyapi/gateway-policy.md).
+# binary into ~/.grok/bin. `cliproxy-tier <host>` on mac-mini-m2 puts the gateway
+# models in ~/.grok and writes `grok-origin` with its xAI-login home ~/.grok-origin (~/coding-agent/devops/cliproxyapi/gateway-policy.md).
 - name: Install Grok CLI from npm
   ansible.builtin.include_role:
     name: nodejs

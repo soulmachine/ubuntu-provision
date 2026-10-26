@@ -1,6 +1,6 @@
 ---
 dependencies:
-  # The role drives the `claude` binary headlessly, through the claude-gw wrapper,
+  # The role drives the `claude` binary headlessly, through the gateway (coding-agent Q665),
   # to run upstream's agent-facing install/update docs.
   - claude-code
   # agent-reach is a Python package; install.md's recommended path is

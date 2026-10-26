@@ -1,6 +1,7 @@
 ---
-# Gemini CLI from npm. Plain `gemini` stays native. `cliproxy-tier <host>` on mac-mini-m2 writes
-# `gemini-gw` and its gateway home ~/.gemini-gw (~/coding-agent/devops/cliproxyapi/gateway-policy.md).
+# Gemini CLI from npm. `cliproxy-tier <host>` on mac-mini-m2 sends plain `gemini` through the gateway with a
+# `~/.local/bin/gemini` shim, and writes `gemini-origin` with its Google-login home ~/.gemini-origin
+# (~/coding-agent/devops/cliproxyapi/gateway-policy.md).
 - name: Install Gemini CLI from npm
   ansible.builtin.include_role:
     name: nodejs
