@@ -6,6 +6,11 @@ Tailscale SSH; standard OpenSSH handles remote shells. That is why there is no `
 branching. If you turn Tailscale SSH back on, add `--ssh` and, for per-machine ACL gating,
 `--advertise-tags` plus the API-driven `tagOwners` update.
 
+- **An online node ends the role at once.** The first task runs `tailscale status --json`. On rc 0
+  with `BackendState: Running`, `meta: end_role` skips everything below: the apt repo and package, the service, `tailscale up`
+  and key-expiry. Key-expiry therefore runs only on a run that starts offline, in practice the
+  enrolment run. To re-apply it on an online node, run the API calls by hand or `tailscale down`
+  first. Same as macbook-provision Q295.
 - **It installs `tailscale` from the official apt repo** (`pkgs.tailscale.com`, the release for this
   host's Ubuntu codename) and enables the `tailscaled` systemd service. Unlike upstream's macOS
   role there is no GUI app, no Network Extension and no CLI launcher step, so none of upstream's

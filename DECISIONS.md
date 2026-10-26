@@ -635,3 +635,13 @@
 **Justification:** The provisioning repos stay in sync (`~/.agents/AGENTS.md`), and a Node pruned by mise or a package upgrade leaves the daemon with nothing to run here too. Same change in macbook-, ubuntu- and omarchy-provision.
 **Outcome:** applied
 **Ref:** macbook-provision Q292
+
+## Q64 — interactive/tailscale-early-return — deviation
+
+**Question:** macbook-provision Q295 ends the tailscale role at once when `tailscale status --json` reports `BackendState: Running`. Port it?
+**Options considered:** port the early return / keep running the install and key-expiry steps on every play
+**Chosen:** Ported: the first task probes `tailscale status --json`, and rc 0 with `Running` runs `meta: end_role`, which skips the apt repo and package and the service, `tailscale up` and key-expiry. The enrolment block's own probe and its two `Running` conditions are gone.
+**Decided-by:** human
+**Justification:** The user asked for the early return, and the provisioning repos stay in sync (`~/.agents/AGENTS.md`). The cost is the same as on the Macs: key-expiry now runs only on a run that starts offline, in practice the enrolment run. Linted only; this change has not run on a Linux host.
+**Outcome:** applied
+**Ref:** macbook-provision Q295
