@@ -14,6 +14,16 @@
     global: true
     state: latest
 
+# backpass, which reviews past Claude sessions (`backpass-gw` runs it through the gateway). A Node
+# reinstall drops every npm global, and nothing put this one back (mac-mini-m6, 2026-10-26).
+- name: Ensure backpass is installed from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: backpass
+    nodejs_npm_cmd: backpass
+
 # claude-swap ships two entrypoints, `claude-swap` and the short `cswap`.
 #
 # `<pkg>@latest`, not a bare `uv tool install <pkg>`: the bare form no-ops with
