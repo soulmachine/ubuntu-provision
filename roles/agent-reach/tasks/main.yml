@@ -48,12 +48,24 @@
 
 # Only reached when agent-reach predates this run — a fresh install is already
 # at the latest version, so skip straight past the update path.
+#
+# v1.6 replaced `check-update` with `update --check`, which prints one JSON object. v1.5 answers that
+# with a usage error, so the shell falls back to the old command. A failed check (network, rate limit)
+# carries neither positive sign below, so it never starts an update.
 - name: Check agent-reach for updates
-  ansible.builtin.command: agent-reach check-update
+  # Keep one command's output: a failed v1.6 check exits non-zero, and two JSON objects would break from_json.
+  ansible.builtin.shell: out=$(agent-reach update --check 2>/dev/null) || out=$(agent-reach check-update 2>&1); printf '%s\n' "$out"
   register: agent_reach_check
   when: agent_reach_probe.rc == 0
   changed_when: false
+  failed_when: false
   check_mode: false
+
+- name: Read whether agent-reach v1.6 reports an update
+  ansible.builtin.set_fact:
+    agent_reach_v16_update: >-
+      {{ agent_reach_check.stdout | default('') is match('{')
+         and ((agent_reach_check.stdout | from_json).result | default({}, true)).update_available | default(false) }}
 
 # `check-update` discards its own result and always exits 0, so rc says nothing;
 # the outcome is only in stdout, and only in Chinese. Match the positive
@@ -63,7 +75,9 @@
 # branches — GitHub rate limit / network error ("无法检查更新") and the
 # no-releases commit-SHA fallback ("最新提交:") — burning a full agent run on
 # every converged playbook, which is what keeps this role idempotent.
-- name: Update agent-reach
+# shortcut: this branch serves only v1.5 hosts; delete it once `agent-reach version` reports 1.6+ fleet-wide.
+# update.md now points at install.md, which upgrades from 1.5 and earlier.
+- name: Update agent-reach v1.5 through its install guide
   ansible.builtin.command:
     cmd: >-
       claude -p "update agent-reach: https://raw.githubusercontent.com/Panniantong/agent-reach/main/docs/update.md"
@@ -71,4 +85,10 @@
   when:
     - agent_reach_probe.rc == 0
     - "'有更新' in (agent_reach_check.stdout | default(''))"
+  changed_when: true
+
+# v1.6 updates itself, every added channel's tools and its skill with no prompts, so no agent run.
+- name: Update agent-reach v1.6 with its own updater
+  ansible.builtin.command: agent-reach update
+  when: agent_reach_v16_update | bool
   changed_when: true
