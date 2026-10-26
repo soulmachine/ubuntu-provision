@@ -3,14 +3,11 @@
 # ~/.config/opencode/opencode.json, bun-installing them at startup into
 # ~/.cache/opencode/packages/<spec>. A bare package name resolves as `@latest`
 # (parsePluginSpecifier in opencode's src/plugin/shared.ts), so there is
-# nothing to refresh from here — OpenCode re-resolves it itself. The
-# oh-my-openagent installer (opencode role) rewrites this file on every run but
-# keeps entries it does not own (it preserved claude-mem's), so one append
-# survives.
+# nothing to refresh from here — OpenCode re-resolves it itself.
 #
 # Read → append → write, gated on the entry being absent, so the file is not
-# rewritten on converged runs. `to_nice_json(indent=2)` matches the 2-space
-# layout oh-my-openagent writes; keys sort, but `$schema` sorts first anyway.
+# rewritten on converged runs. `to_nice_json(indent=2)` keeps the file's 2-space
+# layout; keys sort, but `$schema` sorts first anyway.
 #
 # The file carries API keys — jev-register-agents bakes them into its MCP env blocks and
 # chmods it 0600 — so the read, parse and write are no_log, and the write keeps 0600
