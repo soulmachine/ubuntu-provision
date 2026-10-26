@@ -1,0 +1,5 @@
+---
+- name: Apply the sysctls
+  become: true
+  ansible.builtin.command: sysctl --system
+  changed_when: true
