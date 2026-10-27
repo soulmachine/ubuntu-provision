@@ -57,6 +57,7 @@
       tags: [agent-multiplexer]
       when: ansible_facts['service_mgr'] == 'systemd'
     - cloudflare
+    - godaddy
     - multica-cli
     - purelymail
     - email

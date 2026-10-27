@@ -1,0 +1,89 @@
+---
+# gddy — GoDaddy's official, agent-first CLI (github.com/godaddy/cli): domains, DNS, email,
+# hosting and the Developer Platform. Installed by upstream's install.sh, which checksum-verifies
+# the release archive and writes the binary to ~/.local/bin, kept current by the CLI's own
+# `gddy update apply`, plus the official Claude Code plugin `gddy@godaddy` from the same repo.
+
+- name: Install gddy # noqa: command-instead-of-module risky-shell-pipe
+  ansible.builtin.shell: curl -fsSL https://github.com/godaddy/cli/releases/latest/download/install.sh | bash
+  args:
+    creates: "{{ godaddy_bin }}"
+
+# `gddy update apply` exits 0 on every path and prints one JSON object whose
+# previousVersion/newVersion are the state before and after the call, so the diff is the
+# updater's own, not a phrase match (docs/writing-roles.md). It checks GitHub Releases, so a
+# non-zero rc is a check that did not happen, not a broken machine: failed_when rather than
+# a red `fatal:`, and the warn task below says what happened.
+- name: Update gddy to the latest release
+  ansible.builtin.command: "{{ godaddy_bin }} update apply"
+  register: godaddy_update
+  failed_when: false
+  changed_when: >-
+    godaddy_update.rc == 0 and
+    (godaddy_update.stdout | from_json).data.previousVersion
+      != (godaddy_update.stdout | from_json).data.newVersion
+
+- name: Warn that the gddy update check could not reach GitHub
+  ansible.builtin.debug:
+    msg:
+      - "`gddy update apply` failed (rc {{ godaddy_update.rc }}); gddy is installed but this"
+      - "run could not confirm whether a newer release exists."
+      - "{{ godaddy_update.stderr | default('') }}"
+  when: godaddy_update.rc | default(0) != 0
+
+# Claude Code plugin: the same marketplace, install and ledger-diffed update steps as the
+# 1password role (roles/ponytail/tasks/claude-code.yml explains each gate).
+- name: Read the known Claude Code marketplaces
+  ansible.builtin.slurp:
+    src: "{{ godaddy_home }}/.claude/plugins/known_marketplaces.json"
+  register: godaddy_mp_raw
+  failed_when: false
+
+- name: Add the GoDaddy Claude Code marketplace
+  ansible.builtin.command: claude plugin marketplace add {{ godaddy_plugin_repo }}
+  when: >-
+    godaddy_claude_plugin.split('@')[1] not in
+    (godaddy_mp_raw.content | default('e30=') | b64decode | from_json)
+  changed_when: true
+
+- name: Read the Claude Code plugin ledger before installing
+  ansible.builtin.slurp:
+    src: "{{ godaddy_home }}/.claude/plugins/installed_plugins.json"
+  register: godaddy_before
+  failed_when: false
+
+- name: Install the GoDaddy Claude Code plugin
+  ansible.builtin.command: claude plugin install {{ godaddy_claude_plugin }}
+  when: >-
+    godaddy_claude_plugin not in
+    ((godaddy_before.content | default('e30=') | b64decode | from_json).plugins | default({}))
+  changed_when: true
+
+- name: Update the GoDaddy Claude Code plugin
+  ansible.builtin.command: claude plugin update {{ godaddy_claude_plugin }}
+  changed_when: false
+
+- name: Read the Claude Code plugin ledger after updating
+  ansible.builtin.slurp:
+    src: "{{ godaddy_home }}/.claude/plugins/installed_plugins.json"
+  register: godaddy_after
+  failed_when: false
+
+# The install above already reports its own change, so this diff only has to catch an
+# update. On the install run both sides differ too, which double-counts one change; harmless.
+- name: Check whether the GoDaddy Claude Code plugin was updated
+  ansible.builtin.debug:
+    msg: >-
+      GoDaddy Claude Code plugin
+      {{ 'updated' if godaddy_updated else 'already up to date' }}
+  vars:
+    godaddy_sha_before: >-
+      {{ ((godaddy_before.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[godaddy_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    godaddy_sha_after: >-
+      {{ ((godaddy_after.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[godaddy_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    godaddy_updated: "{{ godaddy_sha_before != godaddy_sha_after }}"
+  changed_when: godaddy_updated

@@ -137,6 +137,7 @@ pre-commit run --all-files
 | paseo | agent 多路复用：npm 全局 `@getpaseo/cli`（CLI + daemon），daemon 以 systemd user unit 运行（`bash -lc`，开启 linger），启用 relay（配对仍需手动 `paseo daemon pair`）与插件并安装 `npm:@oliexe/paseo-bots`；daemon 未运行时记录下来、在 play 末尾才报错；tag `agent-multiplexer`（依赖 nodejs、claude-code、codex） |
 | orca | [Orca](https://onorca.dev)（多 agent IDE）的服务端：Orca 没有单独的服务端包，CLI 和 `orca serve` 都在应用里，所以从 GitHub release 装 `orca-ide_<版本>_<arch>.deb`（版本由 releases/latest 的跳转得出，与 `dpkg-query` 不同才装；CLI 是 `/usr/bin/orca-ide`），开启 linger，再用上游的 `orca-ide serve service install --port 6768` 装 systemd user unit `orca-serve`（`--supervise --no-pairing`），只在服务不是 `live` 时安装；当前 Orca 还没有这个子命令时跳过并提示；服务未 live 时在 play 末尾才报错。配对仍需手动；tag `agent-multiplexer`（依赖 claude-code、codex） |
 | cloudflare | Cloudflare CLI：npm 全局 `cf`（其 skills 由 skills role 安装）（依赖 claude-code） |
+| godaddy | GoDaddy 官方 CLI `gddy`（上游 install.sh 校验 sha256 后装入 `~/.local/bin`，按 `gddy update apply` 返回的 previousVersion/newVersion 差异更新）+ 官方 Claude Code 插件 [`gddy@godaddy`](https://github.com/godaddy/cli)（依赖 claude-code） |
 | multica-cli | 通过官方 install.sh 安装 multica CLI，并以相对路径链接其 skill |
 | purelymail | Purelymail API CLI，GitHub release 二进制装入 `~/.local/bin`，跟随最新 release；token 手工放在 `~/.profile` |
 | email | Himalaya 邮件 CLI + ortie OAuth CLI（GitHub release 二进制装入 `~/.local/bin`，跟随最新 release，Ubuntu 无 apt 包）+ Proton Mail Bridge（GitHub release 的 amd64 .deb，Proton 无 apt 源）；账号配置手工完成 |

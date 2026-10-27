@@ -1,0 +1,8 @@
+---
+godaddy_home: "{{ lookup('env', 'HOME') }}"
+# install.sh's default prefix is ~/.local/bin; full path because it may not be on Ansible's PATH.
+godaddy_bin: "{{ godaddy_home }}/.local/bin/gddy"
+# GitHub owner/repo of the CLI; its .claude-plugin/marketplace.json is the Claude Code marketplace too.
+godaddy_plugin_repo: godaddy/cli
+# Plugin `gddy` in the marketplace named `godaddy`.
+godaddy_claude_plugin: gddy@godaddy
