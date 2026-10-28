@@ -16,7 +16,8 @@
     "npm:@ryan_nookpi/pi-extension-codex-fast-mode@0.2.6",
     "git:github.com/algal/pi-openai-server-compaction@c6d593087709e9481223dc6c6c2269b371b5e055",
     "git:github.com/DietrichGebert/ponytail",
-    "npm:context-mode"
+    "npm:context-mode",
+    "npm:pi-ask-user"
   ],
   "defaultProvider": "cliproxy",
   "defaultModel": "deepseek-v4.1-flash",
