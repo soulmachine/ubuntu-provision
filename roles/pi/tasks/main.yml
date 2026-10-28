@@ -119,49 +119,46 @@
     pi_hindsight_ext: "{{ pi_old.extensions | default([]) | select('search', '/\\.hindsight/coding-agents/') | list }}"
     pi_hindsight: "{{ {'extensions': pi_hindsight_ext} if pi_hindsight_ext else {} }}"
 
-# `pi install npm:pi-ask-user` npm-installs into ~/.pi/agent/npm and appends the
-# source string to `packages` in settings.json; files/settings.json lists the
-# same bare string so the copy above does not strip it. Unpinned: the refresh
-# below tracks upstream. `chdir` to $HOME keeps a project-local .pi/ out of it.
-- name: Install the pi-ask-user pi package
+# The npm entries in files/settings.json are unpinned on purpose: a `@version`
+# pin freezes one (pi skips pinned npm packages on update), and the nightly run
+# is meant to track upstream. `pi update --extension <npm:source>` installs the
+# package when it is missing and bumps it when npm has a newer version, so one
+# loop covers both the first run on a fresh host and the nightly refresh. It
+# exits 0 whether or not anything moved, so diff the checksums of the installed
+# package.json files instead. Depth 3 reaches scoped packages; node_modules is
+# flat, so a dependency bump counts as a change too, which it is.
+#
+# `chdir` to $HOME keeps a project-local .pi/ out of the picture; the PATH is
+# for pi's npm/bun calls.
+- name: Record the installed pi npm packages before updating
+  ansible.builtin.find:
+    paths: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules"
+    patterns: package.json
+    recurse: true
+    depth: 3
+    get_checksum: true
+  register: pi_npm_before
+
+- name: Install or update the pi npm packages
   ansible.builtin.command:
-    cmd: "{{ lookup('env', 'HOME') }}/.bun/bin/pi install npm:pi-ask-user"
+    cmd: "{{ lookup('env', 'HOME') }}/.bun/bin/pi update --extension {{ item }}"
     chdir: "{{ lookup('env', 'HOME') }}"
-    creates: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules/pi-ask-user"
   environment:
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
+  loop: "{{ (lookup('file', 'settings.json') | from_json).packages | select('match', '^npm:') | list }}"
+  changed_when: false
 
-# Refresh: `pi update --extension` exits 0 whether or not anything moved, so
-# diff the installed package.json version. Gated on the package existing,
-# which it does not under --check on a fresh host.
-- name: Check whether the pi-ask-user pi package is present
-  ansible.builtin.stat:
-    path: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules/pi-ask-user/package.json"
-  register: pi_ask_user_stat
-
-- name: Refresh the pi-ask-user pi package
-  when: pi_ask_user_stat.stat.exists
-  block:
-    - name: Read the pi-ask-user pi package before updating
-      ansible.builtin.slurp:
-        src: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules/pi-ask-user/package.json"
-      register: pi_ask_user_before
-
-    - name: Update the pi-ask-user pi package
-      ansible.builtin.command:
-        cmd: "{{ lookup('env', 'HOME') }}/.bun/bin/pi update --extension npm:pi-ask-user"
-        chdir: "{{ lookup('env', 'HOME') }}"
-      environment:
-        PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
-      changed_when: false
-
-    - name: Read the pi-ask-user pi package after updating
-      ansible.builtin.slurp:
-        src: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules/pi-ask-user/package.json"
-      register: pi_ask_user_after
-      changed_when: >-
-        (pi_ask_user_before.content | b64decode | from_json).version
-        != (pi_ask_user_after.content | b64decode | from_json).version
+- name: Check whether a pi npm package was installed or updated
+  ansible.builtin.find:
+    paths: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules"
+    patterns: package.json
+    recurse: true
+    depth: 3
+    get_checksum: true
+  register: pi_npm_after
+  changed_when: >-
+    (pi_npm_before.files | map(attribute='checksum') | sort)
+    != (pi_npm_after.files | map(attribute='checksum') | sort)
 
 - name: Add pi-yolo alias to .bashrc
   ansible.builtin.lineinfile:
