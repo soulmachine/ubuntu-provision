@@ -17,17 +17,16 @@ npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
     the ponytail README.
   - OpenCode: the bare `context-mode` entry in `plugin` resolves as `@latest`, so there is no
     refresh.
-  - pi: the `~/.pi/agent/npm/node_modules/context-mode` directory; refresh diffs its
-    `package.json` version around `pi update --extension npm:context-mode`.
+  - pi: none here; the pi role installs and refreshes the package (see below).
   - oh-my-pi: `omp plugin list --json` against `npm view context-mode version`, the ponytail gate.
   - Copilot CLI: the cache directory under `~/.copilot/installed-plugins/_direct/`; refresh diffs
     the cached `.github/plugin/plugin.json` version around `copilot plugin update`.
   - OpenClaw: `openclaw plugins list --json`; refresh diffs the listed version around
     `openclaw plugins update`.
   - Gemini CLI and kimi-code: no installer, so the role edits their config files (next bullets).
-- **The pi package entry lives in `roles/pi/files/agent/settings.json`.** The pi role copies that
-  file over `~/.pi/agent/settings.json` on every run, so the same bare `npm:context-mode` is listed
-  there. pi needs no `mcp.json`: the extension registers the tools through its own MCP bridge.
+- **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role installs and
+  refreshes every npm package listed there, `npm:context-mode` included, so this role has no pi
+  task. pi needs no `mcp.json`: the extension registers the tools through its own MCP bridge.
 - **Gemini CLI: one merge into `~/.gemini/settings.json`.** The merge adds the `mcpServers` entry
   and appends the four upstream hooks to the existing hook lists (`list_merge='append_rp'`), so
   other tools' hooks stay. It runs only while no context-mode hook is present, and writes at 0600.

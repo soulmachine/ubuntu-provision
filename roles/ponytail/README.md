@@ -27,7 +27,7 @@ has no plugin mechanism and is skipped.
   `[plugins."ponytail@ponytail"]` in `~/.codex/config.toml`; `known_marketplaces.json`,
   `installed_plugins.json` and `enabledPlugins` for Claude Code; the pi checkout (`creates:`); and the
   Hermes plugin directory (a `stat` gate, for the reason below).
-- **The pi package entry lives in `roles/pi/files/agent/settings.json`.** The pi role copies that
+- **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role copies that
   file over `~/.pi/agent/settings.json` on every run, and `pi install` records the source string
   verbatim, so listing the same bare `git:github.com/DietrichGebert/ponytail` there keeps the copy
   from stripping it. It is unpinned on purpose, so the refresh tracks upstream.

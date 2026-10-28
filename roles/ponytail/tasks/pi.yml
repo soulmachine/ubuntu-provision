@@ -3,7 +3,7 @@
 # and appends the source string, verbatim, to `packages` in
 # ~/.pi/agent/settings.json (pi's normalizePackageSourceForSettings leaves
 # non-local sources untouched; addSourceToSettings no-ops when the identical
-# string is already listed). The pi role copies roles/pi/files/agent/
+# string is already listed). The pi role copies roles/pi/files/
 # settings.json over that file on every run, so the SAME bare string is listed
 # there — otherwise each pi run would drop the entry and pi would stop loading
 # a checkout that is still on disk. Unpinned on purpose: the refresh below

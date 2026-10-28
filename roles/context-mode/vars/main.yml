@@ -17,8 +17,6 @@ context_mode_codex_plugin: context-mode@context-mode
 context_mode_codex_record: "{{ context_mode_home }}/.codex/.tmp/marketplaces/context-mode/.codex-marketplace-install.json"
 
 # pi: the source string exactly as pi records it in settings.json, and where pi installs it.
-context_mode_pi_source: "npm:context-mode"
-context_mode_pi_dir: "{{ context_mode_home }}/.pi/agent/npm/node_modules/context-mode"
 
 # Copilot CLI: upstream's bundle in a repo subdirectory, and where Copilot caches a direct install.
 context_mode_copilot_source: "{{ context_mode_repo }}:configs/copilot-cli"
