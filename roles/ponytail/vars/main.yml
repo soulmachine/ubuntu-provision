@@ -20,8 +20,6 @@ ponytail_npm_package: "@dietrichgebert/ponytail"
 
 # pi: the source string exactly as pi records it in settings.json, and where
 # pi clones it.
-ponytail_pi_source: "git:github.com/DietrichGebert/ponytail"
-ponytail_pi_dir: "{{ ponytail_home }}/.pi/agent/git/github.com/DietrichGebert/ponytail"
 
 # Hermes: plugin name from the repo's plugin.yaml, and where hermes clones it.
 ponytail_hermes_plugin: ponytail

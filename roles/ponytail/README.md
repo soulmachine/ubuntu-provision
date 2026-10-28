@@ -13,8 +13,8 @@ has no plugin mechanism and is skipped.
     refresh is gated on `[marketplaces.ponytail]` being registered, not on the record, because codex
     0.161.0's `marketplace add` writes no record (only the first `upgrade` does), so a record gate
     never opened on a fresh host (Q193, Q196).
-  - pi and Hermes: their checkouts' HEADs. Both refresh blocks are gated on a `stat` of the checkout,
-    so `--check` on a fresh host passes.
+  - Hermes: its checkout's HEAD. The refresh block is gated on a `stat` of the checkout, so
+    `--check` on a fresh host passes. pi: none here; the pi role installs and refreshes it.
   - OpenCode needs no refresh: a bare npm name in `opencode.json` resolves as `@latest` at startup.
 - **oh-my-pi has no upgrade path for npm plugins.** `omp plugin upgrade` takes only
   `name@marketplace` IDs, and the package is pinned `^x.y.z` in `~/.omp/plugins/package.json`. So the
@@ -25,12 +25,11 @@ has no plugin mechanism and is skipped.
   the same `pi` manifest key ponytail publishes. If it ever stops loading, drop `tasks/omp.yml`.
 - **Idempotency markers are the hosts' own records:** `[marketplaces.ponytail]` and
   `[plugins."ponytail@ponytail"]` in `~/.codex/config.toml`; `known_marketplaces.json`,
-  `installed_plugins.json` and `enabledPlugins` for Claude Code; the pi checkout (`creates:`); and the
+  `installed_plugins.json` and `enabledPlugins` for Claude Code; and the
   Hermes plugin directory (a `stat` gate, for the reason below).
-- **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role copies that
-  file over `~/.pi/agent/settings.json` on every run, and `pi install` records the source string
-  verbatim, so listing the same bare `git:github.com/DietrichGebert/ponytail` there keeps the copy
-  from stripping it. It is unpinned on purpose, so the refresh tracks upstream.
+- **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role installs and
+  refreshes every package listed there, `git:github.com/DietrichGebert/ponytail` included, so this
+  role has no pi task. It is unpinned on purpose, so the refresh tracks upstream.
 - **The OpenCode write keeps `opencode.json` at 0600**, the mode `jev-register-agents` sets.
 - **Hermes's plugin scanner blocks ponytail, and the role treats that as expected.** `hermes plugins
   install` scans the tree first (`plugins.scan_on_install`, on by default). ponytail 4.9.0 gets a

@@ -16,8 +16,8 @@
 - name: Install ponytail into OpenCode
   ansible.builtin.include_tasks: opencode.yml
 
-- name: Install ponytail into pi
-  ansible.builtin.include_tasks: pi.yml
+# pi: the pi role installs and refreshes every package in
+# roles/pi/files/settings.json, the ponytail checkout included, so there is nothing to do here.
 
 - name: Install ponytail into oh-my-pi
   ansible.builtin.include_tasks: omp.yml

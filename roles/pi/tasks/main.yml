@@ -56,11 +56,9 @@
 # cliproxy model picked in pi stays (~/coding-agent/devops/cliproxyapi/gateway-policy.md). Other tweaks made
 # in-app via `/settings` belong in files/settings.json to survive.
 #
-# That overwrite is also why settings.json's `packages` list carries the
-# `git:github.com/DietrichGebert/ponytail` entry: the `ponytail` role installs
-# that package with `pi install`, which appends exactly this string, and
-# without it here every run of this copy would strip the entry again and pi
-# would stop loading a checkout still on disk (roles/ponytail/tasks/pi.yml).
+# That overwrite is also why `packages` below is the one list of pi packages:
+# the tasks after this copy install and refresh every entry, and an entry that
+# a `pi install` elsewhere appended would be stripped on the next run.
 # models.json lives outside agent/ too: cliproxy-tier writes its cliproxy provider
 # from GW_MODELS, and the next tasks keep it (macbook-provision Q273). Before Q77 this copy
 # dropped the gateway config every night. pi is gateway-only by policy; see DECISIONS.md Q81.
@@ -119,38 +117,57 @@
     pi_hindsight_ext: "{{ pi_old.extensions | default([]) | select('search', '/\\.hindsight/coding-agents/') | list }}"
     pi_hindsight: "{{ {'extensions': pi_hindsight_ext} if pi_hindsight_ext else {} }}"
 
-# The npm entries in files/settings.json are unpinned on purpose: a `@version`
-# pin freezes one (pi skips pinned npm packages on update), and the nightly run
-# is meant to track upstream. `pi update --extension <npm:source>` installs the
-# package when it is missing and bumps it when npm has a newer version, so one
-# loop covers both the first run on a fresh host and the nightly refresh. It
-# exits 0 whether or not anything moved, so diff the checksums of the installed
-# package.json files instead. Depth 3 reaches scoped packages; node_modules is
-# flat, so a dependency bump counts as a change too, which it is.
+# Every `packages` entry in files/settings.json is installed and refreshed here,
+# so no other role carries a `pi install`. `pi update --extension <source>`
+# installs a missing package (an npm install or a git clone) and moves an
+# unpinned one to upstream; it skips an npm entry pinned `@version` and
+# reconciles a git entry pinned `@sha`. The npm entries are unpinned on purpose:
+# the nightly run tracks upstream. `pi update` exits 0 whether or not anything
+# moved, so the state to diff is the checksums of the installed npm package.json
+# files (depth 3 reaches scoped packages; node_modules is flat, so a dependency
+# bump counts too, which it is) and the HEAD of each git checkout.
 #
 # `chdir` to $HOME keeps a project-local .pi/ out of the picture; the PATH is
-# for pi's npm/bun calls.
+# for pi's npm/bun/git calls.
 - name: Record the installed pi npm packages before updating
   ansible.builtin.find:
-    paths: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules"
+    paths: "{{ pi_npm_dir }}"
     patterns: package.json
     recurse: true
     depth: 3
     get_checksum: true
   register: pi_npm_before
 
-- name: Install or update the pi npm packages
+# rc 128 on a fresh host, where the clone does not exist yet: an empty stdout
+# there against a sha afterwards is the change.
+- name: Record the pi git checkouts before updating # noqa: command-instead-of-module
+  ansible.builtin.command: git -C {{ pi_git_dir }}/{{ item | regex_replace('^git:', '') | regex_replace('@.*$', '') }} rev-parse HEAD
+  loop: "{{ pi_packages | select('match', '^git:') | list }}"
+  register: pi_git_before
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Install or update the pi packages
   ansible.builtin.command:
     cmd: "{{ lookup('env', 'HOME') }}/.bun/bin/pi update --extension {{ item }}"
     chdir: "{{ lookup('env', 'HOME') }}"
   environment:
     PATH: "{{ lookup('env', 'HOME') }}/.bun/bin:{{ lookup('env', 'PATH') }}"
-  loop: "{{ (lookup('file', 'settings.json') | from_json).packages | select('match', '^npm:') | list }}"
+  loop: "{{ pi_packages }}"
   changed_when: false
 
-- name: Check whether a pi npm package was installed or updated
+- name: Record the pi git checkouts after updating # noqa: command-instead-of-module
+  ansible.builtin.command: git -C {{ pi_git_dir }}/{{ item | regex_replace('^git:', '') | regex_replace('@.*$', '') }} rev-parse HEAD
+  loop: "{{ pi_packages | select('match', '^git:') | list }}"
+  register: pi_git_after
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Check whether a pi package was installed or updated
   ansible.builtin.find:
-    paths: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules"
+    paths: "{{ pi_npm_dir }}"
     patterns: package.json
     recurse: true
     depth: 3
@@ -159,6 +176,8 @@
   changed_when: >-
     (pi_npm_before.files | map(attribute='checksum') | sort)
     != (pi_npm_after.files | map(attribute='checksum') | sort)
+    or (pi_git_before.results | map(attribute='stdout') | list)
+    != (pi_git_after.results | map(attribute='stdout') | list)
 
 - name: Add pi-yolo alias to .bashrc
   ansible.builtin.lineinfile:

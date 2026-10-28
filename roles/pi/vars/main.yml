@@ -1,0 +1,5 @@
+---
+# The one list of pi packages: tasks/main.yml installs and refreshes every entry.
+pi_packages: "{{ (lookup('file', 'settings.json') | from_json).packages }}"
+pi_npm_dir: "{{ lookup('env', 'HOME') }}/.pi/agent/npm/node_modules"
+pi_git_dir: "{{ lookup('env', 'HOME') }}/.pi/agent/git"

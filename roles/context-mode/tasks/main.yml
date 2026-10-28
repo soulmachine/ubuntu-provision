@@ -28,8 +28,8 @@
 - name: Install context-mode into OpenCode
   ansible.builtin.include_tasks: opencode.yml
 
-# pi: the pi role installs and refreshes npm:context-mode with every other npm
-# package in roles/pi/files/settings.json, so there is nothing to do here.
+# pi: the pi role installs and refreshes every package in
+# roles/pi/files/settings.json, npm:context-mode included, so there is nothing to do here.
 
 - name: Install context-mode into oh-my-pi
   ansible.builtin.include_tasks: omp.yml
