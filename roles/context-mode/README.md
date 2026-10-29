@@ -41,9 +41,11 @@ npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
   update does not: a release that widens the capabilities is reported with the command to review
   and accept it, and the plugin stays at its version until then. The role uses OpenClaw's own installer rather than upstream's
   `npm run install:openclaw` script. It runs only once OpenClaw is onboarded (`~/.openclaw/openclaw.json`).
-- **Codex hook trust is a one-time, per-host step the role does not perform**, as for ponytail. The
+- **The first Codex hook trust is a manual, per-host step**, as for ponytail. The
   role prints a reminder when it installs the plugin: open `/hooks` in `codex` and trust the six
-  context-mode hooks. Without the trust, the MCP tools still work; only routing stays quiet.
+  context-mode hooks. Without the trust, the MCP tools still work; only routing stays quiet. After that, each refresh re-trusts hooks an upstream change marks `modified`, and settles the
+  plugin cache first (`.npmrc` guard, dependency install, no `.bin` symlinks) with
+  `roles/codex/files/codex-plugin-retrust.py`, so updates run without a review (coding-agent Q759).
 - **Copilot prints a deprecation warning.** Direct repo installs are deprecated in favour of
   `plugin@marketplace`, but upstream ships no Copilot marketplace yet. Its Claude marketplace
   serves the Claude bundle, so `owner/repo:configs/copilot-cli` is still the documented path.

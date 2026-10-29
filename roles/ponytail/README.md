@@ -49,7 +49,7 @@ has no plugin mechanism and is skipped.
   add it; the fix is Hermes letting a native `plugin.yaml` win (NousResearch/hermes-agent#125937). The
   same `failed_when` matches `search('Agent\s+Plugins\s+schema')`, because Rich wraps that stdout line
   at 80 columns. These two are the only tolerated errors; any other fails the play.
-- **Codex hook trust is a one-time, per-host step the role does not perform.** Codex runs a plugin's
+- **The first Codex hook trust is a manual, per-host step.** Codex runs a plugin's
   hooks only once each is trusted: a `trusted_hash` under
   `[hooks.state."<plugin>@<marketplace>:<hooks file>:<event>:<group>:<handler>"]` in
   `~/.codex/config.toml`, which the `/hooks` screen writes through the app-server's
@@ -57,6 +57,7 @@ has no plugin mechanism and is skipped.
   each hook's `currentHash` and `trustStatus`, and writing that hash back flips it to `trusted` (done
   for ponytail's SessionStart, UserPromptSubmit and SubagentStart hooks on mac-mini-m2, 2026-09-08).
   The hash covers the unsubstituted command, so it is the same on every host running the same version.
-  The role only prints a reminder: an unpinned trust would accept whatever upstream ships next, which
-  is what the review exists to catch, and a pinned hash goes stale on every release. It also leaves
+  The role prints a reminder at install. After that, each refresh re-trusts hooks an upstream change marks `modified`, and settles the
+  plugin cache first (`.npmrc` guard, dependency install, no `.bin` symlinks) with
+  `roles/codex/files/codex-plugin-retrust.py`, so updates run without a review (coding-agent Q759). It also leaves
   `[features] hooks` alone; `bypass_hook_trust` is a blanket policy bypass, not a trust.

@@ -91,6 +91,15 @@
         ponytail_codex_updated: "{{ ponytail_codex_rev_before != ponytail_codex_rev_after }}"
       changed_when: ponytail_codex_updated
 
+    # An upgrade rebuilds the cache folder, which changes every hook's hash and, for an npm
+    # plugin, drops the .npmrc guard. The script settles the folder and re-trusts the hooks
+    # Codex marks `modified` (coding-agent Q759); never-trusted hooks stay a manual review.
+    - name: Settle the ponytail Codex plugin cache and re-trust its changed hooks
+      ansible.builtin.command: python3 {{ role_path }}/../codex/files/codex-plugin-retrust.py {{ ponytail_codex_plugin }}
+      timeout: 900
+      register: ponytail_codex_retrust
+      changed_when: ponytail_codex_retrust.stdout_lines[-1] == 'changed'
+
 # The plugin ships three lifecycle hooks (hooks/claude-codex-hooks.json:
 # SessionStart, UserPromptSubmit, SubagentStart). Codex runs plugin hooks only
 # after each one is reviewed and trusted, and only with `[features] hooks =
@@ -101,10 +110,10 @@
 # over a stdio `codex app-server` reports each hook's `currentHash` and
 # `trustStatus`, so the review can be done headlessly (verified 2026-09-08);
 # the hash covers the unsubstituted command, so it is the same on every host
-# running the same ponytail version. The role still does not write it: an
-# unpinned write would trust whatever upstream ships next, which is what the
-# review exists to catch, and pinned hashes go stale on every ponytail
-# release. `bypass_hook_trust` is a policy-level blanket bypass, not a trust.
+# running the same ponytail version. The first trust after an install is still
+# manual (the reminder below). After that, the refresh above re-trusts hooks that
+# an upstream change marks `modified`, so updates run without a review: Frank's
+# call, coding-agent Q759, after nightly upgrades kept switching the hooks off. `bypass_hook_trust` is a policy-level blanket bypass, not a trust.
 # Without the trust the skills still work; only the always-on activation
 # stays quiet.
 # noqa no-handler: a handler would print this at the end of a forty-role play,
