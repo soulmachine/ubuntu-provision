@@ -230,11 +230,10 @@
       # `remoteControlAtStartup: true` below puts every session on the surface
       # that emits the trailer in the first place.
       #
-      # `pr` is deliberately left unset: `sessionUrl: false` drops the session
-      # link from PR bodies, and the plain "Generated with Claude Code" footer
-      # stays. Set `pr: ""` here to drop that too.
+      # `pr: ""` drops the "Generated with Claude Code" PR footer as well.
       attribution:
         commit: ""
+        pr: ""
         sessionUrl: false
       includeCoAuthoredBy: false
       remoteControlAtStartup: true
