@@ -28,13 +28,15 @@
 # npm 12 skips dependency install scripts unless allowed, and for `npm install -g` the allowlist is
 # the user's `allow-scripts`. opencode-ai (opencode role) and @inulute/cux (claude-extras) set up
 # their binary in postinstall and fail without it; every other global still ran when tested under
-# npm 12.2.1 on macOS (DECISIONS Q65, macbook-provision Q303). 0600 because `npm login` puts the
-# registry token in the same file.
+# npm 12.2.1 on macOS (DECISIONS Q65, macbook-provision Q303). @xai-official/grok (grok role) runs
+# either way, but only its postinstall moves ~/.grok/bin/grok to a new version, so without it an
+# upgrade keeps the old binary (Q67). 0600 because `npm login` puts the registry token in the same
+# file.
 - name: Allow the install scripts that npm globals need under npm 12
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.npmrc"
     regexp: '^allow-scripts='
-    line: allow-scripts=opencode-ai,@inulute/cux
+    line: allow-scripts=opencode-ai,@inulute/cux,@xai-official/grok
     create: true
     mode: "0600"
 

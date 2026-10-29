@@ -666,3 +666,14 @@
 **Outcome:** applied
 **Ref:** roles/nodejs/tasks/main.yml (4ee5ddc)
 **Supersedes:** Q65 — moves its outcome from assumed to measured
+
+## Q67 — interactive/npm12-allow-scripts — deviation
+
+**Question:** Does grok, which ran in Q66's test, also need its install script under npm 12?
+**Options considered:** keep Q66's list / add `@xai-official/grok`
+**Chosen:** Add it: `allow-scripts=opencode-ai,@inulute/cux,@xai-official/grok`.
+**Decided-by:** agent
+**Justification:** Only grok's postinstall moves `~/.grok/bin/grok` to a new version, and the launcher runs that file whenever it exists, so without the script an upgrade keeps the old binary. Measured on macOS and on Omarchy (macbook-provision Q305, omarchy-provision Q50). This repo installs grok the same way, as an npm global, so the same applies. Not run on an Ubuntu host.
+**Outcome:** applied
+**Ref:** roles/nodejs/tasks/main.yml (this commit); macbook-provision Q305
+**Supersedes:** Q66 — adds grok to the list
