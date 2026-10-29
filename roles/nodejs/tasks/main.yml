@@ -25,6 +25,19 @@
 # alongside `version` (what that resolves to), so one comparison covers both. It
 # also degrades cleanly on a fresh machine: node unconfigured prints `[]`, rc 0.
 
+# npm 12 skips dependency install scripts unless allowed, and for `npm install -g` the allowlist is
+# the user's `allow-scripts`. opencode-ai (opencode role) and @inulute/cux (claude-extras) set up
+# their binary in postinstall and fail without it; every other global still ran when tested under
+# npm 12.2.1 on macOS (DECISIONS Q65, macbook-provision Q303). 0600 because `npm login` puts the
+# registry token in the same file.
+- name: Allow the install scripts that npm globals need under npm 12
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.npmrc"
+    regexp: '^allow-scripts='
+    line: allow-scripts=opencode-ai,@inulute/cux
+    create: true
+    mode: "0600"
+
 - name: Read the Node.js state before updating
   ansible.builtin.command: mise ls --current node --json
   register: nodejs_before

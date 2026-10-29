@@ -645,3 +645,13 @@
 **Justification:** The user asked for the early return, and the provisioning repos stay in sync (`~/.agents/AGENTS.md`). The cost is the same as on the Macs: key-expiry now runs only on a run that starts offline, in practice the enrolment run. Linted only; this change has not run on a Linux host.
 **Outcome:** applied
 **Ref:** macbook-provision Q295
+
+## Q65 — interactive/npm12-allow-scripts — tradeoff
+
+**Question:** npm 12 stops running dependency install scripts unless allowed. Which npm globals should these hosts allow?
+**Options considered:** follow macbook-provision Q303 (`opencode-ai`, `@inulute/cux`) / test on Ubuntu first
+**Chosen:** Follow Q303: the nodejs role writes `allow-scripts=opencode-ai,@inulute/cux` to `~/.npmrc`.
+**Decided-by:** agent
+**Justification:** This repo installs both packages the same way the Macs do (npm globals from the opencode and claude-extras roles). Both postinstall scripts pick the binary by platform and arch with the same code on every OS, so the macOS measurement in Q303 carries over. No Ubuntu host was tested.
+**Outcome:** assumed
+**Ref:** roles/nodejs/tasks/main.yml (this commit); macbook-provision Q303
