@@ -655,3 +655,14 @@
 **Justification:** This repo installs both packages the same way the Macs do (npm globals from the opencode and claude-extras roles). Both postinstall scripts pick the binary by platform and arch with the same code on every OS, so the macOS measurement in Q303 carries over. No Ubuntu host was tested.
 **Outcome:** assumed
 **Ref:** roles/nodejs/tasks/main.yml (this commit); macbook-provision Q303
+
+## Q66 — interactive/npm12-allow-scripts — gate-resolution
+
+**Question:** Does Q65's assumption hold on Ubuntu, that `opencode-ai` and `@inulute/cux` need `allow-scripts` under npm 12?
+**Options considered:** keep `allow-scripts=opencode-ai,@inulute/cux` / change the list
+**Chosen:** Keep it. Same answer as Q65, now measured.
+**Decided-by:** agent
+**Justification:** Tested on supermicro (x86_64, Node 24.22.2) on 2026-10-29 with `npx npm@12.2.1 install -g` into a throwaway prefix. With an empty user config, `opencode` and `cux` both failed on `--version`. With the `allow-scripts` line, they ran (`1.19.5`, `cux 0.4.1`).
+**Outcome:** applied
+**Ref:** roles/nodejs/tasks/main.yml (4ee5ddc)
+**Supersedes:** Q65 — moves its outcome from assumed to measured
