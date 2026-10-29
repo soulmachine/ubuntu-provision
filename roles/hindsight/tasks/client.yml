@@ -39,7 +39,7 @@
     content: "{{ _hindsight_cfg | combine(_hindsight_managed) | to_nice_json(indent=2) }}\n"
     mode: "0600"
   vars:
-    # reflectTimeoutMs: the default 20 s cut off slow reflects (Haiku answer time, coding-agent Q758);
+    # reflectTimeoutMs: the default 20 s cut off slow reflects (Haiku answer time, coding-agent Q760);
     # it stays under the harnesses' 30 s UserPromptSubmit hook timeout so the page fallback still runs.
     _hindsight_managed: {apiUrl: "{{ _hindsight_url }}", serverMode: self-hosted, reflectTimeoutMs: 25000}
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
