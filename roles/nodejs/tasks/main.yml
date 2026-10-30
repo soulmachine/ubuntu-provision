@@ -46,12 +46,26 @@
   changed_when: false
   failed_when: false
 
+- name: Find the installed Node.js versions
+  ansible.builtin.command: mise ls node --installed --json
+  register: nodejs_installed
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# Not the bare npm shim: when a new LTS ships, `lts` resolves to it before it is installed, the shim
+# fails, and the list comes back empty, so the reinstall below skipped (m6, supermicro, 2026-10-30).
+# shortcut: takes the newest installed Node; wrong if a newer non-LTS is installed beside it.
 - name: List the npm globals under the current Node.js
-  ansible.builtin.command: npm ls -g --depth=0 --json
+  ansible.builtin.command:
+    argv: [mise, exec, "node@{{ nodejs_installed_versions | last }}", --, npm, ls, -g, --depth=0, --json]
+  vars:
+    nodejs_installed_versions: "{{ nodejs_installed.stdout | default('[]', true) | from_json | map(attribute='version') | list }}"
   register: nodejs_globals_before
   changed_when: false
   failed_when: false
   check_mode: false
+  when: nodejs_installed_versions | length > 0  # fresh machine: no Node yet, nothing to carry over
 
 - name: Configure Node.js LTS via mise
   ansible.builtin.command: mise use --global node@lts

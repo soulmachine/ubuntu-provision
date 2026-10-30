@@ -677,3 +677,13 @@
 **Outcome:** applied
 **Ref:** roles/nodejs/tasks/main.yml (this commit); macbook-provision Q305
 **Supersedes:** Q66 — adds grok to the list
+
+## Q68 — interactive/node-lts-jump-globals — deviation
+
+**Question:** When Node LTS moved to a new major (24.22.2 → 26.13.0, 2026-10-30), the "Reinstall the npm globals" step skipped and `cf` failed with "No version is set" on mac-mini-m6 and supermicro. How should the role list the old globals so the reinstall runs?
+**Options considered:** pin `node@24.22.2` globally (the error's own hint) / install CLIs through mise's `npm:` backend / list the globals through `mise exec` on the newest installed Node instead of the bare `npm` shim
+**Chosen:** List the globals with `mise exec node@<newest installed> -- npm ls -g`, the newest installed version taken from `mise ls node --installed --json`; skip the probe when no Node is installed.
+**Decided-by:** agent
+**Justification:** The probe ran `npm` through the shim. Once a new LTS ships, mise resolves `lts` to it before it is installed, so the shim fails, `failed_when: false` hides it, the list is empty and the reinstall skips. Pinning goes against macbook-provision Q15 (stay on node@lts) and the role rewrites it to `lts` the next night. Moving every role to the `npm:` backend is a much larger change. Tested: with only 24.x installed the probe lists cf, defuddle, muse-bot, rea-agents and agent-browser; with none installed it skips. Known limit: a newer non-LTS Node installed beside the LTS would be read instead. The lost globals on m6 and supermicro were reinstalled by hand the same day.
+**Outcome:** applied
+**Ref:** (pending)
