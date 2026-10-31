@@ -687,3 +687,13 @@
 **Justification:** The probe ran `npm` through the shim. Once a new LTS ships, mise resolves `lts` to it before it is installed, so the shim fails, `failed_when: false` hides it, the list is empty and the reinstall skips. Pinning goes against macbook-provision Q15 (stay on node@lts) and the role rewrites it to `lts` the next night. Moving every role to the `npm:` backend is a much larger change. Tested: with only 24.x installed the probe lists cf, defuddle, muse-bot, rea-agents and agent-browser; with none installed it skips. Known limit: a newer non-LTS Node installed beside the LTS would be read instead. The lost globals on m6 and supermicro were reinstalled by hand the same day.
 **Outcome:** applied
 **Ref:** (pending)
+
+## Q69 — interactive/github-two-accounts — gate-resolution
+
+**Question:** macbook-provision grew optional secondary-GitHub-account wiring in its github role (its Q309, commits 049c2b4 and c2e5a9f, 2026-10-31). Port it now or wait for the next full upstream catch-up?
+**Options considered:** wait for the catch-up from the Upstream sha / port the two commits now
+**Chosen:** Ported now, verbatim except the journal references in secondary.yml now name macbook-provision explicitly: `roles/github/tasks/secondary.yml`, its include in `tasks/main.yml` (gated on `GITHUB_SECONDARY_EMAIL`), and the `GITHUB_SECONDARY_*` block in `.env.example`. The Upstream sha in AGENTS.md stays where it is; skip these two commits when the next catch-up walks the upstream log.
+**Decided-by:** human
+**Justification:** Frank asked for the sync in-session (2026-10-31). No Ubuntu host sets the variables yet, so the role's behavior is unchanged everywhere (the include skips); the wiring is OS-agnostic (git config, blockinfile, lineinfile on $HOME paths) and the dotenv role dequotes values the same way as upstream's. Not runnable on the Mac that authored it: verified by ansible syntax check only, so the first Ubuntu host to set GITHUB_SECONDARY_* should run the github role standalone first.
+**Outcome:** applied
+**Ref:** (pending); macbook-provision Q307–Q309

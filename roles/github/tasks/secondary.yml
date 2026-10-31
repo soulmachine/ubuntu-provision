@@ -1,0 +1,87 @@
+---
+# Secondary GitHub account: directory-scoped git identity and ssh-key routing,
+# rebuilt from GITHUB_SECONDARY_* in .env (see .env.example). This writes only
+# the host-side wiring; the secondary key pair must already exist in ~/.ssh and
+# be registered on that account (auth + signing) — see macbook-provision DECISIONS Q307–Q308.
+
+- name: Require the companion settings
+  ansible.builtin.assert:
+    that:
+      - lookup('env', 'GITHUB_SECONDARY_NAME') | length > 0
+      - lookup('env', 'GITHUB_SECONDARY_SSH_KEY') | length > 0
+      - lookup('env', 'GITHUB_SECONDARY_DIRS') | length > 0
+      - lookup('env', 'GITHUB_SSH_KEY') | length > 0
+    fail_msg: >-
+      GITHUB_SECONDARY_EMAIL is set, so GITHUB_SECONDARY_NAME,
+      GITHUB_SECONDARY_SSH_KEY and GITHUB_SECONDARY_DIRS must be set too, and
+      GITHUB_SSH_KEY must pin the primary account's key (otherwise
+      setup_github.sh auto-prefers the secondary's ed25519 key as the global
+      one — macbook-provision DECISIONS Q308).
+
+- name: Resolve secondary account facts
+  ansible.builtin.set_fact:
+    gh2_home: "{{ lookup('env', 'HOME') }}"
+    gh2_name: "{{ lookup('env', 'GITHUB_SECONDARY_NAME') }}"
+    gh2_email: "{{ lookup('env', 'GITHUB_SECONDARY_EMAIL') }}"
+    gh2_key: "{{ lookup('env', 'HOME') }}/.ssh/{{ lookup('env', 'GITHUB_SECONDARY_SSH_KEY') }}"
+    gh2_dirs: "{{ lookup('env', 'GITHUB_SECONDARY_DIRS') | split(',') | map('trim') | reject('match', '^$') | list }}"
+
+- name: Check the secondary key pair exists
+  ansible.builtin.stat:
+    path: "{{ gh2_key }}.pub"
+  register: gh2_pub
+  check_mode: false
+
+- name: Warn that the secondary key is missing (wiring skipped)
+  ansible.builtin.debug:
+    msg:
+      - "{{ gh2_key }}(.pub) not found — skipping secondary GitHub account wiring."
+      - "Restore the key pair, make sure it is registered on the secondary account (auth + signing), then re-run."
+  when: not gh2_pub.stat.exists
+
+- name: Wire the secondary account
+  when: gh2_pub.stat.exists
+  block:
+    - name: Write the secondary identity include file
+      ansible.builtin.copy:
+        dest: "{{ gh2_home }}/.gitconfig-github-secondary"
+        mode: "0644"
+        content: |
+          [user]
+              name = {{ gh2_name }}
+              email = {{ gh2_email }}
+              signingkey = {{ gh2_key }}.pub
+          [core]
+              sshCommand = ssh -F none -o IdentitiesOnly=yes -i {{ gh2_key }}
+
+    # shortcut: adds and updates only — a dir removed from GITHUB_SECONDARY_DIRS
+    # keeps its stale includeIf in ~/.gitconfig; remove it by hand. Upgrade if
+    # the dir list ever churns.
+    - name: Route each directory to the secondary identity
+      community.general.git_config:
+        scope: global
+        name: "includeIf.gitdir:{{ item }}.path"
+        value: "{{ gh2_home }}/.gitconfig-github-secondary"
+      loop: "{{ gh2_dirs }}"
+
+    # Without this pin, ssh-agent key order can make the default github.com
+    # connection authenticate as the secondary account. The IdentityFile line
+    # stays in the exact tilde form setup_github.sh greps for, so that script
+    # does not append a duplicate Host block.
+    - name: Pin github.com to the primary key in ~/.ssh/config
+      ansible.builtin.blockinfile:
+        path: "{{ gh2_home }}/.ssh/config"
+        create: true
+        mode: "0600"
+        marker: "# {mark} github primary account pin (github role)"
+        block: |
+          Host github.com
+              IdentityFile ~/.ssh/{{ lookup('env', 'GITHUB_SSH_KEY') | regex_replace('\\.pub$', '') | basename }}
+              IdentitiesOnly yes
+
+    - name: Trust the secondary email in allowed_signers
+      ansible.builtin.lineinfile:
+        path: "{{ gh2_home }}/.ssh/allowed_signers"
+        create: true
+        mode: "0644"
+        line: "{{ gh2_email }} {{ lookup('file', gh2_key + '.pub').split()[:2] | join(' ') }}"

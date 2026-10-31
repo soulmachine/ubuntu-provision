@@ -46,3 +46,7 @@
       - "To enable it, mint a PAT with every required scope pre-selected: {{ github_pat_url }}"
       - "Then export GITHUB_TOKEN=<token> and re-run."
   when: github_token | length == 0
+
+- name: Configure secondary GitHub account (directory-scoped identity)
+  ansible.builtin.include_tasks: secondary.yml
+  when: lookup('env', 'GITHUB_SECONDARY_EMAIL') | length > 0
