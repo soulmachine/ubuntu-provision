@@ -242,6 +242,8 @@
       # fills. The setting behind `/autocompact 400k`; the tip is from
       # https://x.com/dotey/status/2094972456607862977
       autoCompactWindow: 400000
+      # Keep session transcripts for 300 days; the 30-day default deletes them too soon.
+      cleanupPeriodDays: 300
       # Every session starts in bypass mode — no per-tool permission prompts,
       # the same posture as launching with `--dangerously-skip-permissions`.
       # Only `defaultMode` is managed; `allow`/`deny` are left to the user.
