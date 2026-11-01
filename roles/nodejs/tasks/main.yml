@@ -80,7 +80,8 @@
   register: nodejs_after
   changed_when: nodejs_after.stdout != nodejs_before.stdout
 
-# `mise upgrade` deletes the old Node and every npm global under it. The roles that install a CLI
+# `mise upgrade` moves to a new Node with no npm globals: they stay on the old Node, which mise
+# removes later in a delayed prune (mac-studio-m3, 2026-11-01). The roles that install a CLI
 # put theirs back later in the run, but a run cut short in between (grokbot-box, often off) or a
 # global no role owns stays gone, its shim failing "No version is set" (grokbot-box openclaw,
 # 2026-10-24). So reinstall them all here, at the versions they had; later roles still update them.
