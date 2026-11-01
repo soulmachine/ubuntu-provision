@@ -43,6 +43,7 @@
     - agent-reach
     - playwright
     - playwright-cli
+    - agent-desktop
     - hermes
     - browseros-neo
     - hindsight

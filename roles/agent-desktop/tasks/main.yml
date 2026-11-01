@@ -1,0 +1,11 @@
+---
+# agent-desktop (github.com/vercel-labs/agent-desktop): the computer-use fallback ~/.agents/AGENTS.md
+# names, an npm global. On Linux it drives apps only in a graphical session with at-spi2-core; these
+# hosts have none, so it installs for the day one does (macbook-provision Q310).
+- name: Install agent-desktop from npm
+  ansible.builtin.include_role:
+    name: nodejs
+    tasks_from: npm_global
+  vars:
+    nodejs_npm_package: agent-desktop
+    nodejs_npm_cmd: agent-desktop

@@ -30,13 +30,13 @@
 # their binary in postinstall and fail without it; every other global still ran when tested under
 # npm 12.2.1 on macOS (DECISIONS Q65, macbook-provision Q303). @xai-official/grok (grok role) runs
 # either way, but only its postinstall moves ~/.grok/bin/grok to a new version, so without it an
-# upgrade keeps the old binary (Q67). 0600 because `npm login` puts the registry token in the same
-# file.
+# upgrade keeps the old binary (Q67). agent-desktop's postinstall swaps its JS launcher for the
+# native binary (Q70). 0600 because `npm login` puts the registry token in the same file.
 - name: Allow the install scripts that npm globals need under npm 12
   ansible.builtin.lineinfile:
     path: "{{ lookup('env', 'HOME') }}/.npmrc"
     regexp: '^allow-scripts='
-    line: allow-scripts=opencode-ai,@inulute/cux,@xai-official/grok
+    line: allow-scripts=opencode-ai,@inulute/cux,@xai-official/grok,agent-desktop
     create: true
     mode: "0600"
 

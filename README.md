@@ -129,6 +129,7 @@ pre-commit run --all-files
 | agent-reach | 多渠道触达工具；上游只提供面向 AI agent 的安装文档，故由 `claude -p` 按文档驱动安装；不装 OpenCLI（依赖 claude-code、python、nodejs、github） |
 | playwright | 浏览器自动化：npm 全局 `playwright@latest`，`install-deps` 安装系统依赖，按 `--dry-run` 判断是否需要下载 Chromium，锁冲突时重试（依赖 nodejs） |
 | playwright-cli | Playwright CLI：npm 全局 `@playwright/cli@latest`，每次先删除再全局安装其 skill，按校验和判定变更（依赖 playwright） |
+| agent-desktop | [agent-desktop](https://github.com/vercel-labs/agent-desktop)：agent 用的 computer use CLI，按 accessibility tree 观察并操作桌面 app；npm 全局 `agent-desktop`，其 postinstall 已加进 `~/.npmrc` 的 `allow-scripts`。Linux 上需要带 `at-spi2-core` 的图形会话，这里的主机都没有，所以只是装上（依赖 nodejs） |
 | hermes | Hermes 个人 agent（Nous Research），并把 `~/.hermes/SOUL.md` 链接到 `~/.agents/AGENTS.md`；Linux 主机常驻开机，无条件安装 |
 | browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
 | hindsight | 把每个 agent 接到 mac-mini-m2 上的 [Hindsight](https://github.com/vectorize-io/hindsight) 记忆服务（`~/coding-agent/devops/hindsight-server`）：URL 按 `ansible_hostname` 选（m2 用 loopback，同局域网用 `192.168.31.20`，远程主机用本地 `hindsight-relay`：先 Tailscale，不通再走 m2 的反向 SSH 隧道 `:18888`；同一 relay 的第二个实例在 `127.0.0.1:8317` 为 CLIProxyAPI 网关做同样的事，隧道 `:18317`，规则见 coding-agent `devops/service-access.md`），写进 `~/.hindsight/coding-agent.json`；token 由 m2 的 `push-token.sh` 推送；`npx @vectorize-io/hindsight-coding-agents install all` 只在版本落后或某 agent 没接上时跑；gemini、hermes、omp、crush 用运行时自带的 stdio MCP（依赖 nodejs） |
@@ -174,6 +175,7 @@ pre-commit run --all-files
 | grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；默认经网关，用 xAI 登录时用 `grok-origin` |
 | openclaw | npm 全局 `openclaw` | 命令 `openclaw`；常驻 daemon 由 `cliproxy-tier` 的 onboarding 安装 |
 | dsh | npm 全局 `@deepseek-ai/dsh`（加 `pnpm`） | 命令 `dsh`；插件在 `~/.dsh/profiles/<profile>/` |
+| agent-desktop | npm 全局 `agent-desktop` | 命令 `agent-desktop` |
 | agent-reach | **没有包管理器**，见下 | 由 `claude -p` 按上游文档安装 |
 
 这六个 agent（copilot、crush、gemini、grok、openclaw、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。

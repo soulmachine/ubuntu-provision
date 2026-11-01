@@ -697,3 +697,13 @@
 **Justification:** Frank asked for the sync in-session (2026-10-31). No Ubuntu host sets the variables yet, so the role's behavior is unchanged everywhere (the include skips); the wiring is OS-agnostic (git config, blockinfile, lineinfile on $HOME paths) and the dotenv role dequotes values the same way as upstream's. Not runnable on the Mac that authored it: verified by ansible syntax check only, so the first Ubuntu host to set GITHUB_SECONDARY_* should run the github role standalone first.
 **Outcome:** applied
 **Ref:** (pending); macbook-provision Q307–Q309
+
+## Q70 — interactive/lcu-to-agent-desktop — tradeoff
+
+**Question:** macbook-provision Q310 retired lcu and added agent-desktop as an npm global in all three repos. These hosts have no graphical session, so agent-desktop cannot drive apps here. Install it anyway?
+**Options considered:** install it like the Macs / leave the role out until a host has a desktop
+**Chosen:** Install it, through the same nodejs `npm_global` include as the Macs, with `agent-desktop` on the `~/.npmrc` `allow-scripts` line. lcu leaves the list of omitted upstream roles in AGENTS.md, since upstream no longer has it.
+**Decided-by:** human
+**Justification:** Frank asked for agent-desktop on all three repos. The package ships Linux x64 and arm64 binaries; it needs a session with at-spi2-core to act, which the role comment and README say.
+**Outcome:** applied
+**Ref:** (pending)
