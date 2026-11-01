@@ -104,7 +104,7 @@ pre-commit run --all-files
 | python | 用 `uv tool install <tool>@latest` 安装 Python 命令行工具：yamllint、ansible-lint、ruff、pre-commit、httpie、pgcli；arm64/aarch64 另加 openai-whisper、whisper-ctranslate2（依赖 uv） |
 | mise | 运行时版本管理器（由 bootstrap.sh 独立安装）；本 role 用 `mise self-update` 保持其最新，并维护 `~/.bashrc` 里的三行（`~/.local/bin` 与 shims 的 PATH 在守卫之上，`mise activate bash` 在末尾）；go、nodejs、jdk 都建立在它之上 |
 | go | Go 语言（通过 mise 安装），按 `mise ls --json` 前后差异判定变更 |
-| nodejs | Node.js LTS（通过 mise 安装）并 `mise upgrade node` 到最新 LTS 补丁版；升级会删掉旧 Node 下的全部 npm 全局包，本 role 先记下再按原版本装回，所以手动升级 Node 请跑 `ansible-playbook role.yml -e role_name=nodejs`，不要直接 `mise upgrade node` |
+| nodejs | Node.js LTS（通过 mise 安装）并 `mise upgrade node` 到最新 LTS 补丁版；升级换上的新 Node 里没有任何 npm 全局包（它们留在旧 Node 下，旧 Node 随后被 mise 清理），本 role 先记下再按原版本装回，所以手动升级 Node 请跑 `ansible-playbook role.yml -e role_name=nodejs`，不要直接 `mise upgrade node` |
 | bun | Bun JavaScript 运行时；每次 `bun upgrade`，借用 `gh auth token` 绕过 GitHub API 限流，按版本差异判定变更 |
 | rust | Rust 工具链（通过官方 rustup 安装；额外含 rust-src、rust-analyzer 组件），按组件列表差异判定变更 |
 | jdk | JDK LTS（通过 mise 安装）并 `mise upgrade java` 到最新 LTS 补丁版 |
