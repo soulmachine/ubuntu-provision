@@ -184,3 +184,4 @@
   when:
     - _hindsight_url == hindsight_relay_url
     - ansible_facts['hostname'] != 'mac-mini-m2'
+    - relay.name not in hindsight_relays_skip.get(ansible_facts['hostname'], [])
