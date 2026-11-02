@@ -11,17 +11,32 @@ Stdlib only, so the system python3 runs it (3.9 on macOS).
     hindsight-relay --self-test
 """
 import asyncio
+import socket
 import sys
 import time
 
 CONNECT_TIMEOUT = 2.0
 SKIP_SECONDS = 60.0
+# A dead upstream is closed after 60 s idle + 6 probes 10 s apart.
+KEEPALIVE = (60, 10, 6)
 DEFAULTS = ["8888", "mac-mini-m2.tail6a15b.ts.net:8888", "127.0.0.1:18888"]
 
 
 def parse(hostport):
     host, port = hostport.rsplit(":", 1)
     return host, int(port)
+
+
+def keepalive(sock):
+    """Probe an idle upstream. Without it, a peer that vanished with no FIN or RST (a dropped
+    tunnel or Tailscale path) holds both sides' file descriptors forever, and the relay ends at
+    EMFILE, refusing every client (archs-mac-mini, 2026-11, coding-agent Q818)."""
+    idle, interval, count = KEEPALIVE
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    # Linux names the idle time TCP_KEEPIDLE, macOS TCP_KEEPALIVE (0x10), which 3.9 does not export.
+    sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, "TCP_KEEPIDLE", getattr(socket, "TCP_KEEPALIVE", 0x10)), idle)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, count)
 
 
 class Relay:
@@ -50,6 +65,7 @@ class Relay:
         except ConnectionError:
             writer.close()
             return
+        keepalive(up_writer.get_extra_info("socket"))
         await asyncio.gather(pipe(reader, up_writer), pipe(up_reader, writer))
 
     async def serve(self, port):
@@ -102,6 +118,12 @@ async def self_test():
         if attempt == 0:
             assert 0 in relay.skip_until, "the failed primary must be skipped"
     assert 1 not in relay.skip_until, "the last resort is never skipped"
+
+    probe = socket.socket()
+    keepalive(probe)
+    assert probe.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE), "keepalive must be on"
+    assert probe.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT) == KEEPALIVE[2]
+    probe.close()
     print("self-test ok")
 
 
