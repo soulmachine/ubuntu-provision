@@ -11,6 +11,7 @@ hindsight_mcp_server: "{{ hindsight_dir }}/coding-agents/dist/mcp-server.js"
 #  - m2 itself: loopback.
 #  - always on m2's LAN: m2's mDNS name (coding-agent Q809). It resolves to IPv6 link-local first.
 #  - dev-server-frank-lume: m2's LAN IP, as it cannot resolve mac-mini-m2.local.
+#  - same tailnet as m2: Tailscale, direct (coding-agent Q821).
 #  - remote: the local hindsight-relay below, which tries Tailscale, then m2's reverse SSH tunnel.
 hindsight_lan_url: http://192.168.31.20:8888
 hindsight_mdns_url: http://mac-mini-m2.local:8888
@@ -19,16 +20,17 @@ hindsight_mdns_url: http://mac-mini-m2.local:8888
 # with "No route to host" until these were allowed (coding-agent Q810).
 hindsight_lan_peers: [192.168.31.20, 192.168.31.81, 192.168.31.31, 192.168.31.34]
 hindsight_relay_url: http://127.0.0.1:8888
+hindsight_tailscale_url: http://mac-mini-m2.tail6a15b.ts.net:8888
 hindsight_url_by_host:
   mac-mini-m2: http://127.0.0.1:8888
   mac-mini-m6: "{{ hindsight_mdns_url }}"
   mac-mini-2018-omarchy: "{{ hindsight_mdns_url }}"
   mac-studio-m3: "{{ hindsight_mdns_url }}"
   dev-server-frank-lume: "{{ hindsight_lan_url }}"
-  macbook-pro-m3: "{{ hindsight_relay_url }}"
+  macbook-pro-m3: "{{ hindsight_tailscale_url }}"
   franks-macbook-pro: "{{ hindsight_relay_url }}"  # macbook-pro-nickel
   archs-mac-mini: "{{ hindsight_relay_url }}"
-  supermicro: "{{ hindsight_relay_url }}"
+  supermicro: "{{ hindsight_tailscale_url }}"
 
 # Relays on the remote hosts, one per service on m2 (fleet rule: coding-agent
 # devops/service-access.md). Each listens on 127.0.0.1:<port> and tries the Tailscale MagicDNS name
