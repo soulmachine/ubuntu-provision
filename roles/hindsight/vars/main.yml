@@ -34,7 +34,7 @@ hindsight_url_by_host:
 # devops/service-access.md). Each listens on 127.0.0.1:<port> and tries the Tailscale MagicDNS name
 # first, then the reverse tunnel m2 keeps on that host (me.soulmachine.hindsight-tunnel.<host>,
 # com.cliproxy.tunnel.<host>). The full name, because a host on another tailnet (archs-mac-mini)
-# cannot resolve the short one; archs has no gateway tunnel (coding-agent Q815). The binary is
+# cannot resolve the short one; archs has no tunnel (coding-agent Q815, Q816). The binary is
 # generic; its name is historical.
 hindsight_relays:
   - {name: hindsight, port: 8888, upstreams: [mac-mini-m2.tail6a15b.ts.net:8888, 127.0.0.1:18888]}
