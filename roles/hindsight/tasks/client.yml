@@ -14,19 +14,9 @@
   become: true
   when: ansible_facts['hostname'] in hindsight_lan_hosts
 
-# The other half: this host publishes no AAAA record, so a Mac asking for its .local name gets only the
-# 192.168.31.x address (coding-agent Q858). The LAN has no IPv6 router; Tailscale's IPv6 is unaffected.
-- name: Publish this host's .local name over IPv4 only
-  ansible.builtin.lineinfile:
-    path: /etc/avahi/avahi-daemon.conf
-    regexp: '^#?{{ item.key }}='
-    line: "{{ item.key }}={{ item.value }}"
-  loop: [{key: use-ipv6, value: "no"}, {key: publish-aaaa-on-ipv4, value: "no"}]
-  become: true
-  notify: Restart avahi
-  when:
-    - ansible_facts['hostname'] in hindsight_lan_hosts
-    - ansible_facts['all_ipv4_addresses'] | intersect(hindsight_lan_peers) | length > 0
+# Avahi keeps publishing this host's AAAA record. Without it a Mac waits 5 s on the AAAA lookup for
+# every .local name (avahi sends no negative answer, macOS does), which broke etcd's client timeouts
+# (coding-agent Q861). Only the Macs, which answer "no AAAA" at once, turn their LAN IPv6 off.
 
 # --- ~/.hindsight/coding-agent.json: URL and token ---------------------------------
 # The file holds the API token, so the read and the write are no_log and the write is 0600.
