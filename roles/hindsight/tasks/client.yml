@@ -4,9 +4,8 @@
     _hindsight_url: "{{ hindsight_url_by_host[ansible_facts['hostname']] }}"
 
 # A .local name resolves to IPv6 link-local first, and a zoned fe80:: client shows up as an empty IP
-# (CLIProxyAPI, coding-agent Q809). The services moved to Tailscale (Q856), but the LAN hosts still
-# use .local names elsewhere (etcd peers), so they keep IPv4-only mDNS. Ubuntu's default is already
-# mdns4_minimal.
+# (CLIProxyAPI, coding-agent Q809). The LAN hosts reach each other by .local for everything (Q858),
+# so they resolve it over IPv4 only. Ubuntu's default is already mdns4_minimal.
 - name: Resolve .local names over IPv4 only
   ansible.builtin.replace:
     path: /etc/nsswitch.conf

@@ -9,13 +9,15 @@ hindsight_mcp_server: "{{ hindsight_dir }}/coding-agents/dist/mcp-server.js"
 
 # Keyed by ansible_hostname (`hostname -s`). A host not listed is not wired.
 #  - m2 itself: loopback.
-#  - same tailnet as m2, the LAN hosts included: Tailscale. It goes direct over the LAN, and it
-#    skips macOS Local Network privacy (coding-agent Q821, Q856).
+#  - same tailnet and same LAN as m2 (hindsight_lan_hosts but lume): m2's mDNS name (coding-agent
+#    Q858). It needs the Local Network exceptions below on the Macs.
 #  - dev-server-frank-lume: m2's LAN IP. It is on another tailnet and cannot resolve .local.
+#  - same tailnet, not on the LAN: Tailscale (coding-agent Q821).
 #  - remote: the local hindsight-relay below, which tries Tailscale, then m2's reverse SSH tunnel.
 hindsight_lan_url: http://192.168.31.20:8888
-# The hosts that never leave Frank's LAN, and the LAN IPs of the four that are not VMs. ssh between
-# them goes to the LAN IP (coding-agent Q845), so a LAN Mac lets every process reach each IP through
+hindsight_mdns_url: http://mac-mini-m2.local:8888
+# The hosts that never leave Frank's LAN, and the LAN IPs of the four that are not VMs. ssh and the
+# services between them go by .local (coding-agent Q858), so a LAN Mac lets every process reach each IP through
 # Local Network privacy: m6's openroutine ssh to the Studio and omarchy failed with "No route to
 # host" until these were allowed (coding-agent Q810).
 hindsight_lan_hosts: [mac-mini-m2, mac-mini-m6, mac-studio-m3, mac-mini-2018-omarchy, dev-server-frank-lume]
@@ -24,9 +26,9 @@ hindsight_relay_url: http://127.0.0.1:8888
 hindsight_tailscale_url: http://mac-mini-m2.tail6a15b.ts.net:8888
 hindsight_url_by_host:
   mac-mini-m2: http://127.0.0.1:8888
-  mac-mini-m6: "{{ hindsight_tailscale_url }}"
-  mac-mini-2018-omarchy: "{{ hindsight_tailscale_url }}"
-  mac-studio-m3: "{{ hindsight_tailscale_url }}"
+  mac-mini-m6: "{{ hindsight_mdns_url }}"
+  mac-mini-2018-omarchy: "{{ hindsight_mdns_url }}"
+  mac-studio-m3: "{{ hindsight_mdns_url }}"
   dev-server-frank-lume: "{{ hindsight_lan_url }}"
   macbook-pro-m3: "{{ hindsight_tailscale_url }}"
   franks-macbook-pro: "{{ hindsight_relay_url }}"  # macbook-pro-nickel
