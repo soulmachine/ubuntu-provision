@@ -3,16 +3,17 @@
   ansible.builtin.set_fact:
     _hindsight_url: "{{ hindsight_url_by_host[ansible_facts['hostname']] }}"
 
-# m2's mDNS name resolves to IPv6 link-local first, and CLIProxyAPI logs a zoned fe80:: client as an
-# empty IP, so cliproxy-usage cannot name the host. IPv4-only mDNS keeps the LAN URL on 192.168.31.x
-# (coding-agent Q809). Ubuntu's default is already mdns4_minimal.
+# A .local name resolves to IPv6 link-local first, and a zoned fe80:: client shows up as an empty IP
+# (CLIProxyAPI, coding-agent Q809). The services moved to Tailscale (Q856), but the LAN hosts still
+# use .local names elsewhere (etcd peers), so they keep IPv4-only mDNS. Ubuntu's default is already
+# mdns4_minimal.
 - name: Resolve .local names over IPv4 only
   ansible.builtin.replace:
     path: /etc/nsswitch.conf
     regexp: '^(hosts:.*\s)mdns_minimal(\s)'
     replace: '\1mdns4_minimal\2'
   become: true
-  when: _hindsight_url == hindsight_mdns_url
+  when: ansible_facts['hostname'] in hindsight_lan_hosts
 
 # --- ~/.hindsight/coding-agent.json: URL and token ---------------------------------
 # The file holds the API token, so the read and the write are no_log and the write is 0600.
