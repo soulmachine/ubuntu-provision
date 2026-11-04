@@ -67,3 +67,14 @@
     state: "{{ 'restarted' if _codex_retrust_units.changed else 'started' }}"
     daemon_reload: "{{ _codex_retrust_units.changed }}"
   when: ansible_facts['system'] == 'Linux'
+
+# The macOS RunAtLoad twin: enabled for boot, and run once now when the units changed, so a cache
+# rebuilt before the watcher existed is settled. no_block, as the job sleeps 30 s first.
+- name: Enable the codex-plugin-retrust service at boot and run it after a unit change
+  ansible.builtin.systemd_service:
+    name: codex-plugin-retrust.service
+    scope: user
+    enabled: true
+    state: "{{ 'started' if _codex_retrust_units.changed else omit }}"
+    no_block: true
+  when: ansible_facts['system'] == 'Linux'

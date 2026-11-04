@@ -10,6 +10,8 @@
 		<string>-lc</string>
 		<string>{{ codex_retrust_cmd }}</string>
 	</array>
+	<!-- Also at login and each reload, for a rebuild made while the job was not loaded (Q899). -->
+	<key>RunAtLoad</key><true/>
 	<key>WatchPaths</key>
 	<array>
 {% for p in codex_retrust_plugins %}

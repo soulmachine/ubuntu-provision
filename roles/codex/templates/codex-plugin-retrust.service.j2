@@ -2,6 +2,11 @@
 Description=Settle rebuilt Codex plugin caches and re-trust their modified hooks
 
 [Service]
-Type=oneshot
+# exec, not oneshot: a oneshot wanted by default.target would hold boot through the 30 s sleep.
+Type=exec
 # A login shell, so codex, node and npm are on PATH as they are for a Codex session.
 ExecStart={{ ansible_facts['user_shell'] }} -lc '{{ codex_retrust_cmd }}'
+
+# Also at boot, for a rebuild made while the path unit was not running (Q899).
+[Install]
+WantedBy=default.target
