@@ -9,7 +9,7 @@ codex_retrust_cmd: >-
 
 # Skills Codex does not load (tasks/skills.yml). Codex fits its skill
 # list into ~22k characters; with ~310 skills every description was cut to ~5 characters, so these
-# cmux-app development and one-off hardware skills are dropped for Codex only (coding-agent Q900).
+# cmux-app development and one-off hardware skills are dropped for Codex only (coding-agent Q904).
 # The shared ~/.agents/skills store, and every other agent, keep them.
 codex_disabled_skills:
   - asus-esc8000-firmware-upgrade
