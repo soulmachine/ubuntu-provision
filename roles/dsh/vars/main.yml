@@ -19,6 +19,8 @@ dsh_plugins:
 
 # pnpm-workspace.yaml `allowBuilds` for the git plugins, keyed by name so it holds across commits
 # (the key pnpm prints carries the commit hash). dsh-purge's one script, postinstall, appends it to
-# dsh.profile.bundles, which `dsh plugin add` already does, so it need not run.
+# dsh.profile.bundles and writes its body insert into the profile's cordis.patch.yml. It need not run:
+# `dsh plugin add` does the first, and the plugin redoes both each time dsh boots it
+# (macbook-provision Q312).
 dsh_allow_builds:
   dsh-purge: false
