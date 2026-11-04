@@ -2,7 +2,7 @@
 # One relay instance, `relay` from hindsight_relays: it listens on 127.0.0.1:<port> and joins each
 # connection to m2 over Tailscale, or to m2's reverse SSH tunnel when Tailscale does not answer
 # (files/hindsight-relay, whose --self-test checks the failover). The binary is generic; its name is
-# historical. Fleet rule: ~/coding-agent/devops/network-topology.md. Looped from client.yml, after the
+# historical. Fleet rule: ~/coding-agent/devops/infra-architecture.html. Looped from client.yml, after the
 # binary install there.
 
 # --- macOS: a LaunchAgent ----------------------------------------------------------

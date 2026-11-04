@@ -35,7 +35,7 @@ hindsight_url_by_host:
   supermicro: "{{ hindsight_tailscale_url }}"
 
 # Relays on the remote hosts, one per service on m2 (fleet rule: coding-agent
-# devops/network-topology.md). Each listens on 127.0.0.1:<port> and tries the Tailscale MagicDNS name
+# devops/infra-architecture.html). Each listens on 127.0.0.1:<port> and tries the Tailscale MagicDNS name
 # first, then the reverse tunnel m2 keeps on that host (me.soulmachine.hindsight-tunnel.<host>,
 # com.cliproxy.tunnel.<host>). The full name, because a host on another tailnet (archs-mac-mini)
 # cannot resolve the short one; archs has no tunnel (coding-agent Q815, Q816). The binary is
