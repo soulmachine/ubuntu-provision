@@ -1,0 +1,7 @@
+[Unit]
+Description=Settle rebuilt Codex plugin caches and re-trust their modified hooks
+
+[Service]
+Type=oneshot
+# A login shell, so codex, node and npm are on PATH as they are for a Codex session.
+ExecStart={{ ansible_facts['user_shell'] }} -lc '{{ codex_retrust_cmd }}'

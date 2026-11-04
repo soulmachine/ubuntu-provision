@@ -59,5 +59,5 @@ has no plugin mechanism and is skipped.
   The hash covers the unsubstituted command, so it is the same on every host running the same version.
   The role prints a reminder at install. After that, each refresh re-trusts hooks an upstream change marks `modified`, and settles the
   plugin cache first (`.npmrc` guard, dependency install, no `.bin` symlinks) with
-  `roles/codex/files/codex-plugin-retrust.py`, so updates run without a review (coding-agent Q759). It also leaves
+  `roles/codex/files/codex-plugin-retrust.py`, so updates run without a review (coding-agent Q759). The codex role's `codex-plugin-retrust` watcher (a WatchPaths LaunchAgent, a systemd `.path` unit on Linux) also runs the helper 30 s after Codex rebuilds the cache by itself at session start (coding-agent Q899). It also leaves
   `[features] hooks` alone; `bypass_hook_trust` is a blanket policy bypass, not a trust.

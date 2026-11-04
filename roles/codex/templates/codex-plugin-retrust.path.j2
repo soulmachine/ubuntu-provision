@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch the Codex plugin caches that codex-plugin-retrust settles
+
+[Path]
+{% for p in codex_retrust_plugins %}
+PathChanged={{ codex_home }}/plugins/cache/{{ p.split('@')[1] }}
+{% endfor %}
+
+[Install]
+WantedBy=default.target

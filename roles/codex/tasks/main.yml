@@ -14,3 +14,6 @@
     line: 'alias codex-yolo="codex --yolo -c model_reasoning_effort=high"'
     regexp: '^alias codex-yolo='
     state: present
+
+- name: Watch the Codex plugin caches and settle them after each rebuild
+  ansible.builtin.include_tasks: retrust-watch.yml

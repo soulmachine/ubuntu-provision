@@ -1,2 +1,8 @@
 ---
 codex_home: "{{ lookup('env', 'HOME') }}/.codex"
+
+# Plugins whose cache codex-plugin-retrust.py settles after Codex rebuilds it (tasks/retrust-watch.yml).
+codex_retrust_plugins: [context-mode@context-mode, ponytail@ponytail]
+codex_retrust_cmd: >-
+  sleep 30; date;{% for p in codex_retrust_plugins %}
+  python3 {{ role_path }}/files/codex-plugin-retrust.py {{ p }};{% endfor %}

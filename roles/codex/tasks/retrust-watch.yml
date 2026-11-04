@@ -1,0 +1,69 @@
+---
+# Codex upgrades its Git plugin marketplaces by itself at session start, which rebuilds
+# ~/.codex/plugins/cache/<marketplace>/<plugin>/<version> without the `.npmrc` guard and with new
+# hook hashes, so the plugin's hooks fail ("unsupported plugin entry type") until the next play
+# runs codex-plugin-retrust.py (Q761). This job runs that helper whenever a watched cache folder
+# changes (coding-agent Q899). The <marketplace> folder is the watch target because a rebuild
+# replaces everything beneath it but keeps its inode (measured on m2 2026-11-03), and the helper
+# writes only inside the <version> folder, so it never re-triggers itself. The 30 s delay lets the
+# plugin's own background `npm install` finish before the helper settles the folder.
+- name: Ensure the watched Codex plugin cache folders exist
+  ansible.builtin.file:
+    path: "{{ codex_home }}/plugins/cache/{{ item.split('@')[1] }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ codex_retrust_plugins }}"
+
+# --- macOS: a LaunchAgent with WatchPaths ------------------------------------------------
+- name: Install the codex-plugin-retrust LaunchAgent
+  ansible.builtin.template:
+    src: codex-plugin-retrust.plist.j2
+    dest: "{{ codex_home | dirname }}/Library/LaunchAgents/me.soulmachine.codex-plugin-retrust.plist"
+    mode: "0644"
+  register: _codex_retrust_plist
+  when: ansible_facts['system'] == 'Darwin'
+
+- name: Check whether the codex-plugin-retrust LaunchAgent is loaded
+  ansible.builtin.command: launchctl print gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.codex-plugin-retrust
+  register: _codex_retrust_loaded
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_facts['system'] == 'Darwin'
+
+# A changed plist is only re-read on a fresh bootstrap, so it is booted out first.
+- name: Load or reload the codex-plugin-retrust LaunchAgent
+  ansible.builtin.shell: >-
+    {% if _codex_retrust_loaded.rc == 0 %}launchctl bootout gui/{{ ansible_facts['user_uid'] }}/me.soulmachine.codex-plugin-retrust;{% endif %}
+    launchctl bootstrap gui/{{ ansible_facts['user_uid'] }}
+    {{ codex_home | dirname }}/Library/LaunchAgents/me.soulmachine.codex-plugin-retrust.plist
+  when:
+    - ansible_facts['system'] == 'Darwin'
+    - _codex_retrust_loaded.rc != 0 or _codex_retrust_plist.changed
+  changed_when: true
+
+# --- Linux: a systemd user path unit (the user lingers, so it runs without a login) -------
+- name: Ensure the systemd user unit folder exists
+  ansible.builtin.file:
+    path: "{{ codex_home | dirname }}/.config/systemd/user"
+    state: directory
+    mode: "0755"
+  when: ansible_facts['system'] == 'Linux'
+
+- name: Install the codex-plugin-retrust systemd units
+  ansible.builtin.template:
+    src: "codex-plugin-retrust.{{ item }}.j2"
+    dest: "{{ codex_home | dirname }}/.config/systemd/user/codex-plugin-retrust.{{ item }}"
+    mode: "0644"
+  loop: [service, path]
+  register: _codex_retrust_units
+  when: ansible_facts['system'] == 'Linux'
+
+- name: Enable and start the codex-plugin-retrust path unit
+  ansible.builtin.systemd_service:
+    name: codex-plugin-retrust.path
+    scope: user
+    enabled: true
+    state: "{{ 'restarted' if _codex_retrust_units.changed else 'started' }}"
+    daemon_reload: "{{ _codex_retrust_units.changed }}"
+  when: ansible_facts['system'] == 'Linux'

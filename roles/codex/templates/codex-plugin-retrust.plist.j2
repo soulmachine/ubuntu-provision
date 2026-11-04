@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>me.soulmachine.codex-plugin-retrust</string>
+	<!-- A login shell, so codex, node and npm are on PATH as they are for a Codex session. -->
+	<key>ProgramArguments</key>
+	<array>
+		<string>{{ ansible_facts['user_shell'] }}</string>
+		<string>-lc</string>
+		<string>{{ codex_retrust_cmd }}</string>
+	</array>
+	<key>WatchPaths</key>
+	<array>
+{% for p in codex_retrust_plugins %}
+		<string>{{ codex_home }}/plugins/cache/{{ p.split('@')[1] }}</string>
+{% endfor %}
+	</array>
+	<key>StandardOutPath</key><string>{{ codex_home | dirname }}/Library/Logs/codex-plugin-retrust.log</string>
+	<key>StandardErrorPath</key><string>{{ codex_home | dirname }}/Library/Logs/codex-plugin-retrust.log</string>
+</dict>
+</plist>
