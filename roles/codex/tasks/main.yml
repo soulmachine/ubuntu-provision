@@ -17,3 +17,6 @@
 
 - name: Watch the Codex plugin caches and settle them after each rebuild
   ansible.builtin.include_tasks: retrust-watch.yml
+
+- name: Turn off the skills Codex should not load
+  ansible.builtin.include_tasks: skills.yml

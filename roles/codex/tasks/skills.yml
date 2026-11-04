@@ -1,0 +1,15 @@
+---
+# Array-of-tables entries are valid TOML anywhere after the top-level keys, so the block stays valid
+# when Codex later appends its own tables (hooks.state, projects) after it. No secrets are read.
+- name: Turn off skills Codex should not load
+  ansible.builtin.blockinfile:
+    path: "{{ codex_home }}/config.toml"
+    marker: "# {mark} codex_disabled_skills (provisioning codex role)"
+    block: |
+      {% for n in codex_disabled_skills %}
+      [[skills.config]]
+      name = "{{ n }}"
+      enabled = false
+      {% endfor %}
+    create: true
+    mode: "0600"

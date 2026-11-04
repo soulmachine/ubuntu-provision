@@ -6,3 +6,42 @@ codex_retrust_plugins: [context-mode@context-mode, ponytail@ponytail]
 codex_retrust_cmd: >-
   sleep 30; date;{% for p in codex_retrust_plugins %}
   python3 {{ role_path }}/files/codex-plugin-retrust.py {{ p }} --if-rebuilt;{% endfor %}
+
+# Skills Codex does not load (tasks/skills.yml). Codex fits its skill
+# list into ~22k characters; with ~310 skills every description was cut to ~5 characters, so these
+# cmux-app development and one-off hardware skills are dropped for Codex only (coding-agent Q900).
+# The shared ~/.agents/skills store, and every other agent, keep them.
+codex_disabled_skills:
+  - asus-esc8000-firmware-upgrade
+  - asus-esc8000-gpu-bios-tuning
+  - cmux-architecture
+  - cmux-backend
+  - cmux-billing
+  - cmux-browser
+  - cmux-capture
+  - cmux-cloud-vm
+  - cmux-cua
+  - cmux-custom-sidebar
+  - cmux-customization
+  - cmux-debugging
+  - cmux-dev-workflow
+  - cmux-diagnostics
+  - cmux-ghostty
+  - cmux-keyboard-shortcuts
+  - cmux-localization
+  - cmux-markdown
+  - cmux-release
+  - cmux-review
+  - cmux-settings
+  - cmux-shared-behavior
+  - cmux-socket-policy
+  - cmux-test-bisect
+  - cmux-testing
+  - cmux-workspace
+  - deploy-kimi-k26-on-rtx-pro-6000
+  - deploy-kimi-k3-on-rtx-pro-6000
+  - llm-inference-benchmark
+  - lxd-docker-firewall-conflict
+  - ubuntu-lxd-gpu-server
+  - ubuntu-nvidia-gpu-enablement
+  - ubuntu-zfs-mirror-install
