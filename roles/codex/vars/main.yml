@@ -5,4 +5,4 @@ codex_home: "{{ lookup('env', 'HOME') }}/.codex"
 codex_retrust_plugins: [context-mode@context-mode, ponytail@ponytail]
 codex_retrust_cmd: >-
   sleep 30; date;{% for p in codex_retrust_plugins %}
-  python3 {{ role_path }}/files/codex-plugin-retrust.py {{ p }};{% endfor %}
+  python3 {{ role_path }}/files/codex-plugin-retrust.py {{ p }} --if-rebuilt;{% endfor %}

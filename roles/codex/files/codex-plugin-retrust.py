@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Settle a Codex plugin's cache folder, then re-trust its hooks that Codex marks `modified`.
 
-Usage: codex-plugin-retrust.py <plugin>@<marketplace>
+Usage: codex-plugin-retrust.py <plugin>@<marketplace> [--if-rebuilt]
+
+--if-rebuilt is the watcher's fast path (tasks/retrust-watch.yml, coding-agent Q899): every Codex
+session start touches the watched cache folder, and a rebuild always drops the `.npmrc` guard this
+script writes, so a guard in every version folder means nothing changed since the last settle and
+the script exits at once. A plugin without package.json never gets a guard, so it takes the full path.
 
 `codex plugin marketplace upgrade` rebuilds ~/.codex/plugins/cache/<marketplace>/<plugin>/<version>
 whenever upstream moves. That changes every hook's content hash, so Codex stops running the hooks
@@ -31,8 +36,12 @@ config = os.path.expanduser("~/.codex/config.toml")
 # native module is built for the node the hooks will use.
 shell = pwd.getpwuid(os.getuid()).pw_shell
 changed = False
+dirs = sorted(glob.glob(os.path.expanduser(f"~/.codex/plugins/cache/{market}/{name}/*/")))
+if "--if-rebuilt" in sys.argv[2:] and all(os.path.exists(d + ".npmrc") for d in dirs):
+    print("ok")
+    sys.exit(0)
 
-for d in sorted(glob.glob(os.path.expanduser(f"~/.codex/plugins/cache/{market}/{name}/*/"))):
+for d in dirs:
     if os.path.exists(d + "package.json") and not os.path.exists(d + ".npmrc"):
         with open(d + ".npmrc", "w") as f:
             f.write("bin-links=false\n")
