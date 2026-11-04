@@ -22,10 +22,8 @@ browseros_neo_mcp_url: http://127.0.0.1:9010/mcp
 # Agents with an `mcp add` CLI. When the CLI exists and `config` does not hold the URL, the
 # entry is removed (it may carry an old URL) and added again.
 browseros_neo_cli_agents:
-  - exe: codex
-    config: .codex/config.toml
-    remove: codex mcp remove {{ browseros_neo_mcp_name }}
-    add: codex mcp add {{ browseros_neo_mcp_name }} --url {{ browseros_neo_mcp_url }}
+  # No codex entry: neo is closed most of the time (Q237), and every Codex start then logged a
+  # failed MCP connection, so Codex goes without neo (coding-agent Q905).
   - exe: gemini
     config: .gemini/settings.json
     remove: gemini mcp remove --scope user {{ browseros_neo_mcp_name }}
