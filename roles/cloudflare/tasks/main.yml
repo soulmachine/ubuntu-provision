@@ -9,3 +9,40 @@
 # The Cloudflare skills are installed by the `skills` role, which lists
 # cloudflare/skills in skills_sources and re-fetches it every play. They lived here
 # behind a `creates:` sentinel, which froze all 8 at 2026-07-02.
+
+# cloudflared from Cloudflare's apt repo: the client end of the public Gitea ssh tunnel (coding-agent Q997).
+- name: Add the cloudflared apt signing key
+  become: true
+  ansible.builtin.get_url:
+    url: https://pkg.cloudflare.com/cloudflare-public-v2.gpg
+    dest: /usr/share/keyrings/cloudflare-public-v2.gpg
+    mode: "0644"
+    force: false
+
+- name: Add the cloudflared apt repository
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/cloudflared.list
+    content: "deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main\n"
+    mode: "0644"
+  register: cloudflare_apt_repo
+
+- name: Install cloudflared
+  become: true
+  ansible.builtin.apt:
+    name: cloudflared
+    state: present
+    update_cache: "{{ cloudflare_apt_repo.changed }}"
+
+# Gitea's ssh is public through the Cloudflare tunnel `gitea` (coding-agent Q997): the client wraps
+# it in a WebSocket with cloudflared. Absolute path: LaunchAgents and cron have no Homebrew PATH.
+- name: Route git-ssh.soulmachine.io through cloudflared in ~/.ssh/config
+  ansible.builtin.blockinfile:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/config"
+    create: true
+    mode: "0600"
+    marker: "# {mark} Gitea over the Cloudflare tunnel (cloudflare role)"
+    block: |
+      Host git-ssh.soulmachine.io
+          User git
+          ProxyCommand /usr/bin/cloudflared access ssh --hostname %h
