@@ -44,5 +44,5 @@
   ansible.builtin.include_tasks: kimi-code.yml
 
 # Every host here is always-on, so unlike macOS the OpenClaw half has no gate.
-- name: Install context-mode into OpenClaw
+- name: Remove context-mode from OpenClaw
   ansible.builtin.include_tasks: openclaw.yml

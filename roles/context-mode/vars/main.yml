@@ -3,7 +3,7 @@ context_mode_home: "{{ lookup('env', 'HOME') }}"
 # GitHub owner/repo, the form the Claude Code, Codex and Copilot installers accept.
 context_mode_repo: mksglu/context-mode
 # The npm package: the global CLI the hooks call, the OpenCode plugin, the pi and oh-my-pi
-# packages and the OpenClaw plugin, all in one.
+# packages, all in one.
 context_mode_npm_package: context-mode
 
 # Claude Code: plugin `context-mode` in the marketplace named `context-mode`

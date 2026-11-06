@@ -1,76 +1,27 @@
 ---
-# OpenClaw: its own installer, `openclaw plugins install context-mode` (the npm
-# package declares `openclaw.extensions`), rather than upstream's `npm run
-# install:openclaw` script, which writes runtime.json and signals the gateway
-# behind OpenClaw's back. An npm source sits outside ClawHub review, so the
-# install refuses without `--force`; that flag also overwrites an existing
-# plugin, which is why the install is gated on `openclaw plugins list`.
-# OpenClaw 2026.10.5 also refuses a plugin that declares capabilities (this
-# one asks for full filesystem and system access) without
-# `--accept-capabilities`. Installing context-mode is that consent, so the
-# install passes it. The update does not (see below).
-#
-# OpenClaw has no model until `cliproxy-tier <host>` onboards it (the openclaw
-# role reports that), so a host without ~/.openclaw/openclaw.json is skipped.
+# OpenClaw: context-mode v2 dropped OpenClaw (upstream deleted docs/openclaw.md,
+# and the 2.x npm package has no `openclaw.extensions`), so `openclaw plugins
+# update context-mode` fails. The user chose to run OpenClaw without
+# context-mode, so this half only removes the v1 plugin where it is still
+# installed. OpenClaw lists plugins only once `cliproxy-tier <host>` has
+# onboarded it, so a host without ~/.openclaw/openclaw.json is skipped.
 - name: Check whether OpenClaw is onboarded
   ansible.builtin.stat:
     path: "{{ context_mode_home }}/.openclaw/openclaw.json"
   register: context_mode_openclaw_config
 
-- name: Report that the OpenClaw half was skipped
-  ansible.builtin.debug:
-    msg: >-
-      Skipping context-mode's OpenClaw half: OpenClaw is not onboarded yet.
-      Run `cliproxy-tier <host>` on mac-mini-m2, then re-run this role.
-  when: not context_mode_openclaw_config.stat.exists
-
-- name: Install context-mode into OpenClaw
+- name: Remove context-mode from OpenClaw
   when: context_mode_openclaw_config.stat.exists
   block:
     - name: List OpenClaw plugins
       ansible.builtin.command: openclaw plugins list --json
-      register: context_mode_openclaw_before
+      register: context_mode_openclaw_plugins
       changed_when: false
       check_mode: false
 
-    - name: Install the context-mode OpenClaw plugin
-      ansible.builtin.command: openclaw plugins install {{ context_mode_npm_package }} --force --accept-capabilities
-      when: context_mode_openclaw_versions_before | length == 0
+    - name: Uninstall the v1 context-mode OpenClaw plugin
+      ansible.builtin.command: openclaw plugins uninstall context-mode --force
+      when: >-
+        (context_mode_openclaw_plugins.stdout | from_json).plugins
+        | selectattr('id', 'equalto', 'context-mode') | list | length > 0
       changed_when: true
-      vars:
-        context_mode_openclaw_versions_before: >-
-          {{ (context_mode_openclaw_before.stdout | from_json).plugins
-             | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list }}
-
-    # Refresh: `openclaw plugins update` exits 0 and prints "is up to date"
-    # when nothing moved, so diff the listed version instead. A release that
-    # WIDENS the declared capabilities needs fresh consent, and the role will
-    # not give it unseen: that refusal is tolerated and reported (the bun
-    # role's `failed_when` + debug shape), the plugin stays at its version,
-    # and every other error still fails.
-    - name: Update the context-mode OpenClaw plugin
-      ansible.builtin.command: openclaw plugins update context-mode
-      register: context_mode_openclaw_update
-      failed_when:
-        - context_mode_openclaw_update.rc != 0
-        - "'requires capability consent' not in (context_mode_openclaw_update.stdout + context_mode_openclaw_update.stderr)"
-      changed_when: false
-
-    - name: Report that the context-mode OpenClaw update awaits consent
-      ansible.builtin.debug:
-        msg: >-
-          A new context-mode release widens its OpenClaw capabilities, so
-          OpenClaw kept the installed version. Review them with `openclaw
-          plugins inspect context-mode`, then run `openclaw plugins update
-          context-mode --accept-capabilities` by hand.
-      when: context_mode_openclaw_update.rc | default(0) != 0
-
-    - name: Check whether the context-mode OpenClaw plugin was updated
-      ansible.builtin.command: openclaw plugins list --json
-      register: context_mode_openclaw_after
-      check_mode: false
-      changed_when: >-
-        ((context_mode_openclaw_before.stdout | from_json).plugins
-         | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list)
-        != ((context_mode_openclaw_after.stdout | from_json).plugins
-            | selectattr('id', 'equalto', 'context-mode') | map(attribute='version') | list)

@@ -1,8 +1,7 @@
 # context-mode role
 
 `context-mode` installs one upstream tool, [context-mode](https://github.com/mksglu/context-mode),
-into nine agents (Claude Code, Codex, OpenCode, pi, oh-my-pi, Gemini CLI, Copilot CLI, kimi-code,
-OpenClaw). Each agent gets it through its own installer, one task file per agent under `tasks/`,
+into eight agents (Claude Code, Codex, OpenCode, pi, oh-my-pi, Gemini CLI, Copilot CLI, kimi-code). Each agent gets it through its own installer, one task file per agent under `tasks/`,
 in the shape of the `ponytail` role. `main.yml` first installs the global `context-mode` CLI from
 npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
 
@@ -22,8 +21,7 @@ npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
   - Copilot CLI: `~/.copilot/hooks/context-mode.json` must name the package that `context-mode`
     resolves to; otherwise the role reruns `context-mode setup --yes --agents copilot-cli`. That
     also repairs the absolute node paths setup writes, after mise moves to a new node.
-  - OpenClaw: `openclaw plugins list --json`; refresh diffs the listed version around
-    `openclaw plugins update`.
+  - OpenClaw: none; context-mode v2 dropped OpenClaw, and the role removes the v1 plugin (below).
   - Gemini CLI and kimi-code: no installer, so the role edits their config files (next bullets).
 - **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role installs and
   refreshes every package listed there, `npm:context-mode` included, so this role has no pi
@@ -35,13 +33,10 @@ npm, because the Gemini, Copilot and kimi hooks and MCP servers run it.
   jev-register-agents writes). The six `[[hooks]]` tables go into a marked `blockinfile` block at
   the end of `~/.kimi-code/config.toml`; a trailing array-of-tables block is valid TOML whatever
   precedes it. Omarchy has no kimi-code, so its copy of this role has no kimi half.
-- **OpenClaw needs `--force` on install.** An npm source sits outside ClawHub review, so
-  `openclaw plugins install` refuses without it. The flag also overwrites an existing plugin, so
-  the install is gated on the list. OpenClaw 2026.10.5 also wants `--accept-capabilities` for a
-  plugin that declares capabilities. The install passes it, because installing is the consent. The
-  update does not: a release that widens the capabilities is reported with the command to review
-  and accept it, and the plugin stays at its version until then. The role uses OpenClaw's own installer rather than upstream's
-  `npm run install:openclaw` script. It runs only once OpenClaw is onboarded (`~/.openclaw/openclaw.json`).
+- **OpenClaw runs without context-mode.** v2 dropped OpenClaw: upstream deleted
+  `docs/openclaw.md`, and the 2.x npm package has no `openclaw.extensions`, so `openclaw plugins
+  update context-mode` fails. Where OpenClaw is onboarded (`~/.openclaw/openclaw.json`), the
+  role runs `openclaw plugins uninstall context-mode --force` once the plugin is listed.
 - **The first Codex hook trust is a manual, per-host step**, as for ponytail. The
   role prints a reminder when it installs the plugin: open `/hooks` in `codex` and trust the six
   context-mode hooks. Without the trust, the MCP tools still work; only routing stays quiet. After that, each refresh re-trusts hooks an upstream change marks `modified`, and settles the
