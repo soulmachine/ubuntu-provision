@@ -62,16 +62,24 @@
     # mapPathToBank: the Codex app makes a folder per chat under ~/Documents/Codex, and each one became
     # its own bank ("use", "new-chat", "how-x20"); now they share one. A mapped path wins over git, so
     # never map a folder that holds repos (~, ~/github.com).
-    # bankIdTemplate: {channel} is HINDSIGHT_CHANNEL_ID, set by the .envrc files below: github under
-    # ~/github.com, coding-agent under ~/github.com/soulmachine and ~/coding-agent, personal-agent
-    # under ~/personal-agent; unset means coding-agent (the patch below) (coding-agent Q1026).
+    # ~/coding-agent, ~/personal-agent and ~/.agents are also mapped, to the names their channel gives:
+    # a map is read on every hook run, so an agent that never reads .envrc (paseo, herdr, launchd, a
+    # session started before a channel change) still lands in the same bank (coding-agent Q1038).
+    # bankIdTemplate: {channel} is HINDSIGHT_CHANNEL_ID, set by the .envrc files below to where a repo
+    # is hosted: github.com under ~/github.com; git.soulmachine.io under ~/git.soulmachine.io,
+    # ~/coding-agent, ~/personal-agent and ~/.agents. Unset means coding-agent (the patch below)
+    # (coding-agent Q1026, Q1038).
     # autoUpdate: off, so only this role upgrades the runtime and the patch below follows every upgrade.
     _hindsight_managed:
       apiUrl: "{{ _hindsight_url }}"
       serverMode: self-hosted
       reflectTimeoutMs: 25000
       pageTriggerCron: "H H(1-5) * * *"
-      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats"}
+      mapPathToBank:
+        "~/Documents/Codex": coding-agent::codex-chats
+        "~/coding-agent": git.soulmachine.io::coding-agent
+        "~/personal-agent": git.soulmachine.io::personal-agent
+        "~/.agents": git.soulmachine.io::.agents
       bankIdTemplate: "{channel}::{gitProject}"
       autoUpdate: false
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
@@ -152,9 +160,18 @@
   loop_control:
     label: "{{ item.item.dir }}"
 
-- name: Find the repo .envrc files under ~/github.com
+# Q1026 gave ~/github.com/soulmachine its own channel; its repos now inherit github.com (Q1038).
+- name: Remove the old soulmachine channel .envrc
+  ansible.builtin.file:
+    path: "{{ hindsight_home }}/github.com/soulmachine/.envrc"
+    state: absent
+
+# A clone root missing on this host is skipped, not failed.
+- name: Find the repo .envrc files under the clone roots
   ansible.builtin.find:
-    paths: "{{ hindsight_home }}/github.com"
+    paths:
+      - "{{ hindsight_home }}/github.com"
+      - "{{ hindsight_home }}/git.soulmachine.io"
     patterns: .envrc
     hidden: true
     recurse: true
@@ -168,7 +185,7 @@
     insertbefore: BOF
   loop: >-
     {{ _hindsight_repo_envrc.files | map(attribute='path')
-       | map('regex_search', '^' ~ hindsight_home ~ '/github[.]com/(?!soulmachine/)[^/]+/[^/]+/[.]envrc$')
+       | map('regex_search', '^' ~ hindsight_home ~ '/(github[.]com|git[.]soulmachine[.]io)/(?!soulmachine/)[^/]+/[^/]+/[.]envrc$')
        | select | list }}
 
 # direnv refuses a new or edited .envrc until it is allowed; `direnv exec` says "is blocked" then.
