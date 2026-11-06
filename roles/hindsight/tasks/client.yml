@@ -168,7 +168,7 @@
     insertbefore: BOF
   loop: >-
     {{ _hindsight_repo_envrc.files | map(attribute='path')
-       | map('regex_search', '^' ~ hindsight_home ~ '/github\\.com/(?!soulmachine/)[^/]+/[^/]+/\\.envrc$')
+       | map('regex_search', '^' ~ hindsight_home ~ '/github[.]com/(?!soulmachine/)[^/]+/[^/]+/[.]envrc$')
        | select | list }}
 
 # direnv refuses a new or edited .envrc until it is allowed; `direnv exec` says "is blocked" then.
@@ -183,7 +183,8 @@
       if direnv exec "$(dirname "$f")" true 2>&1 | grep -q 'is blocked'; then direnv allow "$f" && echo "allowed $f"; fi;
       done
     _paths: >-
-      {{ hindsight_channel_dirs | map(attribute='dir') | map('regex_replace', '^(.*)$', hindsight_home ~ '/\\1/.envrc') | list
+      {{ hindsight_channel_dirs | map(attribute='dir') | map('regex_replace', '^', hindsight_home ~ '/')
+         | map('regex_replace', '$', '/.envrc') | list
          + (_hindsight_repo_envrc.files | map(attribute='path') | list) }}
 
 # --- the agents it does not cover: the runtime's stdio MCP server ---------------------
