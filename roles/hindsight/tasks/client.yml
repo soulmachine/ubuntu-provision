@@ -62,14 +62,18 @@
     # mapPathToBank: the Codex app makes a folder per chat under ~/Documents/Codex, and each one became
     # its own bank ("use", "new-chat", "how-x20"); now they share one. A mapped path wins over git, so
     # never map a folder that holds repos (~, ~/github.com).
-    # ~/personal-agent goes to the bank "personal-agent", without the coding-agent:: prefix
-    # (coding-agent Q1023); the bank was renamed from coding-agent::personal-agent.
+    # bankIdTemplate: {channel} is HINDSIGHT_CHANNEL_ID, set by the .envrc files below: github under
+    # ~/github.com, coding-agent under ~/github.com/soulmachine and ~/coding-agent, personal-agent
+    # under ~/personal-agent; unset means coding-agent (the patch below) (coding-agent Q1026).
+    # autoUpdate: off, so only this role upgrades the runtime and the patch below follows every upgrade.
     _hindsight_managed:
       apiUrl: "{{ _hindsight_url }}"
       serverMode: self-hosted
       reflectTimeoutMs: 25000
       pageTriggerCron: "H H(1-5) * * *"
-      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats", "~/personal-agent": "personal-agent"}
+      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats"}
+      bankIdTemplate: "{channel}::{gitProject}"
+      autoUpdate: false
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
   no_log: true
 
@@ -115,6 +119,72 @@
       {{ (_hindsight_pkg_raw.content | b64decode | from_json).version
          if _hindsight_pkg_raw.content is defined else 'absent' }}
   changed_when: true
+
+# --- the bank channel (coding-agent Q1026) ------------------------------------------
+# shortcut: patches the vendored bundle so an unset channel means coding-agent, not "default"; drop it
+# when upstream offers a default channel. It fails when neither form is left, so a rewrite is noticed.
+- name: Make an unset Hindsight channel mean coding-agent
+  ansible.builtin.shell: |
+    cd '{{ hindsight_dir }}/coding-agents/dist' || exit 1
+    grep -qF 'HINDSIGHT_CHANNEL_ID || "' ./*.js || { echo 'channel fallback not found' >&2; exit 1; }
+    files=$(grep -lF 'HINDSIGHT_CHANNEL_ID || "default"' ./*.js) || exit 0
+    sed -i.q1026 's/HINDSIGHT_CHANNEL_ID || "default"/HINDSIGHT_CHANNEL_ID || "coding-agent"/' $files
+    rm -f ./*.q1026
+    echo patched
+  register: _hindsight_channel_patch
+  changed_when: "'patched' in _hindsight_channel_patch.stdout"
+
+# direnv loads only the nearest .envrc, so a repo with its own gets source_up_if_exists to reach the
+# channel above it. soulmachine repos carry that line in git instead, so this never dirties them.
+- name: Find the folders that get a channel .envrc
+  ansible.builtin.stat:
+    path: "{{ hindsight_home }}/{{ item.dir }}"
+    follow: true
+  loop: "{{ hindsight_channel_dirs }}"
+  register: _hindsight_channel_dir
+
+- name: Write the channel .envrc files
+  ansible.builtin.copy:
+    dest: "{{ item.stat.path }}/.envrc"
+    content: "export HINDSIGHT_CHANNEL_ID={{ item.item.channel }}\n"
+    mode: "0644"
+  loop: "{{ _hindsight_channel_dir.results | selectattr('stat.isdir', 'defined') | selectattr('stat.isdir') }}"
+  loop_control:
+    label: "{{ item.item.dir }}"
+
+- name: Find the repo .envrc files under ~/github.com
+  ansible.builtin.find:
+    paths: "{{ hindsight_home }}/github.com"
+    patterns: .envrc
+    hidden: true
+    recurse: true
+    depth: 3
+  register: _hindsight_repo_envrc
+
+- name: Let a repo .envrc reach the channel above it
+  ansible.builtin.lineinfile:
+    path: "{{ item }}"
+    line: source_up_if_exists
+    insertbefore: BOF
+  loop: >-
+    {{ _hindsight_repo_envrc.files | map(attribute='path')
+       | map('regex_search', '^' ~ hindsight_home ~ '/github\\.com/(?!soulmachine/)[^/]+/[^/]+/\\.envrc$')
+       | select | list }}
+
+# direnv refuses a new or edited .envrc until it is allowed; `direnv exec` says "is blocked" then.
+- name: Allow the channel .envrc files in direnv
+  ansible.builtin.command:
+    argv: "{{ ['bash', '-c', _script, 'bash'] + _paths }}"
+  register: _hindsight_direnv_allow
+  changed_when: "'allowed' in _hindsight_direnv_allow.stdout"
+  vars:
+    _script: >-
+      for f in "$@"; do [ -f "$f" ] || continue;
+      if direnv exec "$(dirname "$f")" true 2>&1 | grep -q 'is blocked'; then direnv allow "$f" && echo "allowed $f"; fi;
+      done
+    _paths: >-
+      {{ hindsight_channel_dirs | map(attribute='dir') | map('regex_replace', '^(.*)$', hindsight_home ~ '/\\1/.envrc') | list
+         + (_hindsight_repo_envrc.files | map(attribute='path') | list) }}
 
 # --- the agents it does not cover: the runtime's stdio MCP server ---------------------
 # rc 0 = the agent is installed and its config does not name the MCP server yet.

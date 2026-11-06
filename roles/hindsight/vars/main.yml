@@ -89,3 +89,11 @@ hindsight_json_agents:
     file: crush.json
     key: mcp
     entry: {type: stdio, command: node, args: ["{{ hindsight_mcp_server }}"], env: {HINDSIGHT_MCP_HARNESS: crush}}
+
+# The folders whose .envrc sets the Hindsight bank channel (coding-agent Q1026). ~/coding-agent also
+# carries its .envrc in git; ~/personal-agent's .gitignore covers it, so this list is the source.
+hindsight_channel_dirs:
+  - {dir: github.com, channel: github}
+  - {dir: github.com/soulmachine, channel: coding-agent}
+  - {dir: coding-agent, channel: coding-agent}
+  - {dir: personal-agent, channel: personal-agent}
