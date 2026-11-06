@@ -103,3 +103,15 @@
     regexp: 'mise activate bash'
     line: 'eval "$(mise activate bash)"'
     state: present
+
+# Activation puts mise's install folders ahead of ~/.local/bin, so plain `gemini` and `copilot` ran
+# the npm binary and skipped their cliproxy-tier shim. mise keeps PATH changes made after activation
+# in front (activate_aggressive is off), so this line, right after it, lets the shims win; node, go
+# and java stay mise's.
+- name: Keep ~/.local/bin ahead of mise in interactive bash
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('env', 'HOME') }}/.bashrc"
+    regexp: '^export PATH="\$HOME/\.local/bin:\$PATH"\s+# after mise activate'
+    line: 'export PATH="$HOME/.local/bin:$PATH"  # after mise activate: gateway shims win'
+    insertafter: 'mise activate bash'
+    state: present
