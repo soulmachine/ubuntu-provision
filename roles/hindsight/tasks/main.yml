@@ -4,11 +4,12 @@
 # alone. The token is pushed to each host by m2's push-token.sh, the way cliproxy-tier pushes the
 # gateway key: most hosts have no 1Password service account to read it with.
 
-# The URL map is keyed by ansible_hostname; a single-role run gathers no facts.
-- name: Ensure the hostname fact is gathered
+# The URL map is keyed by ansible_hostname, and local-network.yml reads the host's IPv4 addresses; a
+# single-role run (`ansible localhost -m include_role -a name=hindsight`) gathers neither.
+- name: Ensure the hostname and network facts are gathered
   ansible.builtin.setup:
-    gather_subset: [min]
-  when: ansible_facts['hostname'] is not defined
+    gather_subset: [min, network]
+  when: ansible_facts['hostname'] is not defined or ansible_facts['all_ipv4_addresses'] is not defined
 
 - name: Wire the agents to Hindsight
   ansible.builtin.include_tasks: client.yml
