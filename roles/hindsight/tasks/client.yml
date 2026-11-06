@@ -56,7 +56,18 @@
   vars:
     # reflectTimeoutMs: the default 20 s cut off slow reflects (Haiku answer time, coding-agent Q760);
     # it stays under the harnesses' 30 s UserPromptSubmit hook timeout so the page fallback still runs.
-    _hindsight_managed: {apiUrl: "{{ _hindsight_url }}", serverMode: self-hosted, reflectTimeoutMs: 25000}
+    # pageTriggerCron: knowledge pages refresh once a night, each at its own time from 1 to 5 AM, not
+    # hourly (coding-agent Q1017). Every host needs the same value: a client patches any page whose
+    # trigger differs from its own config, so mixed values flap.
+    # mapPathToBank: the Codex app makes a folder per chat under ~/Documents/Codex, and each one became
+    # its own bank ("use", "new-chat", "how-x20"); now they share one. A mapped path wins over git, so
+    # never map a folder that holds repos (~, ~/github.com).
+    _hindsight_managed:
+      apiUrl: "{{ _hindsight_url }}"
+      serverMode: self-hosted
+      reflectTimeoutMs: 25000
+      pageTriggerCron: "H H(1-5) * * *"
+      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats"}
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
   no_log: true
 
