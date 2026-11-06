@@ -2,7 +2,7 @@
 # purelymail: the Purelymail API CLI, github.com/soulmachine/purelymail. One static binary from
 # its GitHub release, installed into ~/.local/bin and kept at the latest release, so the host
 # needs no cargo. Its token is the Automation vault item "Purelymail API token": export
-# PURELYMAIL_API_TOKEN from `op read` when you use the CLI (coding-agent Q1001). Not in any
+# PURELYMAIL_API_TOKEN from `op read` when you use the CLI (coding-agent Q1005). Not in any
 # shell file on this host since 2026-11-05, and never placed by this role.
 
 - name: Read the installed purelymail version
