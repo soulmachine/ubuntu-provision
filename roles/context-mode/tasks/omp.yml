@@ -1,7 +1,7 @@
 ---
-# oh-my-pi: upstream's recommended path. The npm package declares an `omp`
-# manifest key (`omp.extensions`), and the plugin registers its own MCP server
-# in ~/.omp/agent/mcp.json on first load. omp `bun install`s it into
+# oh-my-pi: upstream's recommended path. The npm package declares a `pi`
+# manifest key (`pi.extensions`), and v2's extension serves the ctx_* tools in
+# process, with no MCP server. omp `bun install`s it into
 # ~/.omp/plugins (package.json + node_modules) and records it in
 # omp-plugins.lock.json there. `omp plugin list --json` prints
 # `{"npm": [{name, version, enabled, …}], "marketplace": […]}`: the names gate
@@ -42,3 +42,27 @@
          | selectattr('name', 'equalto', context_mode_npm_package) | map(attribute='version') | list }}
   when: context_mode_omp_installed != [context_mode_omp_latest.stdout | trim]
   changed_when: true
+
+# v1 registered an MCP server in ~/.omp/agent/mcp.json on first load, pointing at
+# its server.bundle.mjs. v2 has no such file, so the entry fails at every omp
+# start ("MCP server context-mode failed to connect"). Remove only that v1 entry.
+- name: Read the oh-my-pi MCP config
+  ansible.builtin.slurp:
+    src: "{{ context_mode_home }}/.omp/agent/mcp.json"
+  register: context_mode_omp_mcp_raw
+  failed_when: false
+  no_log: true
+
+- name: Remove the v1 context-mode MCP server from oh-my-pi
+  ansible.builtin.copy:
+    dest: "{{ context_mode_home }}/.omp/agent/mcp.json"
+    content: "{{ context_mode_omp_mcp | combine({'mcpServers': context_mode_omp_kept}) | to_nice_json(indent=2) }}\n"
+    mode: "0600"
+  no_log: true
+  vars:
+    context_mode_omp_mcp: "{{ context_mode_omp_mcp_raw.content | b64decode | from_json }}"
+    context_mode_omp_servers: "{{ context_mode_omp_mcp.get('mcpServers', {}) }}"
+    context_mode_omp_kept: "{{ context_mode_omp_servers | dict2items | rejectattr('key', 'equalto', 'context-mode') | items2dict }}"
+  when:
+    - context_mode_omp_mcp_raw.content is defined
+    - "'server.bundle.mjs' in (context_mode_omp_servers.get('context-mode', {}).get('args', []) | join(' '))"
