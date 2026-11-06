@@ -62,12 +62,14 @@
     # mapPathToBank: the Codex app makes a folder per chat under ~/Documents/Codex, and each one became
     # its own bank ("use", "new-chat", "how-x20"); now they share one. A mapped path wins over git, so
     # never map a folder that holds repos (~, ~/github.com).
+    # ~/personal-agent goes to the bank "personal-agent", without the coding-agent:: prefix
+    # (coding-agent Q1023); the bank was renamed from coding-agent::personal-agent.
     _hindsight_managed:
       apiUrl: "{{ _hindsight_url }}"
       serverMode: self-hosted
       reflectTimeoutMs: 25000
       pageTriggerCron: "H H(1-5) * * *"
-      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats"}
+      mapPathToBank: {"~/Documents/Codex": "coding-agent::codex-chats", "~/personal-agent": "personal-agent"}
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
   no_log: true
 
