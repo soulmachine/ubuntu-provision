@@ -62,7 +62,7 @@
     # mapPathToBank: the Codex app makes a folder per chat under ~/Documents/Codex, and each one became
     # its own bank ("use", "new-chat", "how-x20"); now they share one. A mapped path wins over git, so
     # never map a folder that holds repos (~, ~/github.com).
-    # ~/coding-agent, ~/personal-agent and ~/.agents are also mapped, to the names their channel gives:
+    # ~/coding-agent, ~/personal-agent and ~/.agents are also mapped, to their channel and remote repo name:
     # a map is read on every hook run, so an agent that never reads .envrc (paseo, herdr, launchd, a
     # session started before a channel change) still lands in the same bank (coding-agent Q1038).
     # bankIdTemplate: {channel} is HINDSIGHT_CHANNEL_ID, set by the .envrc files below to where a repo
@@ -82,7 +82,7 @@
         "~/Documents/Codex": coding-agent::codex-chats
         "~/coding-agent": git.soulmachine.io::coding-agent
         "~/personal-agent": git.soulmachine.io::personal-agent
-        "~/.agents": git.soulmachine.io::.agents
+        "~/.agents": git.soulmachine.io::dot-agents
       bankIdTemplate: "{channel}::{gitProject}"
       autoUpdate: false
       paths:
@@ -146,6 +146,33 @@
     echo patched
   register: _hindsight_channel_patch
   changed_when: "'patched' in _hindsight_channel_patch.stdout"
+
+# {gitProject} is the origin remote's repo name, not the folder's (~/.agents is dot-agents), so a
+# clone in any folder lands in its repo's bank; no remote, or no fs module, keeps the folder name
+# (coding-agent Q1054). Every hook bundle carries its own copy of gitProjectName.
+- name: Make the Hindsight gitProject the remote repo name
+  ansible.builtin.shell: |
+    cd '{{ hindsight_dir }}/coding-agents/dist' || exit 1
+    python3 - <<'EOF'
+    import glob, sys
+    old = 'if (projectRoot.status === "resolved") return basename(projectRoot.root);'
+    new = ('if (projectRoot.status === "resolved") return ((r) => { /* q1054 */ '
+           'for (const c of [r + "/.git/config", r + "/config"]) { try { '
+           'const m = /\\[remote "origin"\\][^\\[]*?\\burl\\s*=\\s*(\\S+)/'
+           '.exec(process.getBuiltinModule("node:fs").readFileSync(c, "utf8")); '
+           'if (m) return m[1].replace(/\\/+$/, "").replace(/\\.git$/, "").split(/[\\/:]/).pop(); '
+           '} catch {} } return ""; })(projectRoot.root) || basename(projectRoot.root);')
+    files = glob.glob("*.js"); changed = 0
+    if not any(old in open(f).read() or "/* q1054 */" in open(f).read() for f in files):
+        sys.exit("gitProject patch target not found")
+    for f in files:
+        s = open(f).read()
+        if old in s:
+            open(f, "w").write(s.replace(old, new)); changed += 1
+    print("patched" if changed else "ok")
+    EOF
+  register: _hindsight_gitproject_patch
+  changed_when: "'patched' in _hindsight_gitproject_patch.stdout"
 
 - name: Pick this host's channel folders
   ansible.builtin.set_fact:
