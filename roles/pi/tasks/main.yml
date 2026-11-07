@@ -52,8 +52,8 @@
 # This is a merge, not a sync: `copy` only writes the files shipped here, so
 # the sibling ~/.pi/agent/skills tree (populated by the `skills` role) and
 # pi's own runtime state are left alone. settings.json lives outside agent/ and
-# is written by the next two tasks: files/settings.json wins, except that a
-# cliproxy model picked in pi stays (~/coding-agent/devops/cliproxyapi/gateway-policy.md). Other tweaks made
+# is written by the next two tasks: files/settings.json wins, so a model picked in pi
+# lasts until the next play (coding-agent Q1050, ~/coding-agent/devops/cliproxyapi/gateway-policy.md). Other tweaks made
 # in-app via `/settings` belong in files/settings.json to survive.
 #
 # That overwrite is also why `packages` below is the one list of pi packages:
@@ -96,24 +96,16 @@
   failed_when: false
   check_mode: false
 
-# Only the old defaults are replaced: a model named without a provider prefix
-# on the cliproxy provider, other than claude-opus-5-5, is the user's pick.
+# The default model is always files/settings.json's (coding-agent Q1050).
 # The Hindsight extension (roles/hindsight's installer adds it) is kept, or the
 # hindsight role would re-run its installer on every play.
-- name: Install pi settings, keeping a gateway model picked in pi
+- name: Install pi settings
   ansible.builtin.copy:
-    content: "{{ lookup('file', 'settings.json') | from_json | combine(pi_keep, pi_hindsight) | to_nice_json(indent=2, sort_keys=false) }}\n"
+    content: "{{ lookup('file', 'settings.json') | from_json | combine(pi_hindsight) | to_nice_json(indent=2, sort_keys=false) }}\n"
     dest: "{{ lookup('env', 'HOME') }}/.pi/agent/settings.json"
     mode: "0644"
   vars:
     pi_old: "{{ (pi_settings_raw.content | b64decode | from_json) if pi_settings_raw.content is defined else {} }}"
-    pi_keep: >-
-      {{ {'defaultModel': pi_old.defaultModel}
-         if (pi_old.defaultProvider | default('') == 'cliproxy'
-             and pi_old.defaultModel | default('') | length > 0
-             and '/' not in pi_old.defaultModel
-             and pi_old.defaultModel != 'claude-opus-5-5')
-         else {} }}
     pi_hindsight_ext: "{{ pi_old.extensions | default([]) | select('search', '/\\.hindsight/coding-agents/') | list }}"
     pi_hindsight: "{{ {'extensions': pi_hindsight_ext} if pi_hindsight_ext else {} }}"
 
