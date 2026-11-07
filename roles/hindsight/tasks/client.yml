@@ -142,13 +142,17 @@
   register: _hindsight_channel_patch
   changed_when: "'patched' in _hindsight_channel_patch.stdout"
 
+- name: Pick this host's channel folders
+  ansible.builtin.set_fact:
+    _hindsight_channels: "{{ hindsight_channel_dirs_by_host[ansible_facts['hostname']] | default(hindsight_channel_dirs) }}"
+
 # direnv loads only the nearest .envrc, so a repo with its own gets source_up_if_exists to reach the
 # channel above it. soulmachine repos carry that line in git instead, so this never dirties them.
 - name: Find the folders that get a channel .envrc
   ansible.builtin.stat:
     path: "{{ hindsight_home }}/{{ item.dir }}"
     follow: true
-  loop: "{{ hindsight_channel_dirs }}"
+  loop: "{{ _hindsight_channels }}"
   register: _hindsight_channel_dir
 
 - name: Write the channel .envrc files
@@ -160,11 +164,13 @@
   loop_control:
     label: "{{ item.item.dir }}"
 
-# Q1026 gave ~/github.com/soulmachine its own channel; its repos now inherit github.com (Q1038).
+# Q1026 gave ~/github.com/soulmachine its own channel; its repos now inherit github.com (Q1038),
+# except on a host whose own list gives that folder a channel (archs-mac-mini, Q1051).
 - name: Remove the old soulmachine channel .envrc
   ansible.builtin.file:
     path: "{{ hindsight_home }}/github.com/soulmachine/.envrc"
     state: absent
+  when: "'github.com/soulmachine' not in _hindsight_channels | map(attribute='dir')"
 
 # A clone root missing on this host is skipped, not failed.
 - name: Find the repo .envrc files under the clone roots
@@ -200,7 +206,7 @@
       if direnv exec "$(dirname "$f")" true 2>&1 | grep -q 'is blocked'; then direnv allow "$f" && echo "allowed $f"; fi;
       done
     _paths: >-
-      {{ hindsight_channel_dirs | map(attribute='dir') | map('regex_replace', '^', hindsight_home ~ '/')
+      {{ _hindsight_channels | map(attribute='dir') | map('regex_replace', '^', hindsight_home ~ '/')
          | map('regex_replace', '$', '/.envrc') | list
          + (_hindsight_repo_envrc.files | map(attribute='path') | list) }}
 
