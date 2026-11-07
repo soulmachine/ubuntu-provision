@@ -24,10 +24,6 @@ browseros_neo_mcp_url: http://127.0.0.1:9010/mcp
 browseros_neo_cli_agents:
   # No codex entry: neo is closed most of the time (Q237), and every Codex start then logged a
   # failed MCP connection, so Codex goes without neo (coding-agent Q905).
-  - exe: gemini
-    config: .gemini/settings.json
-    remove: gemini mcp remove --scope user {{ browseros_neo_mcp_name }}
-    add: gemini mcp add --scope user --transport http {{ browseros_neo_mcp_name }} {{ browseros_neo_mcp_url }}
   - exe: copilot
     config: .copilot/mcp-config.json
     remove: copilot mcp remove {{ browseros_neo_mcp_name }}

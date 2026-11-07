@@ -67,11 +67,6 @@ hindsight_installer_markers:
 # directory, so no token goes into these configs. HINDSIGHT_MCP_HARNESS names the caller.
 # openclaw is left out: cliproxy-tier owns its config, and it is not a coding agent.
 hindsight_cli_agents:
-  - exe: gemini
-    config: .gemini/settings.json
-    remove: gemini mcp remove --scope user hindsight
-    add: >-
-      gemini mcp add --scope user -e HINDSIGHT_MCP_HARNESS=gemini hindsight node {{ hindsight_mcp_server }}
   # hermes asks "Enable all N tools?"; the stdin answers yes.
   - exe: hermes
     config: .hermes/config.yaml

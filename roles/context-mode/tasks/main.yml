@@ -8,7 +8,7 @@
 # updater (AGENTS.md "Self-update tasks: diff state, don't grep output").
 # Hermes, Crush and Grok are absent: upstream has no adapter for them (README).
 #
-# The Gemini, Copilot and kimi hooks and MCP servers run the global
+# The Copilot and kimi hooks and MCP servers run the global
 # `context-mode` CLI, so it comes first. On Linux, Node >= 22.5 gives it the
 # built-in `node:sqlite`, so npm skipping its install scripts does no harm.
 - name: Install the context-mode CLI from npm
@@ -33,9 +33,6 @@
 
 - name: Install context-mode into oh-my-pi
   ansible.builtin.include_tasks: omp.yml
-
-- name: Install context-mode into Gemini CLI
-  ansible.builtin.include_tasks: gemini.yml
 
 - name: Install context-mode into Copilot CLI
   ansible.builtin.include_tasks: copilot.yml

@@ -120,7 +120,6 @@ pre-commit run --all-files
 | pi | pi coding agent：bun 全局 `@earendil-works/pi-coding-agent`，并下发 `~/.pi/agent/` 下的 settings、models 与扩展（依赖 bun） |
 | copilot | GitHub Copilot CLI（npm `@github/copilot`）；`copilot` 本身经 CLIProxyAPI（mac-mini-m2 上的 `cliproxy-tier` 写入 `~/.local/bin/copilot` shim），用 GitHub 登录时用 `copilot-origin`（依赖 nodejs） |
 | crush | Crush（Charm，npm `@charmland/crush`）；`~/.config/crush/crushrc` 里的网关 provider 由 `cliproxy-tier` 写入（依赖 nodejs） |
-| gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini` 本身经网关（`cliproxy-tier` 写入 `~/.local/bin/gemini` shim 和 `~/.gemini` 里的网关配置），用 Google 登录时用 `gemini-origin`（`~/.gemini-origin`）（依赖 nodejs） |
 | dima | Dim 的 Rust CLI（npm `dimcode-alpha`，命令 `dima`）；`dima` 本身经网关（`cliproxy-tier` 把网关写进 dima 自己的存储 `~/.dimcode-alpha`，作为它的 Custom Provider），Dim OAuth 登录在同一个 `/models` 里选，不需要 shim 或 `dima-origin`（coding-agent Q1046）（依赖 nodejs） |
 | grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`grok` 本身经网关（`cliproxy-tier` 把网关配置写入 `~/.grok`），用 xAI 登录时用 `grok-origin`（`~/.grok-origin`）（依赖 nodejs） |
 | dsh | DeepSeek Harness（npm `@deepseek-ai/dsh`，另装 npm 全局 `pnpm`，因为 `dsh plugin` 靠 PATH 上的 pnpm 装插件）；按 `roles/dsh/vars/main.yml` 每次对 `web`、`tui` 两个 profile 的每个 npm 插件跑 `dsh plugin --profile <p> add <spec>@latest`：缺的就装，旧的就升级，且都经过 dsh 的兼容性检查（`update` 不检查）；git 插件 `dsh-purge`（上游 `github:HunYiSage/dsh-purge`；`mmparko` 镜像停在 1.1.71，其 `{{cwd}}` 在 dsh 0.2.1-rc.2 上让每轮对话失败）装好后改用 `update dsh-purge` 拉到分支最新提交，其 postinstall 由 profile 的 `pnpm-workspace.yaml` 里 `allowBuilds: {dsh-purge: false}` 跳过（`dsh plugin add` 自己会把它加进 bundles；profile 层 `cordis.patch.yml` 里的本体 insert 由插件在每次 dsh 启动时自己补上）。按 `pnpm-lock.yaml` 前后校验和判断变更（不到一天的新版本被 pnpm 的 minimumReleaseAge 挡住，下次再装）。dsh 拒绝的插件（如与当前 dsh 不兼容的 `dsh-find-plugin`，或要求更新 dsh 的插件新版本）只打印警告并保留已装版本，等兼容版本发布后自动装上（依赖 nodejs） |
@@ -131,10 +130,10 @@ pre-commit run --all-files
 | playwright-cli | Playwright CLI：npm 全局 `@playwright/cli@latest`，每次先删除再全局安装其 skill，按校验和判定变更（依赖 playwright） |
 | agent-desktop | [agent-desktop](https://github.com/vercel-labs/agent-desktop)：agent 用的 computer use CLI，按 accessibility tree 观察并操作桌面 app；npm 全局 `agent-desktop`，其 postinstall 已加进 `~/.npmrc` 的 `allow-scripts`。Linux 上需要带 `at-spi2-core` 的图形会话，这里的主机都没有，所以只是装上（依赖 nodejs） |
 | hermes | Hermes 个人 agent（Nous Research），并把 `~/.hermes/SOUL.md` 链接到 `~/.agents/AGENTS.md`；Linux 主机常驻开机，无条件安装 |
-| browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、gemini、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
-| hindsight | 把每个 agent 接到 mac-mini-m2 上的 [Hindsight](https://github.com/vectorize-io/hindsight) 记忆服务（`~/coding-agent/devops/hindsight-server`）：URL 按 `ansible_hostname` 选（m2 用 loopback，同局域网用 `192.168.31.20`，远程主机用本地 `hindsight-relay`：先 Tailscale，不通再走 m2 的反向 SSH 隧道 `:18888`；同一 relay 的第二个实例在 `127.0.0.1:8317` 为 CLIProxyAPI 网关做同样的事，隧道 `:18317`，规则见 coding-agent `devops/infra-architecture.html`），写进 `~/.hindsight/coding-agent.json`；token 由 m2 的 `push-token.sh` 推送；`npx @vectorize-io/hindsight-coding-agents install all` 只在版本落后或某 agent 没接上时跑；gemini、hermes、omp、crush 用运行时自带的 stdio MCP（依赖 nodejs） |
+| browseros-neo | [BrowserOS neo](https://browseros.com)（给 agent 用的 Chromium 浏览器）：**仅 supermicro**（`browseros_neo_hosts`）；apt 安装上游 `https://cdn.browseros.com/download/BrowserOS_neo.deb`（包名 `browserclaw`，每次下载、版本变了才升级）；把 MCP 端点 `http://127.0.0.1:9010/mcp`（neo 的 proxy 端口；文档里的 9200 不对）注册给每个已安装的 agent：Claude Code、codex、copilot、grok、hermes 用各自的 `mcp add`，kimi、omp、opencode、crush 合并进各自的 JSON 配置；URL 不对就替换（pi 不支持 MCP）；首次安装上游 `browseros-neo` skill，之后由运行中的 neo 自己更新。不开机自启（依赖 claude-code、nodejs） |
+| hindsight | 把每个 agent 接到 mac-mini-m2 上的 [Hindsight](https://github.com/vectorize-io/hindsight) 记忆服务（`~/coding-agent/devops/hindsight-server`）：URL 按 `ansible_hostname` 选（m2 用 loopback，同局域网用 `192.168.31.20`，远程主机用本地 `hindsight-relay`：先 Tailscale，不通再走 m2 的反向 SSH 隧道 `:18888`；同一 relay 的第二个实例在 `127.0.0.1:8317` 为 CLIProxyAPI 网关做同样的事，隧道 `:18317`，规则见 coding-agent `devops/infra-architecture.html`），写进 `~/.hindsight/coding-agent.json`；token 由 m2 的 `push-token.sh` 推送；`npx @vectorize-io/hindsight-coding-agents install all` 只在版本落后或某 agent 没接上时跑；hermes、omp、crush 用运行时自带的 stdio MCP（依赖 nodejs） |
 | ponytail | 给所有 agent 安装 [ponytail](https://github.com/DietrichGebert/ponytail) 插件：Claude Code / Codex / OpenCode / pi / oh-my-pi / Hermes 各用其原生安装方式（依赖 nodejs、claude-code、codex、opencode、pi、omp、hermes） |
-| context-mode | 给所有 agent 安装 [context-mode](https://github.com/mksglu/context-mode)：Claude Code / Codex / OpenCode / pi / oh-my-pi / Gemini CLI / Copilot CLI / kimi-code / OpenClaw 各用其原生安装方式；Hermes、Crush、Grok 上游没有适配，不装（依赖 nodejs 和上述各 agent 的 role） |
+| context-mode | 给所有 agent 安装 [context-mode](https://github.com/mksglu/context-mode)：Claude Code / Codex / OpenCode / pi / oh-my-pi / Copilot CLI / kimi-code / OpenClaw 各用其原生安装方式；Hermes、Crush、Grok 上游没有适配，不装（依赖 nodejs 和上述各 agent 的 role） |
 | paseo | agent 多路复用：npm 全局 `@getpaseo/cli`（CLI + daemon），daemon 以 systemd user unit 运行（`bash -lc`，开启 linger），启用 relay（配对仍需手动 `paseo daemon pair`）与插件并安装 `npm:@oliexe/paseo-bots`；daemon 未运行时记录下来、在 play 末尾才报错；tag `agent-multiplexer`（依赖 nodejs、claude-code、codex） |
 | orca | [Orca](https://onorca.dev)（多 agent IDE）的服务端：Orca 没有单独的服务端包，CLI 和 `orca serve` 都在应用里，所以从 GitHub release 装 `orca-ide_<版本>_<arch>.deb`（版本由 releases/latest 的跳转得出，与 `dpkg-query` 不同才装；CLI 是 `/usr/bin/orca-ide`），开启 linger，再用上游的 `orca-ide serve service install --port 6768` 装 systemd user unit `orca-serve`（`--supervise --no-pairing`），只在服务不是 `live` 时安装；当前 Orca 还没有这个子命令时跳过并提示；服务未 live 时在 play 末尾才报错。配对仍需手动；tag `agent-multiplexer`（依赖 claude-code、codex） |
 | cloudflare | Cloudflare CLI：npm 全局 `cf`（其 skills 由 skills role 安装）（依赖 claude-code） |
@@ -171,14 +170,13 @@ pre-commit run --all-files
 | pi | bun 全局 `@earendil-works/pi-coding-agent` | `~/.bun/bin/pi` |
 | copilot | npm 全局 `@github/copilot` | 命令 `copilot`，默认经网关；用 GitHub 登录时用 `copilot-origin` |
 | crush | npm 全局 `@charmland/crush` | 命令 `crush` |
-| gemini | npm 全局 `@google/gemini-cli` | 命令 `gemini`，默认经网关；用 Google 登录时用 `gemini-origin` |
 | dima | npm 全局 `dimcode-alpha` | 命令 `dima`，默认经网关；`dima exec` 要加 `--permission full-access` |
 | grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；默认经网关，用 xAI 登录时用 `grok-origin` |
 | dsh | npm 全局 `@deepseek-ai/dsh`（加 `pnpm`） | 命令 `dsh`；插件在 `~/.dsh/profiles/<profile>/` |
 | agent-desktop | npm 全局 `agent-desktop` | 命令 `agent-desktop` |
 | agent-reach | **没有包管理器**，见下 | 由 `claude -p` 按上游文档安装 |
 
-这六个 agent（copilot、crush、gemini、dima、grok、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
+这五个 agent（copilot、crush、dima、grok、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
 
 #### 每次运行都会被覆盖的配置文件
 
@@ -202,7 +200,7 @@ pre-commit run --all-files
 
 - **Codex 的 hook 信任**是一次性的、每台机器各做一次：跑 `codex`、打开 `/hooks`，审核并信任 ponytail 的三个生命周期 hook，然后开一个新 thread。
 - **opencode 的 provider 认证**没有做：安装器带的是 `--skip-auth`。
-- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** claude、codex、kimi、gemini、copilot、grok（含 `*-origin` 包装器）、crush 的网关配置都由它完成，而它只处理已经装好的 agent。
+- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** claude、codex、kimi、copilot、grok（含 `*-origin` 包装器）、crush 的网关配置都由它完成，而它只处理已经装好的 agent。
 - **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。

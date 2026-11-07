@@ -1,9 +1,9 @@
 # context-mode role
 
 `context-mode` installs one upstream tool, [context-mode](https://github.com/mksglu/context-mode),
-into eight agents (Claude Code, Codex, OpenCode, pi, oh-my-pi, Gemini CLI, Copilot CLI, kimi-code). Each agent gets it through its own installer, one task file per agent under `tasks/`,
+into seven agents (Claude Code, Codex, OpenCode, pi, oh-my-pi, Copilot CLI, kimi-code). Each agent gets it through its own installer, one task file per agent under `tasks/`,
 in the shape of the `ponytail` role. `main.yml` first installs the global `context-mode` CLI from
-npm, because the Gemini and Copilot hooks and the Gemini, Copilot and kimi MCP servers run it.
+npm, because the Copilot hooks and the Copilot and kimi MCP servers run it.
 
 - **Skipped agents.** Hermes, Crush and Grok are left out: upstream has no adapter for them. An
   MCP-only entry would add the tools with no hooks or routing, which upstream does not test.
@@ -24,13 +24,10 @@ npm, because the Gemini and Copilot hooks and the Gemini, Copilot and kimi MCP s
     resolves to; otherwise the role reruns `context-mode setup --yes --agents copilot-cli`. That
     also repairs the absolute node paths setup writes, after mise moves to a new node.
   - OpenClaw: none; context-mode v2 dropped OpenClaw, and the role removes the v1 plugin (below).
-  - Gemini CLI and kimi-code: no installer, so the role edits their config files (next bullets).
+  - kimi-code: no installer, so the role edits its config files (next bullets).
 - **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role installs and
   refreshes every package listed there, `npm:context-mode` included, so this role has no pi
   task. pi needs no `mcp.json`: the extension registers the tools through its own MCP bridge.
-- **Gemini CLI: one merge into `~/.gemini/settings.json`.** The merge adds the `mcpServers` entry
-  and appends the four upstream hooks to the existing hook lists (`list_merge='append_rp'`), so
-  other tools' hooks stay. It runs only while no context-mode hook is present, and writes at 0600.
 - **kimi-code: MCP only.** context-mode v2 dropped kimi-code: `context-mode hook kimi …` answers
   `unknown hook platform "kimi"`, and a bare `context-mode` prints usage. So `~/.kimi-code/mcp.json`
   runs v2's generic `context-mode server`, and the role removes the v1 hook tables from

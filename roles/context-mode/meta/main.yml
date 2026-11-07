@@ -9,6 +9,5 @@ dependencies:
   - opencode
   - pi
   - omp
-  - gemini
   - copilot
   - kimi-code
