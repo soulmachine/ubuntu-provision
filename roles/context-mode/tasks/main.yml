@@ -43,6 +43,7 @@
 - name: Install context-mode into kimi-code
   ansible.builtin.include_tasks: kimi-code.yml
 
-# Every host here is always-on, so unlike macOS the OpenClaw half has no gate.
+# OpenClaw left Ubuntu on 2026-11-06 (coding-agent Q1056); openclaw.yml skips a host without
+# ~/.openclaw/openclaw.json and still cleans one that has it (grokbot-box, offline then).
 - name: Remove context-mode from OpenClaw
   ansible.builtin.include_tasks: openclaw.yml

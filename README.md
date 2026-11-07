@@ -123,7 +123,6 @@ pre-commit run --all-files
 | gemini | Gemini CLI（npm `@google/gemini-cli`）；`gemini` 本身经网关（`cliproxy-tier` 写入 `~/.local/bin/gemini` shim 和 `~/.gemini` 里的网关配置），用 Google 登录时用 `gemini-origin`（`~/.gemini-origin`）（依赖 nodejs） |
 | dima | Dim 的 Rust CLI（npm `dimcode-alpha`，命令 `dima`）；`dima` 本身经网关（`cliproxy-tier` 把网关写进 dima 自己的存储 `~/.dimcode-alpha`，作为它的 Custom Provider），Dim OAuth 登录在同一个 `/models` 里选，不需要 shim 或 `dima-origin`（coding-agent Q1046）（依赖 nodejs） |
 | grok | Grok CLI（xAI，npm `@xai-official/grok`，首次运行时下载原生二进制到 `~/.grok/bin`）；`grok` 本身经网关（`cliproxy-tier` 把网关配置写入 `~/.grok`），用 xAI 登录时用 `grok-origin`（`~/.grok-origin`）（依赖 nodejs） |
-| openclaw | OpenClaw（npm `openclaw`）；onboarding、网关 provider 与常驻 daemon 由 mac-mini-m2 上的 `cliproxy-tier` 负责（依赖 nodejs） |
 | dsh | DeepSeek Harness（npm `@deepseek-ai/dsh`，另装 npm 全局 `pnpm`，因为 `dsh plugin` 靠 PATH 上的 pnpm 装插件）；按 `roles/dsh/vars/main.yml` 每次对 `web`、`tui` 两个 profile 的每个 npm 插件跑 `dsh plugin --profile <p> add <spec>@latest`：缺的就装，旧的就升级，且都经过 dsh 的兼容性检查（`update` 不检查）；git 插件 `dsh-purge`（上游 `github:HunYiSage/dsh-purge`；`mmparko` 镜像停在 1.1.71，其 `{{cwd}}` 在 dsh 0.2.1-rc.2 上让每轮对话失败）装好后改用 `update dsh-purge` 拉到分支最新提交，其 postinstall 由 profile 的 `pnpm-workspace.yaml` 里 `allowBuilds: {dsh-purge: false}` 跳过（`dsh plugin add` 自己会把它加进 bundles；profile 层 `cordis.patch.yml` 里的本体 insert 由插件在每次 dsh 启动时自己补上）。按 `pnpm-lock.yaml` 前后校验和判断变更（不到一天的新版本被 pnpm 的 minimumReleaseAge 挡住，下次再装）。dsh 拒绝的插件（如与当前 dsh 不兼容的 `dsh-find-plugin`，或要求更新 dsh 的插件新版本）只打印警告并保留已装版本，等兼容版本发布后自动装上（依赖 nodejs） |
 | agent-sync | 把 `~/.agents/` 同步到每个已安装 agent 的技能目录与指令文件；从 GitHub release 下载 linux-x64/arm64 tar 包到 `~/.local/bin`，按最新 release 版本号更新，SHA256SUMS.txt 校验 |
 | skills | 用 `npx skills@latest add` 安装所有技能源到 `~/.agents/skills`（每次运行都刷新，以 store 指纹判断 changed），部分源按名单安装；用 `agent-sync adopt` 收编 `~/github.com/soulmachine/skills` 与 OpenSWE 仓库中的自写技能，`agent-sync sync` 扇出，并检查各 agent 的指令接线；孤儿目录只报告不删除（依赖 claude-code、codex、agent-sync） |
@@ -175,12 +174,11 @@ pre-commit run --all-files
 | gemini | npm 全局 `@google/gemini-cli` | 命令 `gemini`，默认经网关；用 Google 登录时用 `gemini-origin` |
 | dima | npm 全局 `dimcode-alpha` | 命令 `dima`，默认经网关；`dima exec` 要加 `--permission full-access` |
 | grok | npm 全局 `@xai-official/grok` | 命令 `grok`；原生二进制在 `~/.grok/bin`；默认经网关，用 xAI 登录时用 `grok-origin` |
-| openclaw | npm 全局 `openclaw` | 命令 `openclaw`；常驻 daemon 由 `cliproxy-tier` 的 onboarding 安装 |
 | dsh | npm 全局 `@deepseek-ai/dsh`（加 `pnpm`） | 命令 `dsh`；插件在 `~/.dsh/profiles/<profile>/` |
 | agent-desktop | npm 全局 `agent-desktop` | 命令 `agent-desktop` |
 | agent-reach | **没有包管理器**，见下 | 由 `claude -p` 按上游文档安装 |
 
-这七个 agent（copilot、crush、gemini、dima、grok、openclaw、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
+这六个 agent（copilot、crush、gemini、dima、grok、dsh）只在没有别的渠道（mise 工具、`~/.local/bin` 里的原生安装器、Homebrew）提供同名命令时才用 npm 安装和升级，否则 role 只打印已有的路径，交给那个渠道去升级，免得 `PATH` 上出现两份。
 
 #### 每次运行都会被覆盖的配置文件
 
@@ -204,7 +202,7 @@ pre-commit run --all-files
 
 - **Codex 的 hook 信任**是一次性的、每台机器各做一次：跑 `codex`、打开 `/hooks`，审核并信任 ponytail 的三个生命周期 hook，然后开一个新 thread。
 - **opencode 的 provider 认证**没有做：安装器带的是 `--skip-auth`。
-- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** claude、codex、kimi、gemini、copilot、grok（含 `*-origin` 包装器）、crush、openclaw 的网关配置以及 OpenClaw 的 onboarding 都由它完成，而它只处理已经装好的 agent。
+- **新装的 agent 要在 mac-mini-m2 上跑一次 `cliproxy-tier <host>`。** claude、codex、kimi、gemini、copilot、grok（含 `*-origin` 包装器）、crush 的网关配置都由它完成，而它只处理已经装好的 agent。
 - **rename 钩子装上或更新后**，Codex 下次启动会问是否信任这个钩子，选「Trust all and continue」；已经在跑的 Claude Code 会话要打开一次 `/hooks` 或重启才会用上。
 - **agent-reach 只配好了零配置的渠道。** 其余渠道要 cookie 或点一下浏览器扩展。要补齐就自己交互式跑一次 `agent-reach doctor`。
 - **paseo 的配对**：`paseo daemon pair` 要人拿着设备扫码。
