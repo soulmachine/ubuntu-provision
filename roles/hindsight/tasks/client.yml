@@ -144,7 +144,7 @@
 
 - name: Pick this host's channel folders
   ansible.builtin.set_fact:
-    _hindsight_channels: "{{ hindsight_channel_dirs_by_host[ansible_facts['hostname']] | default(hindsight_channel_dirs) }}"
+    _hindsight_channels: "{{ hindsight_channel_dirs + hindsight_channel_dirs_by_host[ansible_facts['hostname']] | default([]) }}"
 
 # direnv loads only the nearest .envrc, so a repo with its own gets source_up_if_exists to reach the
 # channel above it. soulmachine repos carry that line in git instead, so this never dirties them.
@@ -164,13 +164,11 @@
   loop_control:
     label: "{{ item.item.dir }}"
 
-# Q1026 gave ~/github.com/soulmachine its own channel; its repos now inherit github.com (Q1038),
-# except on a host whose own list gives that folder a channel (archs-mac-mini, Q1051).
+# Q1026 gave ~/github.com/soulmachine its own channel; its repos now inherit github.com (Q1038).
 - name: Remove the old soulmachine channel .envrc
   ansible.builtin.file:
     path: "{{ hindsight_home }}/github.com/soulmachine/.envrc"
     state: absent
-  when: "'github.com/soulmachine' not in _hindsight_channels | map(attribute='dir')"
 
 # A clone root missing on this host is skipped, not failed.
 - name: Find the repo .envrc files under the clone roots

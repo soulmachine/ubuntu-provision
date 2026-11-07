@@ -100,13 +100,8 @@ hindsight_channel_dirs:
   - {dir: personal-agent, channel: git.soulmachine.io}
   - {dir: .agents, channel: git.soulmachine.io}
 
-# A host whose clones under ~/github.com belong elsewhere gets its own list, which replaces the one above
-# (key: ansible_facts hostname). archs-mac-mini works for ArchAuto-Tech (coding-agent Q1051).
+# Extra channel folders for one host (key: ansible_facts hostname), added to the list above.
+# archs-mac-mini works for ArchAuto-Tech; its other clones stay on github.com (coding-agent Q1052).
 hindsight_channel_dirs_by_host:
   archs-mac-mini:
-    - {dir: github.com, channel: archauto.com}
-    - {dir: github.com/soulmachine, channel: github.com}
-    - {dir: git.soulmachine.io, channel: git.soulmachine.io}
-    - {dir: coding-agent, channel: git.soulmachine.io}
-    - {dir: personal-agent, channel: git.soulmachine.io}
-    - {dir: .agents, channel: git.soulmachine.io}
+    - {dir: github.com/ArchAuto-Tech, channel: archauto.com}
