@@ -70,6 +70,9 @@
     # ~/coding-agent, ~/personal-agent and ~/.agents. Unset means coding-agent (the patch below)
     # (coding-agent Q1026, Q1038).
     # autoUpdate: off, so only this role upgrades the runtime and the patch below follows every upgrade.
+    # paths: cliproxy-e2e runs every CLI in ~/.cache/gw-e2e. Its HINDSIGHT_DISABLED=1 cannot reach
+    # opencode 2, whose plugin runs in a long-lived `opencode serve --service` process, so the folder
+    # itself is off for every harness (coding-agent Q1053).
     _hindsight_managed:
       apiUrl: "{{ _hindsight_url }}"
       serverMode: self-hosted
@@ -82,6 +85,8 @@
         "~/.agents": git.soulmachine.io::.agents
       bankIdTemplate: "{channel}::{gitProject}"
       autoUpdate: false
+      paths:
+        "~/.cache/gw-e2e": {disabled: true}
   when: _hindsight_cfg | combine(_hindsight_managed) != _hindsight_cfg
   no_log: true
 
