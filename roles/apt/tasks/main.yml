@@ -47,6 +47,7 @@
       - fd-find # binary is `fdfind` on Debian/Ubuntu; symlinked to `fd` below
       - tree
       - htop
+      - rclone
       - ffmpeg
       - gnupg
       - unzip
