@@ -13,7 +13,7 @@ different tailnets carry different keys. That divergence is correct, not drift t
 - **`GITHUB_TOKEN` is not in `.env`.** On Frank's personal hosts `~/.local/bin/gh-token-fleet` on
   mac-mini-m6 owns the PAT and writes the export into the host's startup file outside the `dotenv`
   managed block. A copy in `.env` made the two overwrite each other. See
-  `~/.agents/docs/github-auth.md`. The `github`, `bun` and `mise` roles read it from the
+  `~/coding-agent/docs/github-auth.md`. The `github`, `bun` and `mise` roles read it from the
   environment, with a `gh auth token` fallback.
 - supermicro's secrets were already exported from `~/.bashrc` by the fleet tools when this repo
   first ran there (2026-10-11), so it needs no `.env` at all.
