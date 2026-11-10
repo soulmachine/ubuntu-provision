@@ -305,6 +305,29 @@
     msg: "{{ skills_orphans.stdout_lines }}"
   when: skills_orphans.stdout | default('') | length > 0
 
+# The owner's own commands, subagents and MCP servers, from ~/coding-agent/.agents/ (coding-agent
+# Q1106). ~/coding-agent is each owner's private repo: soulmachine's on Frank's hosts, the company's
+# on its control plane. Its skills come in through skills_selfauthored_repos above. `adopt` Sources
+# each command and agent file, as it does a skill, and is a no-op once Sourced; agent-sync cannot
+# Source MCP servers, so owner-mcp.py merges them into the Commons mcp.json. A host with no
+# ~/coding-agent/.agents does nothing here.
+- name: Adopt the owner's commands and subagents
+  ansible.builtin.shell: |
+    for f in "{{ skills_home }}"/coding-agent/.agents/commands/*.md "{{ skills_home }}"/coding-agent/.agents/agents/*.md; do
+      [ -e "$f" ] || continue
+      agent-sync adopt "$f" >/dev/null || { echo "agent-sync adopt refused $f"; exit 1; }
+    done
+  args:
+    executable: /bin/bash
+  changed_when: false
+
+- name: Merge the owner's MCP servers into the Commons
+  ansible.builtin.script: owner-mcp.py
+  args:
+    executable: python3
+  register: skills_owner_mcp
+  changed_when: "'changed' in skills_owner_mcp.stdout"
+
 # Installing and adopting fills the STORE; nothing so far fans it out. `skills add` writes the
 # per-agent farms as a side effect of the agents it is told about, but the Commons is also fed by
 # `agent-sync adopt` above and by skills retired elsewhere, and only `agent-sync sync` reconciles
