@@ -12,9 +12,11 @@ dsh_plugins:
   - { profile: tui, spec: "@vectorize-io/hindsight-coding-agents" }
   # Not on npm. The upstream repo: the mmparko mirror stopped at 1.1.71, whose {{cwd}} prompt
   # variable fails every turn on dsh 0.2.1-rc.2 (macbook-provision Q283).
-  # The repo moved from YuJunZhiXue to HunYiSage (seen 2026-11-03); the old name only redirects.
-  - { profile: web, spec: "github:HunYiSage/dsh-purge", name: dsh-purge }
-  - { profile: tui, spec: "github:HunYiSage/dsh-purge", name: dsh-purge }
+  # YuJunZhiXue->HunYiSage (2026-11-03), then HunYiSage was deleted; now the live community
+  # fork kingcharleslzy-ai/dsh-purge (package dsh-purge-community), aliased back to the
+  # dsh-purge key so bundles/allowBuilds keep working (coding-agent Q1099).
+  - { profile: web, spec: "dsh-purge@github:kingcharleslzy-ai/dsh-purge", name: dsh-purge }
+  - { profile: tui, spec: "dsh-purge@github:kingcharleslzy-ai/dsh-purge", name: dsh-purge }
   - { profile: web, spec: dsh-context }
 
 # pnpm-workspace.yaml `allowBuilds` for the git plugins, keyed by name so it holds across commits

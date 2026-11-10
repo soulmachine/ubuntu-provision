@@ -82,7 +82,7 @@
     {{ 'update ' ~ item.name if dsh_git and dsh_current
        else 'add ' ~ item.args | default('') ~ ' ' ~ item.spec ~ ('' if dsh_git else '@latest') }}
   vars:
-    dsh_git: "{{ item.spec is match('github:') }}"
+    dsh_git: "{{ item.spec is search('github:') }}"
     dsh_current: "{{ (dsh_installed | default({})).get(item.profile, {}).get(item.name | default(item.spec)) == item.spec }}"
   loop: "{{ dsh_plugins }}"
   loop_control:
