@@ -2,7 +2,7 @@
 """Merge the owner's MCP servers (~/coding-agent/.agents/mcp.json) into the Commons (~/.agents/mcp.json).
 
 agent-sync can Source skills, commands and agents from a git repo, but not MCP servers (`adopt`
-refuses mcp.json), so this keeps them in step instead (coding-agent Q1106). The names it added are
+refuses mcp.json), so this keeps them in step instead (coding-agent Q1108). The names it added are
 recorded in ~/.agents/.owner-mcp.json, so a server dropped from the owner file is removed again; a
 server it did not add is never touched. Prints "changed" when it wrote. `--self-test` checks it.
 """
