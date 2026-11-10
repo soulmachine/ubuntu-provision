@@ -306,7 +306,7 @@
   when: skills_orphans.stdout | default('') | length > 0
 
 # The owner's own commands, subagents and MCP servers, from ~/coding-agent/.agents/ (coding-agent
-# Q1106). ~/coding-agent is each owner's private repo: soulmachine's on Frank's hosts, the company's
+# Q1108). ~/coding-agent is each owner's private repo: soulmachine's on Frank's hosts, the company's
 # on its control plane. Its skills come in through skills_selfauthored_repos above. `adopt` Sources
 # each command and agent file, as it does a skill, and is a no-op once Sourced; agent-sync cannot
 # Source MCP servers, so owner-mcp.py merges them into the Commons mcp.json. A host with no
