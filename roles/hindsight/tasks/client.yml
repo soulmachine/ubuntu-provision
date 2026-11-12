@@ -176,7 +176,7 @@
 
 # The channel is the nearest channel .envrc above the session's folder, then HINDSIGHT_CHANNEL_ID,
 # then coding-agent: an agent started outside direnv (paseo, herdr, launchd, Dim's daemon) has the
-# variable unset or inherited from another shell, and wrote coding-agent::<repo> (coding-agent Q1128).
+# variable unset or inherited from another shell, and wrote coding-agent::<repo> (coding-agent Q1129).
 # In a direnv shell both give the same value. Every bundle resolves the channel twice: deriveBankId
 # (`directory`) and the retain stamp's resolversFor (`ctx.directory`); the cwd is the fallback.
 # shortcut: patches the vendored bundle; drop it when upstream reads the channel per directory.
