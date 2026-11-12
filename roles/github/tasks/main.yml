@@ -25,6 +25,8 @@
       environment:
         GITHUB_TOKEN: "{{ github_token }}"
         GITHUB_SSH_KEY: "{{ lookup('env', 'GITHUB_SSH_KEY') }}"
+        # The script is for github.com; a host whose gh default is a GHE (lume: nickel-platforms.ghe.com) sent /user there and got 401.
+        GH_HOST: github.com
       register: _github_setup
       changed_when: "'CHANGED' in _github_setup.stdout"
       no_log: true
