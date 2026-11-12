@@ -174,6 +174,36 @@
   register: _hindsight_gitproject_patch
   changed_when: "'patched' in _hindsight_gitproject_patch.stdout"
 
+# The channel is the nearest channel .envrc above the session's folder, then HINDSIGHT_CHANNEL_ID,
+# then coding-agent: an agent started outside direnv (paseo, herdr, launchd, Dim's daemon) has the
+# variable unset or inherited from another shell, and wrote coding-agent::<repo> (coding-agent Q1128).
+# In a direnv shell both give the same value. Every bundle resolves the channel twice: deriveBankId
+# (`directory`) and the retain stamp's resolversFor (`ctx.directory`); the cwd is the fallback.
+# shortcut: patches the vendored bundle; drop it when upstream reads the channel per directory.
+- name: Take the Hindsight channel from the nearest channel .envrc
+  ansible.builtin.shell: |
+    cd '{{ hindsight_dir }}/coding-agents/dist' || exit 1
+    python3 - <<'EOF'
+    import glob, sys
+    old = 'channel: () => process.env.HINDSIGHT_CHANNEL_ID || "coding-agent",'
+    new = ('channel: () => ((d) => { /* q1128 */ const fs = process.getBuiltinModule?.("node:fs"); '
+           'for (let p = d || process.cwd(); fs && p; p = p.slice(0, p.lastIndexOf("/"))) { try { '
+           'const m = /^export HINDSIGHT_CHANNEL_ID=(\\S+)$/m.exec(fs.readFileSync(p + "/.envrc", "utf8")); '
+           'if (m) return m[1]; } catch {} } return ""; })(typeof directory === "string" ? directory : '
+           'typeof ctx === "object" && ctx ? ctx.directory : void 0) '
+           '|| process.env.HINDSIGHT_CHANNEL_ID || "coding-agent",')
+    files = glob.glob("*.js"); changed = 0
+    if not any(old in open(f).read() or "/* q1128 */" in open(f).read() for f in files):
+        sys.exit("channel patch target not found")
+    for f in files:
+        s = open(f).read()
+        if old in s:
+            open(f, "w").write(s.replace(old, new)); changed += 1
+    print("patched" if changed else "ok")
+    EOF
+  register: _hindsight_channel_dir_patch
+  changed_when: "'patched' in _hindsight_channel_dir_patch.stdout"
+
 - name: Pick this host's channel folders
   ansible.builtin.set_fact:
     _hindsight_channels: "{{ hindsight_channel_dirs + hindsight_channel_dirs_by_host[ansible_facts['hostname']] | default([]) }}"
