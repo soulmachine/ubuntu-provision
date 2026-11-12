@@ -1,0 +1,174 @@
+#!/usr/bin/env node
+// Hindsight memory for Dim (`dima`, npm dimcode-alpha), which hindsight-coding-agents does not support.
+// Dim's hooks speak Claude Code's protocol, so this hands each event to the package's Claude entry
+// points, with two fixes (coding-agent DECISIONS, Dim + Hindsight):
+//  - Dim's daemon starts hooks and MCP servers with its own env, not the repo's direnv one, so the
+//    channel comes from the nearest channel .envrc above the cwd (the hindsight role writes them).
+//  - Dim sends no transcript_path, so Stop exports the session and writes it as a Claude transcript.
+// shortcut: documents are stamped harness:claude-code, because the Claude entry points hard-code it;
+// drop this script when upstream ships a `dim` harness.
+//
+//   dim-hindsight-hook sessionstart|prompt|stop   Dim hook handlers (stdin: the hook event)
+//   dim-hindsight-hook mcp                        the stdio MCP server, for `dima mcp`
+//   dim-hindsight-hook install                    wire Dim's user hooks and MCP; prints changed|ok
+//   dim-hindsight-hook selftest                   check the transcript converter
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
+
+const DIST = join(homedir(), ".hindsight", "coding-agents", "dist");
+const ENTRY = { sessionstart: "claude-sessionstart-hook.js", prompt: "claude-hook.js", stop: "claude-stop-hook.js" };
+const EVENT = { sessionstart: ["SessionStart", 30], prompt: ["UserPromptSubmit", 30], stop: ["Stop", 60] };
+const SELF = fileURLToPath(import.meta.url);
+const DIMA = process.env.DIMA || "dima";
+
+// The nearest .envrc above dir that sets the channel; none leaves it unset (read as coding-agent).
+function channelFor(dir) {
+  for (let d = dir; ; d = dirname(d)) {
+    try {
+      const m = /^export HINDSIGHT_CHANNEL_ID=(\S+)$/m.exec(readFileSync(join(d, ".envrc"), "utf8"));
+      if (m) return m[1];
+    } catch {}
+    if (d === dirname(d)) return undefined;
+  }
+}
+
+function envFor(cwd) {
+  const env = { ...process.env };
+  const channel = channelFor(cwd);
+  if (channel) env.HINDSIGHT_CHANNEL_ID = channel;
+  else delete env.HINDSIGHT_CHANNEL_ID;
+  return env;
+}
+
+// Dim's `session export --format json` events → Claude transcript JSONL lines. Hook context blocks
+// (<dim-hooks>) are dropped so injected memory is not retained again; runtime state and thinking too.
+export function toClaudeTranscript(doc) {
+  const lines = [];
+  let open = null; // the assistant line text deltas of one model request append to
+  for (const e of doc.events ?? []) {
+    const d = e.data ?? {};
+    if (e.type === "input" && e.name === "message" && d.user) {
+      open = null;
+      const text = (d.user.content ?? [])
+        .filter((b) => b.type === "text" && !b.text.trimStart().startsWith("<dim-hooks"))
+        .map((b) => b.text).join("\n").trim();
+      if (text) lines.push({ type: "user", message: { role: "user", content: text } });
+    } else if (e.type === "step" && e.name === "text") {
+      if (open?.request !== d.request_id) {
+        open = { request: d.request_id, line: { type: "assistant", message: { role: "assistant", content: "" } } };
+        lines.push(open.line);
+      }
+      open.line.message.content += d.delta ?? "";
+    } else if (e.type === "step" && e.name === "tool-use" && d.call) {
+      open = null;
+      lines.push({ type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", name: d.call.name, input: d.call.input }] } });
+    }
+  }
+  return lines.filter((l) => l.message.content !== "").map((l) => JSON.stringify(l) + "\n").join("");
+}
+
+function runEntry(kind, ev, input) {
+  const r = spawnSync(process.execPath, [join(DIST, ENTRY[kind])], {
+    input, env: envFor(ev.cwd || process.cwd()), stdio: ["pipe", "pipe", "inherit"], timeout: (EVENT[kind][1] - 2) * 1000,
+  });
+  return r.stdout?.toString() ?? "";
+}
+
+function hook(kind) {
+  const raw = readFileSync(0, "utf8");
+  const ev = JSON.parse(raw);
+  if (ev.collaboration_role === "member") return; // a Collaboration member is its leader's work
+  if (kind !== "stop") return process.stdout.write(runEntry(kind, ev, raw));
+  const exp = spawnSync(DIMA, ["session", "export", ev.session_id, "--format", "json",
+    ...(process.env.DIMCODE_HOME ? ["--home", process.env.DIMCODE_HOME] : [])], { maxBuffer: 256 << 20, timeout: 30000 });
+  if (exp.status !== 0) return void process.stderr.write(`dim-hindsight-hook: export failed: ${exp.stderr}`);
+  const dir = mkdtempSync(join(tmpdir(), "dim-hindsight-"));
+  try {
+    const transcript = join(dir, `${ev.session_id}.jsonl`);
+    writeFileSync(transcript, toClaudeTranscript(JSON.parse(exp.stdout)), { mode: 0o600 });
+    runEntry(kind, ev, JSON.stringify({ ...ev, transcript_path: transcript })); // Stop output would start a follow-up turn
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+function dima(args, input) {
+  const r = spawnSync(DIMA, args, { input, encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`${DIMA} ${args.join(" ")}: ${r.stderr || r.stdout}`);
+  return r.stdout;
+}
+
+function install() {
+  let changed = false;
+  // `hooks set` replaces the whole user document, so merge into the stored one. Dim keeps it in
+  // its store's settings_documents table, the only read path a script has (`hooks edit` needs a tty).
+  const home = process.env.DIMCODE_HOME || join(homedir(), ".dimcode-alpha");
+  const db = new DatabaseSync(join(home, "rust", "dimcode.sqlite"), { readOnly: true });
+  const stored = db.prepare("SELECT document FROM settings_documents WHERE source = 'user/hooks'").get();
+  db.close();
+  if (!stored && /\tuser\t/.test(dima(["hooks", "list"]))) throw new Error("user hooks listed but not stored: refusing to overwrite");
+  const doc = stored ? JSON.parse(stored.document) : {};
+  doc.hooks ??= {};
+  for (const [kind, [event, timeout]] of Object.entries(EVENT)) {
+    const groups = doc.hooks[event] ?? [];
+    const ours = groups.filter((g) => (g.hooks ?? []).some((h) => h.command?.includes("dim-hindsight-hook")));
+    const want = `'${SELF}' ${kind}`;
+    if (ours.length === 1 && ours[0].hooks.length === 1 && ours[0].hooks[0].command === want && ours[0].hooks[0].timeout === timeout) continue;
+    doc.hooks[event] = [...groups.filter((g) => !ours.includes(g)), { hooks: [{ type: "command", command: want, timeout }] }];
+    changed = true;
+  }
+  if (changed) dima(["hooks", "set", "-"], JSON.stringify(doc, null, 2) + "\n");
+  const row = dima(["mcp", "list"]).split("\n").find((l) => l.startsWith('"hindsight"\tuser\t'));
+  if (!row) {
+    const servers = { mcpServers: { hindsight: { command: SELF, args: ["mcp"], env: { HINDSIGHT_MCP_HARNESS: "dim" } } } };
+    const dir = mkdtempSync(join(tmpdir(), "dim-hindsight-"));
+    try {
+      writeFileSync(join(dir, "mcp.json"), JSON.stringify(servers));
+      dima(["mcp", "import", join(dir, "mcp.json"), "--source", "user", "--only", "hindsight", "--yes"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+    changed = true;
+  }
+  if (!row || !row.split("\t").includes("enabled")) {
+    dima(["mcp", "enable", "hindsight", "--source", "user"]);
+    changed = true;
+  }
+  console.log(changed ? "changed" : "ok");
+}
+
+function selftest() {
+  const doc = { events: [
+    { type: "input", name: "message", data: { blocks: [{ type: "raw", text: "<dim-state>x</dim-state>" }] } },
+    { type: "input", name: "message", data: { user: { content: [{ type: "text", text: "fix it" }, { type: "text", text: "<dim-hooks>memory</dim-hooks>" }] } } },
+    { type: "step", name: "thinking", data: { request_id: "r1", delta: "hmm" } },
+    { type: "step", name: "text", data: { request_id: "r1", delta: "On " } },
+    { type: "step", name: "text", data: { request_id: "r1", delta: "it." } },
+    { type: "step", name: "tool-use", data: { call: { name: "exec", input: { cmd: "ls" } } } },
+    { type: "step", name: "text", data: { request_id: "r2", delta: "Done." } },
+  ] };
+  const lines = toClaudeTranscript(doc).trim().split("\n").map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => [l.type, l.message.content]), [
+    ["user", "fix it"], ["assistant", "On it."],
+    ["assistant", [{ type: "tool_use", name: "exec", input: { cmd: "ls" } }]], ["assistant", "Done."],
+  ]);
+  assert.equal(channelFor("/"), undefined);
+  console.log("selftest ok");
+}
+
+const cmd = process.argv[2];
+if (cmd in ENTRY) hook(cmd);
+else if (cmd === "mcp") {
+  const args = [process.execPath, join(DIST, "mcp-server.js")];
+  // execve keeps one process, so Dim's kill on disconnect reaches the server itself.
+  if (typeof process.execve === "function") process.execve(process.execPath, args, envFor(process.cwd()));
+  const r = spawnSync(args[0], args.slice(1), { stdio: "inherit", env: envFor(process.cwd()) });
+  process.exit(r.status ?? 1);
+} else if (cmd === "install") install();
+else if (cmd === "selftest") selftest();
+else { console.error("usage: dim-hindsight-hook sessionstart|prompt|stop|mcp|install|selftest"); process.exit(2); }

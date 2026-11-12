@@ -300,6 +300,28 @@
     - (_config[item.0.item.key] | default({}))['hindsight'] | default(none) != item.0.item.entry
   no_log: true
 
+# --- Dim (`dima`): no installer support, so its Claude-compatible hooks and the MCP server go
+# through files/dim-hindsight-hook, whose `install` merges them into Dim's user config ----------
+- name: Find Dim
+  ansible.builtin.command: sh -c 'command -v dima'
+  register: _hindsight_dima
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install dim-hindsight-hook
+  ansible.builtin.copy:
+    src: dim-hindsight-hook
+    dest: "{{ hindsight_home }}/.local/bin/dim-hindsight-hook"
+    mode: "0755"
+  when: _hindsight_dima.rc == 0
+
+- name: Wire Dim to Hindsight
+  ansible.builtin.command: "{{ hindsight_home }}/.local/bin/dim-hindsight-hook install"
+  register: _hindsight_dim
+  changed_when: "'changed' in _hindsight_dim.stdout"
+  when: _hindsight_dima.rc == 0
+
 # --- remote hosts: the failover relays, one per m2 service (hindsight_relays) ----------
 - name: Ensure ~/.local/bin exists
   ansible.builtin.file:
