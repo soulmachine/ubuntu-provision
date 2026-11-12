@@ -10,3 +10,24 @@
   vars:
     nodejs_npm_package: dimcode-alpha
     nodejs_npm_cmd: dima
+
+# An upgrade (npm, mise, or coding-agent's dim-fleet-build binary swap) leaves dima's daemon on the old build. The
+# new client cannot reach it, not even to stop it ("Unsupported protocol version"), so every command fails until it
+# stops. Stop it only when no dima client runs; the next client starts a new daemon from the new binary. The [e]
+# and [r] keep pgrep and pkill from matching this script's own shell.
+- name: Stop dima's daemon when it still runs an older build
+  ansible.builtin.shell: |
+    PATH="$PATH:$HOME/.local/share/mise/shims"
+    pgrep -f "dimcode-serve[r] app-server --unix $HOME/.dimcode-alpha/" >/dev/null || exit 0
+    case $(dima models custom-provider </dev/null 2>&1) in *'Unsupported protocol version'*) ;; *) exit 0 ;; esac
+    if pgrep -f 'node_modules/dimcode-[a-z0-9-]+/bin/dimcod[e]' >/dev/null; then
+      echo "dima's old daemon kept: a dima client is running"; exit 0
+    fi
+    pkill -TERM -f "dimcode-serve[r] app-server --unix $HOME/.dimcode-alpha/" && echo stopped || true
+  register: dima_daemon
+  changed_when: "'stopped' in dima_daemon.stdout"
+
+- name: Report a dima daemon left on an older build
+  ansible.builtin.debug:
+    msg: "{{ dima_daemon.stdout }}"
+  when: dima_daemon.stdout is defined and 'kept' in dima_daemon.stdout
