@@ -25,6 +25,25 @@
   when: rust_default.rc != 0
   changed_when: true
 
+# The install above never runs again, so stable stayed at whatever release each host first got
+# (1.98.0 on macbook-pro-m3 when 1.100.0 shipped, coding-agent Q1165). The nightly playbook now
+# moves it; a repo that must not move pins its own channel in rust-toolchain.toml.
+- name: Read the stable toolchain version
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup run stable rustc --version"
+  register: rust_stable_before
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Update the stable toolchain
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup update stable --no-self-update"
+  changed_when: false
+
+- name: Check whether the stable toolchain moved
+  ansible.builtin.command: "{{ lookup('env', 'HOME') }}/.cargo/bin/rustup run stable rustc --version"
+  register: rust_stable_after
+  changed_when: rust_stable_after.stdout != rust_stable_before.stdout
+
 # Additional recommended components on top of the default profile:
 # rust-src (std source, required for rust-analyzer to resolve std symbols)
 # and rust-analyzer (the official language server).
