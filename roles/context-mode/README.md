@@ -9,7 +9,7 @@ This role removes context-mode from every agent the old install role put it into
 | Agent | How it goes |
 |---|---|
 | Claude Code | `claude plugin uninstall context-mode@context-mode`, then `claude plugin marketplace remove context-mode` |
-| Codex | `codex plugin remove context-mode@context-mode`, then `codex plugin marketplace remove context-mode` |
+| Codex | `codex plugin remove context-mode@context-mode`, then `codex plugin marketplace remove context-mode`; the script drops the `hooks.state` trust sections left in `~/.codex/config.toml` |
 | OpenCode | `files/strip-context-mode.py` drops it from `plugin` in `~/.config/opencode/opencode.json` |
 | Copilot CLI | the script drops the MCP server from `~/.copilot/mcp-config.json`; the role deletes the hooks file and the `/ctx-*` skills |
 | kimi-code | the script drops the MCP server from `~/.kimi-code/mcp.json` |
