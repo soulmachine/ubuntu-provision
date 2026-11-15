@@ -256,6 +256,8 @@
         CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: "true"
         # Load MCP tool definitions on demand through tool search, not all up front.
         ENABLE_TOOL_SEARCH: "true"
+        # Experimental code mode; it replaces the retired context-mode plugin.
+        CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1"
 
 # Gate on the merge changing something, not on `copy`'s content diff:
 # `to_nice_json` emits 4-space, key-sorted JSON while Claude Code rewrites the

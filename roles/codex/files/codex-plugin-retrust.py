@@ -21,7 +21,6 @@ Prints one line per change, then `changed` or `ok`.
 import glob
 import json
 import os
-import pwd
 import re
 import shutil
 import subprocess
@@ -32,9 +31,6 @@ plugin = sys.argv[1]
 name, market = plugin.split("@")
 codex = shutil.which("codex") or sys.exit("codex not on PATH")
 config = os.path.expanduser("~/.codex/config.toml")
-# Codex runs hook commands through the user's shell; install dependencies the same way so the
-# native module is built for the node the hooks will use.
-shell = pwd.getpwuid(os.getuid()).pw_shell
 changed = False
 dirs = sorted(glob.glob(os.path.expanduser(f"~/.codex/plugins/cache/{market}/{name}/*/")))
 if "--if-rebuilt" in sys.argv[2:] and all(os.path.exists(d + ".npmrc") for d in dirs):
@@ -46,27 +42,6 @@ for d in dirs:
         with open(d + ".npmrc", "w") as f:
             f.write("bin-links=false\n")
         print(f"guard {d}")
-        changed = True
-    # context-mode installs better-sqlite3 at its first hook, and every hook then copies the
-    # ABI-cached binary over the active one (re-signing it on macOS). Both change the folder once,
-    # then it holds still (measured 2026-10-29), so run it twice now, before the hash is trusted.
-    if os.path.exists(d + "hooks/ensure-deps.mjs"):
-        fresh = not os.path.exists(d + "node_modules/better-sqlite3")
-        for _ in range(2):
-            subprocess.run([shell, "-c", "node hooks/ensure-deps.mjs"], cwd=d, check=True, capture_output=True, timeout=600)
-        if fresh:
-            print(f"deps {d}")
-            changed = True
-    # Its MCP server (start.mjs) then installs a few more packages in the background; read the
-    # list from start.mjs so it follows upstream, and install the missing ones with its flags.
-    start = d + "start.mjs"
-    m = re.search(r"NPM_INSTALL_BG_PKGS = \[([^\]]*)\]", open(start).read()) if os.path.exists(start) else None
-    missing = [p for p in re.findall(r'"([^"]+)"', m.group(1)) if not os.path.exists(d + "node_modules/" + p)] if m else []
-    if missing:
-        flags = "--no-package-lock --no-save --silent --no-audit --no-fund"
-        subprocess.run([shell, "-c", f"npm install {' '.join(missing)} {flags}"], cwd=d, check=True,
-                       capture_output=True, timeout=600)
-        print(f"bg-deps {' '.join(missing)} in {d}")
         changed = True
     links = [os.path.join(r, f) for r, ds, fs in os.walk(d) for f in fs + ds if os.path.islink(os.path.join(r, f))]
     for link in links:

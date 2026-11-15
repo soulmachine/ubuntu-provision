@@ -1,51 +1,24 @@
-# context-mode role
+# context-mode role (removal only)
 
-`context-mode` installs one upstream tool, [context-mode](https://github.com/mksglu/context-mode),
-into seven agents (Claude Code, Codex, OpenCode, pi, oh-my-pi, Copilot CLI, kimi-code). Each agent gets it through its own installer, one task file per agent under `tasks/`,
-in the shape of the `ponytail` role. `main.yml` first installs the global `context-mode` CLI from
-npm, because the Copilot hooks and the Copilot and kimi MCP servers run it.
+[context-mode](https://github.com/mksglu/context-mode) is retired fleet-wide. Claude Code's
+experimental code mode (`CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`, set in the `claude-code` role's
+`env` map) takes over its job of keeping bulky tool output out of the context.
 
-- **Skipped agents.** Hermes, Crush and Grok are left out: upstream has no adapter for them. An
-  MCP-only entry would add the tools with no hooks or routing, which upstream does not test.
-- **Idempotency markers and refresh diffs:**
-  - Claude Code: `known_marketplaces.json` and `installed_plugins.json`; refresh diffs
-    `gitCommitSha` around `claude plugin update`.
-  - Codex: `[marketplaces.context-mode]` and `[plugins."context-mode@context-mode"]` in
-    `~/.codex/config.toml`; refresh diffs the `revision` in
-    `~/.codex/.tmp/marketplaces/context-mode/.codex-marketplace-install.json`. The reasons are in
-    the ponytail README.
-  - OpenCode: the bare `context-mode` entry in `plugin` resolves as `@latest`, so there is no
-    refresh.
-  - pi: none here; the pi role installs and refreshes the package (see below).
-  - oh-my-pi: `omp plugin list --json` against `npm view context-mode version`, the ponytail gate.
-    v2's pi extension serves the tools in process; the role deletes v1's `context-mode` entry
-    from `~/.omp/agent/mcp.json` (it names the removed `server.bundle.mjs`).
-  - Copilot CLI: `~/.copilot/hooks/context-mode.json` must name the package that `context-mode`
-    resolves to; otherwise the role reruns `context-mode setup --yes --agents copilot-cli`. That
-    also repairs the absolute node paths setup writes, after mise moves to a new node.
-  - OpenClaw: none; context-mode v2 dropped OpenClaw, and the role removes the v1 plugin (below).
-  - kimi-code: no installer, so the role edits its config files (next bullets).
-- **The pi package entry lives in `roles/pi/files/settings.json`.** The pi role installs and
-  refreshes every package listed there, `npm:context-mode` included, so this role has no pi
-  task. pi needs no `mcp.json`: the extension registers the tools through its own MCP bridge.
-- **kimi-code: MCP only.** context-mode v2 dropped kimi-code: `context-mode hook kimi …` answers
-  `unknown hook platform "kimi"`, and a bare `context-mode` prints usage. So `~/.kimi-code/mcp.json`
-  runs v2's generic `context-mode server`, and the role removes the v1 hook tables from
-  `~/.kimi-code/config.toml`, marked block or not. Omarchy has no kimi-code, so its copy of this
-  role has no kimi half.
-- **OpenClaw runs without context-mode.** v2 dropped OpenClaw: upstream deleted
-  `docs/openclaw.md`, and the 2.x npm package has no `openclaw.extensions`, so `openclaw plugins
-  update context-mode` fails. Where OpenClaw is onboarded (`~/.openclaw/openclaw.json`), the
-  role runs `openclaw plugins uninstall context-mode --force` once the plugin is listed.
-- **The first Codex hook trust is a manual, per-host step**, as for ponytail. The
-  role prints a reminder when it installs the plugin: open `/hooks` in `codex` and trust the six
-  context-mode hooks. Without the trust, the MCP tools still work; only routing stays quiet. After that, each refresh re-trusts hooks an upstream change marks `modified`, and settles the
-  plugin cache first (`.npmrc` guard, dependency install, no `.bin` symlinks) with
-  `roles/codex/files/codex-plugin-retrust.py`, so updates run without a review (coding-agent Q759). The codex role's `codex-plugin-retrust` watcher (a WatchPaths LaunchAgent, a systemd `.path` unit on Linux) also runs the helper 30 s after Codex rebuilds the cache by itself at session start (coding-agent Q899).
-- **Copilot uses `context-mode setup`, not a plugin.** context-mode v2 deleted the v1
-  `configs/copilot-cli` bundle and ships no Copilot marketplace, so upstream documents setup as the
-  install path. The role uninstalls the v1 direct install where it finds one.
-- **SQLite needs no native build here.** On Linux, Node >= 22.5 uses the built-in `node:sqlite`
-  instead of `better-sqlite3`, so npm skipping context-mode's install scripts does no harm.
-- **Left out on purpose:** upstream's optional routing-file copies (`AGENTS.md`, `GEMINI.md`) and
-  the Claude Code `statusLine`. The hooks inject the routing instructions at session start.
+This role removes context-mode from every agent the old install role put it into:
+
+| Agent | How it goes |
+|---|---|
+| Claude Code | `claude plugin uninstall context-mode@context-mode`, then `claude plugin marketplace remove context-mode` |
+| Codex | `codex plugin remove context-mode@context-mode`, then `codex plugin marketplace remove context-mode` |
+| OpenCode | `files/strip-context-mode.py` drops it from `plugin` in `~/.config/opencode/opencode.json` |
+| Copilot CLI | the script drops the MCP server from `~/.copilot/mcp-config.json`; the role deletes the hooks file and the `/ctx-*` skills |
+| kimi-code | the script drops the MCP server from `~/.kimi-code/mcp.json` |
+| pi | the `pi` role no longer lists `npm:context-mode`; this role runs `npm uninstall` in pi's prefix |
+| oh-my-pi | `omp plugin uninstall context-mode` |
+| OpenClaw | `openclaw plugins uninstall context-mode`, where OpenClaw is onboarded |
+| global CLI | `npm uninstall -g context-mode`, last, because the hooks called it |
+
+Each step reads state first and does nothing on a clean host. The last task fails if anything is
+left. The JSON files carry API keys: the script never prints them and keeps each file's mode.
+
+Delete this role, and its lines in `main.yml`, `README.md` and `AGENTS.md`, once every host passes.

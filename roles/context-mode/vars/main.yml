@@ -1,23 +1,25 @@
 ---
 context_mode_home: "{{ lookup('env', 'HOME') }}"
-# GitHub owner/repo, the form the Claude Code, Codex and Copilot installers accept.
-context_mode_repo: mksglu/context-mode
-# The npm package: the global CLI the hooks call, the OpenCode plugin, the pi and oh-my-pi
-# packages, all in one.
-context_mode_npm_package: context-mode
 
-# Claude Code: plugin `context-mode` in the marketplace named `context-mode`
-# (.claude-plugin/marketplace.json in the repo).
-context_mode_claude_plugin: context-mode@context-mode
+# Claude Code and Codex: plugin `context-mode` in the marketplace named `context-mode`.
+context_mode_plugin: context-mode@context-mode
+context_mode_marketplace: context-mode
 
-# Codex: marketplace name from .agents/plugins/marketplace.json; git marketplaces are
-# snapshotted as a checkout under ~/.codex/.tmp/marketplaces.
-context_mode_codex_marketplace: context-mode
-context_mode_codex_plugin: context-mode@context-mode
-context_mode_codex_record: "{{ context_mode_home }}/.codex/.tmp/marketplaces/context-mode/.codex-marketplace-install.json"
+# pi installs its npm packages under this prefix (roles/pi/vars/main.yml `pi_npm_dir`).
+context_mode_pi_prefix: "{{ context_mode_home }}/.pi/agent/npm"
 
-# pi: the source string exactly as pi records it in settings.json, and where pi installs it.
+# Folders the uninstallers leave behind: the Claude Code and Codex plugin caches (every old
+# version stays, ~200 MB), and what `context-mode setup --agents copilot-cli` wrote outside
+# ~/.copilot/mcp-config.json.
+context_mode_leftovers:
+  - "{{ context_mode_home }}/.claude/plugins/cache/context-mode"
+  - "{{ context_mode_home }}/.codex/plugins/cache/context-mode"
+  - "{{ context_mode_home }}/.copilot/hooks/context-mode.json"
+  - "{{ context_mode_home }}/.copilot/skills/ctx-doctor"
+  - "{{ context_mode_home }}/.copilot/skills/ctx-stats"
+  - "{{ context_mode_home }}/.copilot/skills/ctx-upgrade"
+  # The v1 direct install, on hosts provisioned before v2.
+  - "{{ context_mode_home }}/.copilot/installed-plugins/_direct/mksglu--context-mode--configs-copilot-cli"
 
-# Copilot CLI: where Copilot cached the v1 direct install (removed on sight), and the v2 hook file.
-context_mode_copilot_dir: "{{ context_mode_home }}/.copilot/installed-plugins/_direct/mksglu--context-mode--configs-copilot-cli"
-context_mode_copilot_hooks: "{{ context_mode_home }}/.copilot/hooks/context-mode.json"
+# The global CLI is an npm global of each Node that mise installed.
+context_mode_node_installs: "{{ context_mode_home }}/.local/share/mise/installs/node"
