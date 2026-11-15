@@ -23,3 +23,6 @@ context_mode_leftovers:
 
 # The global CLI is an npm global of each Node that mise installed.
 context_mode_node_installs: "{{ context_mode_home }}/.local/share/mise/installs/node"
+
+# Where the omp binary lives (the omp role).
+context_mode_omp_dir: "{{ context_mode_home }}/.bun/bin"

@@ -69,15 +69,20 @@
     cmd: npm uninstall --prefix {{ context_mode_pi_prefix }} context-mode
     removes: "{{ context_mode_pi_prefix }}/node_modules/context-mode"
 
+# omp's shebang runs its runtime from PATH, which an Ansible command does not carry.
 - name: List oh-my-pi plugins
-  ansible.builtin.command: "{{ context_mode_home }}/.bun/bin/omp plugin list --json"
+  ansible.builtin.command: "{{ context_mode_omp_dir }}/omp plugin list --json"
+  environment:
+    PATH: "{{ context_mode_omp_dir }}:{{ lookup('env', 'PATH') }}"
   register: context_mode_omp_plugins
   failed_when: false
   changed_when: false
   check_mode: false
 
 - name: Uninstall the context-mode oh-my-pi plugin
-  ansible.builtin.command: "{{ context_mode_home }}/.bun/bin/omp plugin uninstall context-mode"
+  ansible.builtin.command: "{{ context_mode_omp_dir }}/omp plugin uninstall context-mode"
+  environment:
+    PATH: "{{ context_mode_omp_dir }}:{{ lookup('env', 'PATH') }}"
   when:
     - context_mode_omp_plugins.rc == 0
     - >-
