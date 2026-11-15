@@ -716,4 +716,4 @@
 **Decided-by:** human (uninstall everywhere, all three repos); agent (the extent below)
 **Justification:** The user chose this when asked. The agent added two steps after the first run on m2 left things behind. It deletes the Claude Code and Codex plugin caches, because the uninstallers keep every old version (200 MB on m2). It also runs `npm uninstall -g` in every mise Node install, because a Node upgrade leaves npm globals on the old Node (24.22.2 and 26.13.0 on m2 still had context-mode, so its shim kept resolving). This follows the claude-mem removal role (be893a0). Inert `hooks.state."context-mode@context-mode:..."` trust entries stay in `~/.codex/config.toml`.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** ff930f4, 6e1d0c3
