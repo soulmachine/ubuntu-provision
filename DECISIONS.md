@@ -716,7 +716,7 @@
 **Decided-by:** human (uninstall everywhere, all three repos); agent (the extent below)
 **Justification:** The user chose this when asked. The agent added two steps after the first run on m2 left things behind. It deletes the Claude Code and Codex plugin caches, because the uninstallers keep every old version (200 MB on m2). It also runs `npm uninstall -g` in every mise Node install, because a Node upgrade leaves npm globals on the old Node (24.22.2 and 26.13.0 on m2 still had context-mode, so its shim kept resolving). This follows the claude-mem removal role (be893a0). Inert `hooks.state."context-mode@context-mode:..."` trust entries stay in `~/.codex/config.toml`.
 **Outcome:** applied
-**Ref:** ff930f4, 6e1d0c3
+**Ref:** ff930f4, 6e1d0c3, 9f4121c
 
 ## Q72 — interactive/retire-context-mode — hard-to-undo
 
@@ -726,5 +726,5 @@
 **Decided-by:** human
 **Justification:** The user chose this when asked. On 2026-11-14, mac-mini-m2, mac-mini-m6, macbook-pro-m3, mac-studio-m3, archs-mac-mini, dev-server-frank-lume, supermicro and mac-mini-2018-omarchy each passed the role's final check, and a second run changed nothing. Code mode was on and the CLI was gone on each one. The OpenClaw step was confirmed on archs-mac-mini. macbook-pro-nickel and grokbot-box keep whatever context-mode they had, now unmanaged. No role updates it there or removes it. To clean either one, run the role from Q71's last commit by hand, through lume for nickel.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** add8507
 **Supersedes:** Q71 — only its plan to keep the role until every host passes.
