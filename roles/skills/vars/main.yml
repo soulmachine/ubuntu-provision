@@ -81,6 +81,7 @@ skills_sources:
   - cloudflare/skills
   - vercel-labs/skills
   - kunchenguid/lavish-axi
+  - morganlinton/BeautifulRust
 
 # Sources where only SOME skills are wanted. `skills_sources` above installs with `--all`,
 # which is shorthand for `--skill '*' --agent '*' -y`; these name the skills instead, so a
