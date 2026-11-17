@@ -748,4 +748,4 @@
 **Decided-by:** agent
 **Justification:** The repo rule for self-updating tools (AGENTS.md "diff state, don't grep output") asks for exactly this. Measured on m2: the report was byte-identical across a no-op `sync`, and it differed after `sync` restored a deleted farm symlink. Re-linking in the role was rejected: the copies come from installers outside this role, which may write them again. A re-link would also fight those installers on every run. The 13 copies stay, and the role now reports them as unchanged. In the same change, the codex role's `retrust-watch.yml` gathers the `min` fact subset when facts are absent, following the homebrew and hindsight pattern. Without it, the documented single-role form `ansible localhost -m include_role -a name=skills` failed on `ansible_facts['system']`.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** 6d43e87
