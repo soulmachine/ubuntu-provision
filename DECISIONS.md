@@ -739,3 +739,13 @@
 **Outcome:** applied
 **Ref:** —
 **Supersedes:** Q72 — only its claim that macbook-pro-nickel was not cleaned.
+
+## Q74 — interactive/skills-fanout-gate — deviation
+
+**Question:** The skills role's fan-out task reported `changed` on every run on a converged host. It ran `agent-sync sync` whenever `agent-sync status` exited non-zero, with `changed_when: true`, and the task comment said that exit code was the state diff. With agent-sync 1.3.0 it is not: `status` exits 2 on `variant-identical` entries (a real copy in an agent folder, identical to the Commons copy), and `sync` reports them as "could be re-linked" and leaves them. mac-mini-m2 carried 13 of them on 2026-11-17 (cua-*, gui-automation, herdr-gpui-browser, hindsight-coding-agent). How should the task decide `changed`?
+**Options considered:** keep the rc gate and accept a permanent `changed` / re-link the copies with `agent-sync adopt` in the role / compare the `status --json` report before and after `sync`
+**Chosen:** compare the report before and after. `sync` still runs only when `status` exits non-zero, and `changed` is true only when the report moved.
+**Decided-by:** agent
+**Justification:** The repo rule for self-updating tools (AGENTS.md "diff state, don't grep output") asks for exactly this. Measured on m2: the report was byte-identical across a no-op `sync`, and it differed after `sync` restored a deleted farm symlink. Re-linking in the role was rejected: the copies come from installers outside this role, which may write them again. A re-link would also fight those installers on every run. The 13 copies stay, and the role now reports them as unchanged. In the same change, the codex role's `retrust-watch.yml` gathers the `min` fact subset when facts are absent, following the homebrew and hindsight pattern. Without it, the documented single-role form `ansible localhost -m include_role -a name=skills` failed on `ansible_facts['system']`.
+**Outcome:** applied
+**Ref:** (pending)

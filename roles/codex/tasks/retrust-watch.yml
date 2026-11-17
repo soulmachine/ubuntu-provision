@@ -7,6 +7,15 @@
 # replaces everything beneath it but keeps its inode (measured on m2 2026-11-03), and the helper
 # writes only inside the <version> folder, so it never re-triggers itself. The 30 s delay lets the
 # plugin's own background `npm install` finish before the helper settles the folder.
+
+# The gates and templates below read system, user_uid and user_shell. A single-role run
+# (`ansible localhost -m include_role -a name=codex`, or of skills, which depends on codex)
+# gathers no facts.
+- name: Ensure the system and user facts are gathered
+  ansible.builtin.setup:
+    gather_subset: min
+  when: ansible_facts['system'] is not defined or ansible_facts['user_uid'] is not defined
+
 - name: Ensure the watched Codex plugin cache folders exist
   ansible.builtin.file:
     path: "{{ codex_home }}/plugins/cache/{{ item.split('@')[1] }}"
