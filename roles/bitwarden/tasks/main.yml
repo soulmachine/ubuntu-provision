@@ -82,7 +82,7 @@
     # A set_fact template, not the `when:` below: a bare expression reads '\1' as an escape.
     - name: Work out the Bitwarden desktop version
       ansible.builtin.set_fact:
-        bitwarden_latest: "{{ bitwarden_release.location | regex_search('/Bitwarden-([0-9][^/]*)-amd64\\.deb$', '\\1') | first }}"
+        bitwarden_latest: "{{ bitwarden_release.location | regex_search('Bitwarden-([0-9][^/]*)-amd64\\.deb$', '\\1') | first }}"
 
     - name: Install the Bitwarden desktop .deb
       become: true
