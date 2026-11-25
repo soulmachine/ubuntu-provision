@@ -25,3 +25,7 @@
 - **OpenCLI is not installed.** Upstream's `tasks/opencli.yml` adds it as agent-reach's X
   fallback, but its Chrome extension needs one manual click in a browser, which a host used over
   ssh never gets.
+- **Its yt-dlp is left to upstream.** agent-reach runs its own pinned copy (`yt-dlp[default]==` an
+  exact version) through `sys.executable -m yt_dlp`, not the `yt-dlp` that the python role keeps
+  current. The role does not override that pin: agent-reach's updater would undo it, and upstream
+  tests only its pinned version. A newer copy arrives with an agent-reach release (macbook-provision Q319).
