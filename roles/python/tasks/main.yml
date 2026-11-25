@@ -92,3 +92,16 @@
     - item is not skipped
     - item.rc != 0
     - item.stderr is not search('Executables? already exists?')
+
+# yt-dlp solves YouTube's JS challenges with deno by default; this fleet has mise's Node instead.
+- name: Create the yt-dlp config directory
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.config/yt-dlp"
+    state: directory
+    mode: "0755"
+
+- name: Point yt-dlp at Node for YouTube JS challenges
+  ansible.builtin.copy:
+    dest: "{{ lookup('env', 'HOME') }}/.config/yt-dlp/config"
+    content: "--js-runtimes node\n"
+    mode: "0600"

@@ -10,6 +10,7 @@ python_cli_tools:
   - pre-commit
   - httpie
   - pgcli
+  - yt-dlp[default,curl-cffi]
 
 # Extra packages to install *into* a tool's own uv environment, as
 # `<tool>: <package>`. uv gives each tool an isolated environment, and
