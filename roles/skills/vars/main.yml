@@ -82,6 +82,7 @@ skills_sources:
   - vercel-labs/skills
   - kunchenguid/lavish-axi
   - morganlinton/BeautifulRust
+  - QianWenFlow/qwskill # qws, qws-interview, qws-zoom-out
 
 # Sources where only SOME skills are wanted. `skills_sources` above installs with `--all`,
 # which is shorthand for `--skill '*' --agent '*' -y`; these name the skills instead, so a
