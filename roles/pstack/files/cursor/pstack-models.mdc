@@ -1,0 +1,18 @@
+---
+description: pstack per-role model choices (overrides skill defaults)
+alwaysApply: true
+---
+# Managed by the provisioning repo's pstack role (roles/pstack/files/cursor/pstack-models.mdc). Edit it there: the next provision run overwrites any local change, a /setup-pstack run included.
+# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model` and spawn `generalPurpose`). Alias entries in a panel list still count toward its fan-out.
+# defaults: 3
+# budget: large (xhigh)
+feature, refactoring: claude-opus-5-5-xhigh-fast
+bug-fix: claude-opus-5-5-xhigh-fast
+perf-issue: claude-opus-5-5-xhigh-fast
+hillclimb: claude-opus-5-5-xhigh-fast
+judgment and prose: claude-opus-5-5-xhigh-fast
+arena runners: claude-fable-5-2-high, claude-opus-5-5-high-fast, gemini-4-neon-xhigh
+arena cross-judge pool: claude-opus-5-5-high-fast, gemini-4-neon-xhigh
+swarm workers: claude-opus-5-5-high-fast
+interrogate reviewers: claude-fable-5-2-high, claude-opus-5-5-high-fast, gemini-4-neon-xhigh

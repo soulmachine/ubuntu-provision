@@ -47,6 +47,7 @@
     - browseros-neo
     - hindsight
     - ponytail
+    - pstack
     # paseo, orca and tailscale run systemd daemons, so a container whose PID 1 is not
     # systemd (grokbot-box, tini) skips them; its tailscaled runs outside Ansible (Q52).
     - role: paseo

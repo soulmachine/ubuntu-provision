@@ -749,3 +749,13 @@
 **Justification:** The repo rule for self-updating tools (AGENTS.md "diff state, don't grep output") asks for exactly this. Measured on m2: the report was byte-identical across a no-op `sync`, and it differed after `sync` restored a deleted farm symlink. Re-linking in the role was rejected: the copies come from installers outside this role, which may write them again. A re-link would also fight those installers on every run. The 13 copies stay, and the role now reports them as unchanged. In the same change, the codex role's `retrust-watch.yml` gathers the `min` fact subset when facts are absent, following the homebrew and hindsight pattern. Without it, the documented single-role form `ansible localhost -m include_role -a name=skills` failed on `ansible_facts['system']`.
 **Outcome:** applied
 **Ref:** 6d43e87
+
+## Q75 — interactive/pstack-role — tradeoff
+
+**Question:** Same change as macbook-provision Q322: a `pstack` role that owns the Claude Code install of `pstack@cursor-plugins` and pins pstack's model rules. Does it apply here unchanged?
+**Options considered:** mirror it / leave the Linux repos as they were
+**Chosen:** Mirror it. The role is a straight copy: ponytail's Claude steps for the plugin, `~/.claude/rules/pstack-models.md`, and `~/.cursor/rules/pstack-models.mdc` only when `~/.cursor` exists. Both entries leave the claude-code role. Cursor still needs one manual `/add-plugin pstack` on the account.
+**Decided-by:** human (mirror to Linux, and every design choice in macbook-provision Q322)
+**Justification:** The rule to sync each provisioning commit to the other two repos, plus identical claude-code and ponytail roles here. `~/.cursor` and both rule paths are the same on Linux.
+**Outcome:** applied
+**Ref:** (pending)

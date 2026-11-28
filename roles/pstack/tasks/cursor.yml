@@ -1,0 +1,28 @@
+---
+# Both the Cursor IDE and cursor-agent create ~/.cursor on first run, on macOS and
+# Linux alike, so it marks "Cursor is on this host". Cursor itself is not installed
+# by any role, and the plugin is a manual `/add-plugin pstack` (see README.md).
+- name: Check whether Cursor is on this host
+  ansible.builtin.stat:
+    path: "{{ pstack_home }}/.cursor"
+  register: pstack_cursor_dir
+
+- name: Report that the Cursor half was skipped
+  ansible.builtin.debug:
+    msg: Skipping pstack's Cursor model rule; no ~/.cursor on this host.
+  when: not pstack_cursor_dir.stat.exists
+
+# The role owns this file, as it owns the Claude Code one.
+- name: Create the Cursor rules folder
+  ansible.builtin.file:
+    path: "{{ pstack_home }}/.cursor/rules"
+    state: directory
+    mode: "0755"
+  when: pstack_cursor_dir.stat.exists
+
+- name: Deploy the pstack model rule for Cursor
+  ansible.builtin.copy:
+    src: cursor/pstack-models.mdc
+    dest: "{{ pstack_home }}/.cursor/rules/pstack-models.mdc"
+    mode: "0644"
+  when: pstack_cursor_dir.stat.exists

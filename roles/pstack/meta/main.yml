@@ -1,0 +1,4 @@
+---
+dependencies:
+  # pstack is installed *into* Claude Code through its own `claude plugin` CLI.
+  - claude-code

@@ -1,0 +1,7 @@
+---
+pstack_home: "{{ lookup('env', 'HOME') }}"
+
+# Cursor's official plugin repo; Claude Code registers it as the marketplace `cursor-plugins`
+# (its .claude-plugin/marketplace.json), so the plugin is `pstack@cursor-plugins`.
+pstack_claude_marketplace_source: cursor/plugins
+pstack_claude_plugin: pstack@cursor-plugins

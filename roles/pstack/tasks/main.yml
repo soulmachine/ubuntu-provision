@@ -1,0 +1,10 @@
+---
+# pstack — https://github.com/cursor/plugins/tree/main/pstack — Cursor's skill pack,
+# with a generated Claude Code copy. One task file per agent, like the ponytail role.
+# Cursor has no headless plugin install (see README.md), so its half only deploys the
+# model rule; the plugin itself is one manual `/add-plugin pstack` per Cursor account.
+- name: Install pstack into Claude Code
+  ansible.builtin.include_tasks: claude-code.yml
+
+- name: Configure pstack for Cursor
+  ansible.builtin.include_tasks: cursor.yml

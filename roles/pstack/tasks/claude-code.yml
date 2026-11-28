@@ -1,0 +1,92 @@
+---
+# Claude Code: marketplace + plugin, the same steps and gates as
+# roles/ponytail/tasks/claude-code.yml (see that file for why each gate is shaped
+# the way it is).
+- name: Read the known Claude Code marketplaces
+  ansible.builtin.slurp:
+    src: "{{ pstack_home }}/.claude/plugins/known_marketplaces.json"
+  register: pstack_claude_mp_raw
+  failed_when: false
+
+- name: Add the cursor-plugins Claude Code marketplace
+  ansible.builtin.command: claude plugin marketplace add {{ pstack_claude_marketplace_source }}
+  when: >-
+    pstack_claude_plugin.split('@')[1] not in
+    (pstack_claude_mp_raw.content | default('e30=') | b64decode | from_json)
+  changed_when: true
+
+# Doubles as the "before" side of the update diff below.
+- name: Read the pstack Claude Code plugin record before updating
+  ansible.builtin.slurp:
+    src: "{{ pstack_home }}/.claude/plugins/installed_plugins.json"
+  register: pstack_claude_before
+  failed_when: false
+
+- name: Install the pstack Claude Code plugin
+  ansible.builtin.command: claude plugin install {{ pstack_claude_plugin }}
+  when: >-
+    pstack_claude_plugin not in
+    ((pstack_claude_before.content | default('e30=') | b64decode | from_json).plugins | default({}))
+  changed_when: true
+
+# `claude plugin update` exits 0 on every path, so `changed` comes from the
+# `gitCommitSha` the ledger records per install, which moves only when a new
+# upstream commit landed. After a fresh install above, before is empty and
+# after is not, so that run reports changed twice, which is true.
+- name: Update the pstack Claude Code plugin
+  ansible.builtin.command: claude plugin update {{ pstack_claude_plugin }}
+  changed_when: false
+
+- name: Read the pstack Claude Code plugin record after updating
+  ansible.builtin.slurp:
+    src: "{{ pstack_home }}/.claude/plugins/installed_plugins.json"
+  register: pstack_claude_after
+  failed_when: false
+
+- name: Check whether the pstack Claude Code plugin was updated
+  ansible.builtin.debug:
+    msg: >-
+      pstack Claude Code plugin
+      {{ 'updated' if pstack_claude_updated else 'already up to date' }}
+  vars:
+    pstack_claude_sha_before: >-
+      {{ ((pstack_claude_before.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[pstack_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    pstack_claude_sha_after: >-
+      {{ ((pstack_claude_after.content | default('e30=') | b64decode | from_json).plugins
+          | default({}))[pstack_claude_plugin] | default([])
+         | map(attribute='gitCommitSha', default='') | list }}
+    pstack_claude_updated: "{{ pstack_claude_sha_before != pstack_claude_sha_after }}"
+  changed_when: pstack_claude_updated
+
+# no_log: settings.json carries TYPESAFE_API_KEY in its `env` map.
+- name: Read Claude Code settings
+  ansible.builtin.slurp:
+    src: "{{ pstack_home }}/.claude/settings.json"
+  register: pstack_claude_settings_raw
+  failed_when: false
+  no_log: true
+
+# Gate on key absence, not value, so a manual `/plugin disable` is respected.
+- name: Enable the pstack Claude Code plugin
+  ansible.builtin.command: claude plugin enable {{ pstack_claude_plugin }}
+  when: >-
+    pstack_claude_plugin not in
+    (((pstack_claude_settings_raw.content | default('') | b64decode | trim) or '{}')
+     | from_json).enabledPlugins | default({})
+  changed_when: true
+
+# The role owns this file: it overwrites a host-local `/pstack:setup-pstack` run.
+# Claude Code loads every .md in ~/.claude/rules/ into each new session.
+- name: Create the Claude Code rules folder
+  ansible.builtin.file:
+    path: "{{ pstack_home }}/.claude/rules"
+    state: directory
+    mode: "0755"
+
+- name: Deploy the pstack model rule for Claude Code
+  ansible.builtin.copy:
+    src: claude/pstack-models.md
+    dest: "{{ pstack_home }}/.claude/rules/pstack-models.md"
+    mode: "0644"
