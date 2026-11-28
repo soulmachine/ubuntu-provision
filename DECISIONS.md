@@ -758,4 +758,4 @@
 **Decided-by:** human (mirror to Linux, and every design choice in macbook-provision Q322)
 **Justification:** The rule to sync each provisioning commit to the other two repos, plus identical claude-code and ponytail roles here. `~/.cursor` and both rule paths are the same on Linux.
 **Outcome:** applied
-**Ref:** (pending)
+**Ref:** 3c4f011
